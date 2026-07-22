@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2 class="mb-4">Glass Studio Overview</h2>
+
+<!-- Stat Cards -->
+<div class="row mb-4">
+	<div class="col-md-3">
+	    <div class="card text-white bg-primary shadow-sm">
+	        <div class="card-body">
+	            <h6 class="card-title text-uppercase border-bottom pb-2">Active Items (`ITM`)</h6>
+	            <h2 class="display-5 fw-bold mb-0">{{ stats['items'] }}</h2>
+	        </div>
+	    </div>
+	</div>    
+	<div class="col-md-3">
+        <div class="card text-white bg-info shadow-sm">
+            <div class="card-body">
+                <h6 class="card-title text-uppercase border-bottom pb-2">Glass Sheets (`GSI`)</h6>
+                <h2 class="display-5 fw-bold mb-0">{{ stats.glass }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-success shadow-sm">
+            <div class="card-body">
+                <h6 class="card-title text-uppercase border-bottom pb-2">Recorded Sales (`ITMSALE`)</h6>
+                <h2 class="display-5 fw-bold mb-0">{{ stats.sales }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-secondary shadow-sm">
+            <div class="card-body">
+                <h6 class="card-title text-uppercase border-bottom pb-2">Venues (`VENUE`)</h6>
+                <h2 class="display-5 fw-bold mb-0">{{ stats.venues }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Navigation Links & System Audit Trail -->
+<div class="row">
+    <div class="col-md-4 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-dark text-white">System Modules</div>
+            <div class="list-group list-group-flush">
+                <a href="{{ url_for('index') }}" class="list-group-item list-group-item-action">📦 Items Directory (`ITM`, `IVR`, `IPC`)</a>
+                <a href="{{ url_for('list_glass') }}" class="list-group-item list-group-item-action">🖼️ Glass Stock (`GSI`, `GTL`, `GSL`, `GPC`)</a>
+                <a href="{{ url_for('inventory_status') }}" class="list-group-item list-group-item-action">🛠️ WIP Inventory Status (`ICC`, `ITR`)</a>
+                <a href="{{ url_for('list_sales') }}" class="list-group-item list-group-item-action">📈 Sales & Event Logs (`ITMSALE`, `VENUE`)</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                <span>Recent System Audit Log (`AUDIT`)</span>
+                <span class="badge bg-light text-dark">Automated Triggers</span>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Operation</th>
+                            <th>Table</th>
+                            <th>Target / Details</th>
+                            <th>Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in recent_audits %}
+                        <tr>
+                            <td>#{{ log.TRANSID }}</td>
+                            <td>
+                                {% if log.TRNOP == 'INSERT' %}<span class="badge bg-success">INSERT</span>
+                                {% elif log.TRNOP == 'UPDATE' %}<span class="badge bg-warning text-dark">UPDATE</span>
+                                {% else %}<span class="badge bg-danger">DELETE</span>{% endif %}
+                            </td>
+                            <td><code>{{ log.TRNTBL }}</code></td>
+                            <td>{{ log.TRNNEW or log.TRNOLD or '—' }}</td>
+                            <td class="small text-muted">{{ log.TRNTS }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="5" class="text-center py-3 text-muted">No audit operations recorded yet.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Items Directory (`ITM` Table)</h2>
+    <a href="{{ url_for('create_item') }}" class="btn btn-primary">Create Item</a>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <table class="table table-striped table-hover mb-0 align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Group</th>
+                    <th>Variant</th>
+                    <th>Status</th>
+                    <th>Flags</th>
+                    <th>Notes</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td><strong>#{{ item.ITEMID }}</strong></td>
+                    <td>{{ item.ITMNAME }}</td>
+                    <td><span class="badge bg-secondary">{{ item.ITMGRP or 'Unassigned' }}</span></td>
+                    <td>{{ item.ITMVARI or '—' }}</td>
+                    <td>
+                        {% if item.CURRENT %}
+                            <span class="badge bg-success">Active</span>
+                        {% else %}
+                            <span class="badge bg-danger">Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if item.ONEOFF %}<span class="badge bg-info text-dark">One-Off</span>{% endif %}
+                        {% if item.VARIAT %}<span class="badge bg-warning text-dark">Has Variants</span>{% endif %}
+                    </td>
+                    <td class="text-muted small">{{ item.ITMNOTE or '' }}</td>
+                    <td class="text-end">
+                        <a href="{{ url_for('edit_item', item_id=item.ITEMID) }}" class="btn btn-sm btn-outline-primary me-1">Edit</a>
+                        <form action="{{ url_for('delete_item', item_id=item.ITEMID) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete item #{{ item.ITEMID }}?');">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" class="text-center py-4 text-muted">No items found in database. Click "Create Item" above to add one.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2 class="mb-3">Work-in-Progress (WIP) Tracking (`ICC` & `ITR`)</h2>
+<p class="text-muted">Manage real-time production counts across workshop phases. Updates update `ICC` and log an immutable entry to `ITR` audit history.</p>
+
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <table class="table table-bordered table-hover mb-0 align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th>Item Name</th>
+                    <th text-center style="width: 12%;">1. Cutting</th>
+                    <th text-center style="width: 12%;">2. Grinding</th>
+                    <th text-center style="width: 12%;">3. Foiling</th>
+                    <th text-center style="width: 12%;">4. Soldering</th>
+                    <th text-center style="width: 12%;">5. Completed</th>
+                    <th text-end style="width: 15%;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in counts %}
+                <tr>
+                    <form action="{{ url_for('update_inventory', item_id=c.ITEMID) }}" method="POST">
+                        <td><strong>{{ c.ITMNAME }}</strong></td>
+                        <td><input type="number" min="0" name="IPCUT" class="form-control text-center" value="{{ c.IPCUT }}"></td>
+                        <td><input type="number" min="0" name="IPGRND" class="form-control text-center" value="{{ c.IPGRND }}"></td>
+                        <td><input type="number" min="0" name="IPFOIL" class="form-control text-center" value="{{ c.IPFOIL }}"></td>
+                        <td><input type="number" min="0" name="IPSLDR" class="form-control text-center" value="{{ c.IPSLDR }}"></td>
+                        <td><input type="number" min="0" name="IPDONE" class="form-control text-center" value="{{ c.IPDONE }}"></td>
+                        <td class="text-end">
+                            <button type="submit" class="btn btn-sm btn-outline-success">Update Stage</button>
+                        </td>
+                    </form>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="text-center py-4 text-muted">No inventory stages logged. Ensure you have created items in the `ITM` table first.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

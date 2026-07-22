@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Sales Register (`ITMSALE`)</h2>
+    <a href="{{ url_for('record_sale') }}" class="btn btn-success">+ Record New Sale</a>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <table class="table table-striped table-hover mb-0 align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th>Sale ID</th>
+                    <th>Item Sold (`ITM`)</th>
+                    <th>Units Sold</th>
+                    <th>Sale Date</th>
+                    <th>Venue / Event (`VENUE`)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in sales %}
+                <tr>
+                    <td><strong>#{{ s.SALEID }}</strong></td>
+                    <td>{{ s.ITMNAME }}</td>
+                    <td><span class="badge bg-primary fs-6">{{ s.SUNITS }}</span></td>
+                    <td>{{ s.SDATE }}</td>
+                    <td>{{ s.VENUELOC or 'Direct / Studio Sale' }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center py-4 text-muted">No sales records logged yet. Click "Record New Sale" to record a transaction.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

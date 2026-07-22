@@ -1,0 +1,284 @@
+PRISM
+
+Production
+Retail
+Inventory
+Stained Glass
+Management
+
+
+Table	Column	TYPE	PK	FK	FK Table	Desc
+
+						
+
+ITM						Item Names
+
+	ITEMID	INT-AUTO	Y			PID of item
+
+	ITMNAME	VARCHAR(25)				Name of piece
+
+	ITMIMG	TEXT				Path to image
+
+	ONEOFF	BOOL				One off item
+
+	VARIAT	BOOL				Variations
+
+	ITMGRP	VARCHAR(25)		Y	IGP	Item group
+
+	VARIID	INT		Y	IVR	Variaton of Item
+
+	CURRENT	BOOL				Item currently being sold
+
+	ITMPTRN	TEXT				Link to Pattern IMG
+
+	ITMNOTE	TEXT				Notes about item
+
+						
+
+IPC						Price Tracking of Items
+
+	ITEMID	INT		Y	ITM	PID of item
+
+	ITMPRICE	DECIMAL				Price of Item
+
+	STDATE	DATE				Pricing Start Date
+
+	ENDDATE	DATE				Pricing End Date
+
+						
+
+IGP						Item Groupings
+
+	ITMGRP	VARCHAR(25)	Y			GROUP NAME
+
+						
+
+IVR						Item Variants
+
+	ITMVARI					Variant Name
+
+	ITMGRP	VARCHAR(25)		Y	IGP	Group name
+
+	VARIID	INT-AUTO	Y			PID of Variant
+
+						
+
+GSI						Glass sheet information
+
+	GLASSID	INT-AUTO	Y			PID of Glass
+
+	GLSNAME	VARCHAR(25)				Name of Glass
+
+	GLSMANF	VARCHAR(25)				Manufacturer of Glass
+
+	GLSLEN	INT				Glass Length
+
+	GLSWID	INT				Glass Width
+
+	GLSTHK	INT				Thickness
+
+	GLSTEX	VARCHAR(25)		Y	GTL	Glass Texture
+
+	GLSIRI	BOOL				Iridescent
+
+	GLSOPAL	BOOL				Opalescent
+
+	GLSOURCE	VARCHAR(25)		Y	GSL	Source of Glass
+
+	GLLINK	VARCHAR(2048)				Link to Glass purchase
+
+	GLSIMG	TEXT				Link to picture of Glass
+
+	GLSNOTE	TEXT				Note for Glass
+
+						
+
+GTL						Glass Texture Lookup
+
+	GLSTEX	VARCHAR(25)	Y			Glass Texture
+
+						
+
+GSL						Glass Source
+
+	GLSOURCE	VARCHAR(25)	Y			Source of Glass
+
+	SRCWEB	BOOL				Is web order
+
+	GLSLOGO	TEXT				Link to Logo
+
+	GLSNOTE					Note about Source
+
+						
+
+						
+
+GPC						Price Tracking of Items
+
+	GLASSID	INT		Y	GSI	PID of Glass
+
+	GLSPRICE	DECIMAL				Price of Glass
+
+	STDATE	DATE				Pricing Start Date
+
+	ENDDATE	DATE				Pricing End Date
+
+						
+
+IGC						Item Glass Components
+
+	ITEMID	INT		Y	ITM	PID of Item
+
+	COMPID	INT	Y			PID of Component
+
+	COMPNUM	INT				Comp number in pattern
+
+	GLASSID	INT		Y	GLI	GlassID
+
+	COMPLEN	DECIMAL				COMP width Bounding box
+
+	COMPWID	DECIMAL				Comp Length Bounding box
+
+	COMPNOTE	TEXT				Note about Specific Component
+
+						
+
+ICC						Inventory Current Count
+
+	ITEMID	INT		Y	ITM	ItemID
+
+	IPCUT	INT				Items done at Cutting
+
+	IPGRND	INT				Items done at  Grinding
+
+	IPFOIL	INT				Items done at Foiling
+
+	IPSLDR	INT				Items done at Soldering
+
+	IPDONE	INT				Items Completed
+
+	IPTS	DATETIME				TimeStamp last updated
+
+						
+
+ITR						Inventory Transaction Record
+
+	ITEMID	INT		Y	ITM	ItemID
+
+	IPCUT	INT				Items done at Cutting
+
+	IPGRND	INT				Items done at  Grinding
+
+	IPFOIL	INT				Items done at Foiling
+
+	IPSLDR	INT				Items done at Soldering
+
+	IPDONE	INT				Items Completed
+
+	IPTS	DATETIME				TimeStamp last updated
+
+	ITRID	INT-AUTO	Y			Item Transaction Record ID
+
+						
+
+AUDIT						
+
+	TRANSID	INT-AUTO	Y			Transaction ID
+
+	TRNOP	VARCHAR(6)				INSERT,UPDATE, or DELETE
+
+	TRNOLD	VARCHAR(2048)				Old Data
+
+	TRNNEW	VARCHAR(2048)				New Data
+
+	TRNCOL	VARCHAR(8)				Column Name
+
+	TRNTBL	VARCHAR(8)				Table Name
+
+	TRNTS	DATETIME				TimeStamp of change
+
+						
+
+ITMSALE						
+
+	SALEID	INT-AUTO	Y			Sales ID
+
+	ITEMID	INT		Y	ITM	Item ID
+
+	SUNITS	INT				Units Sold
+
+	SDATE	DATE				Date Sold
+
+	VENUEID	INT		Y	VENUE	Venue
+
+						
+
+TIMESALE						
+
+	TSALEID	INT-AUTO	Y			Sales ID
+
+	TSTIME	TIME				
+
+	TSUNITS	INT				Units Sold
+
+	TSDATE	DATE				Date Sold
+
+	VENUEID	INT		Y	VENUE	Venue
+
+						
+
+						
+
+VENUE						
+
+	VENUEID	INT-AUTO	Y			Venue ID
+
+	VENUELOC	TEXT				Venue Location
+
+	VMULTI	BOOL				Multi-day event?
+
+	VSDATE	DATE				Venue Start Date
+
+	VEDATE	DATE				Venue End Date
+
+	VM	BOOL				
+
+	VMST	TIME				
+
+	VMET	TIME				
+
+	VTE	BOOL				
+
+	VTST	TIME				
+
+	VTET	TIME				
+
+	VW	BOOL				
+
+	VWST	TIME				
+
+	VWET	TIME				
+
+	VR	BOOL				
+
+	VRST	TIME				
+
+	VRET	TIME				
+
+	VF	BOOL				
+
+	VFST	TIME				
+
+	VFET	TIME				
+
+	VST	BOOL				
+
+	VSTST	TIME				
+
+	VSTET	TIME				
+
+	VSN	BOOL				
+
+	VSNST	TIME				
+
+	VSNET	TIME				

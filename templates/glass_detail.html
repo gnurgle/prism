@@ -1,0 +1,290 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <a href="{{ url_for('list_glass') }}" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Glass List</a>
+        <h2>Glass Details: {{ glass.GLSNAME }}</h2>
+    </div>
+    <div>
+        <!-- Edit Button -->
+        <a href="{{ url_for('edit_glass', glass_id=glass.GLASSID) }}" class="btn btn-primary">✏️ Edit Glass Details</a>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Main Attributes Summary -->
+    <div class="col-md-8">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-dark text-white">General Information</div>
+            <div class="card-body">
+                <table class="table table-borderless mb-0">
+                    <tbody>
+                        <tr>
+                            <th style="width: 30%;">Glass ID:</th>
+                            <td>#{{ glass.GLASSID }}</td>
+                        </tr>
+                        <tr>
+                            <th>Manufacturer:</th>
+                            <td>{{ glass.GLSMANF or 'Unspecified' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Texture:</th>
+                            <td><span class="badge bg-secondary">{{ glass.GLSTEX or 'None' }}</span></td>
+                        </tr>
+                        <tr>
+                            <th>Color:</th>
+<!---                            <td><span class="badge bg-secondary">{{ glass.COLOR or 'None' }}</span></td>--->
+				<td>
+	                        {% if glass.COLOR %}
+	                            {% if glass.CHEX %}
+	                                <span class="badge border color-badge" style="background-color: #{{ glass.CHEX }};">
+	                                    {{ glass.COLOR }}
+	                                </span>
+	                            {% else %}
+	                                <span class="badge bg-secondary">{{ glass.COLOR }}</span>
+	                            {% endif %}
+	                        {% else %}
+	                            <span class="badge bg-light text-muted border">N/A</span>
+	                        {% endif %}
+	                    </td>
+                        </tr>
+                        <tr>
+                            <th>Supplier Source:</th>
+                            <td>{{ glass.GLSOURCE or 'None' }} {% if glass.SRCWEB %}<span class="badge bg-info text-dark ms-1">Online Vendor</span>{% endif %}</td>
+                        </tr>
+                        <tr>
+                            <th>Physical Dimensions:</th>
+                            <td>
+                                {% if glass.GLSLEN %}
+                                    {{ glass.GLSLEN }}" (L) × {{ glass.GLSWID }}" (W) — Thickness: {{ glass.GLSTHK or '?' }}mm
+                                {% else %}
+                                    <span class="text-muted">No dimensions recorded</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Visual Properties:</th>
+                            <td>
+                                {% if glass.GLSIRI %}<span class="badge bg-warning text-dark me-1">Iridescent</span>{% endif %}
+                                {% if glass.GLSOPAL %}<span class="badge bg-info text-dark me-1">Opalescent</span>{% endif %}
+                                {% if not glass.GLSIRI and not glass.GLSOPAL %}<span class="text-muted">Standard Finish</span>{% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Purchase Link:</th>
+                            <td>
+                                {% if glass.GLLINK %}
+                                    <a href="{{ glass.GLLINK }}" target="_blank" rel="noopener">{{ glass.GLLINK }}</a>
+                                {% else %}
+                                    <span class="text-muted">None</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Notes:</th>
+                            <td>{{ glass.GLSNOTE or 'No notes provided.' }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Pattern Dependencies -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-dark text-white">Item Patterns Using This Glass (`IGC`)</div>
+            <div class="card-body p-0">
+                <table class="table table-sm table-striped mb-0">
+                    <thead>
+                        <tr>
+                            <th>Item Name</th>
+                            <th>Component #</th>
+                            <th>Bounding Box (L×W)</th>
+                            <th>Component Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for comp in components %}
+                        <tr>
+                            <td><strong>{{ comp.ITMNAME }}</strong></td>
+                            <td>#{{ comp.COMPNUM }}</td>
+                            <td>{{ comp.COMPLEN or '—' }}" × {{ comp.COMPWID or '—' }}"</td>
+                            <td>{{ comp.COMPNOTE or '' }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" class="text-center py-3 text-muted">No item patterns currently reference this glass type.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pricing & Visual Sidebar -->
+<div class="col-md-4">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-success text-white">Current Pricing</div>
+            <div class="card-body text-center">
+                {% if glass.GLSPRICE %}
+                    <h1 class="display-5 text-success fw-bold">${{ "%.2f"|format(glass.GLSPRICE) }}</h1>
+                    <p class="text-muted small mb-0">Active Sheet Rate</p>
+
+                    {% if glass.GLSLEN and glass.GLSWID and glass.GLSLEN > 0 and glass.GLSWID > 0 %}
+                        {% set total_sqin = glass.GLSLEN * glass.GLSWID %}
+                        {% set price_per_sqin = glass.GLSPRICE / total_sqin %}
+                        {% set price_per_sqft = price_per_sqin * 144 %}
+
+                        <!-- Connected unit price row -->
+                        <div class="border-top mt-3 pt-3">
+                            <div class="row g-0 rounded bg-light border text-center overflow-hidden">
+                                <div class="col-6 py-2 border-end">
+                                    <div class="fw-bold text-dark">${{ "%.2f"|format(price_per_sqft) }}</div>
+                                    <small class="text-muted" style="font-size: 0.75rem;">per sq ft</small>
+                                </div>
+                                <div class="col-6 py-2">
+                                    <div class="fw-bold text-dark">${{ "%.4f"|format(price_per_sqin) }}</div>
+                                    <small class="text-muted" style="font-size: 0.75rem;">per sq in</small>
+                                </div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="border-top mt-3 pt-2">
+                            <small class="text-muted">Enter dimensions (L × W) to calculate unit prices.</small>
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <p class="text-muted mb-0">No active price set for this sheet.</p>
+                {% endif %}
+            </div>
+        </div>
+
+{% if glass.GLSIMG %}
+        <div class="card shadow-sm">
+            <div class="card-header bg-dark text-white">Glass Image Sample</div>
+            <div class="card-body text-center">
+                {% if glass.GLSIMG.startswith('http://') or glass.GLSIMG.startswith('https://') %}
+                    <img src="{{ glass.GLSIMG }}" alt="{{ glass.GLSNAME }}" class="img-fluid rounded border" style="max-height: 250px;">
+                {% else %}
+                    <img src="{{ url_for('static', filename=glass.GLSIMG.lstrip('/')) }}" alt="{{ glass.GLSNAME }}" class="img-fluid rounded border" style="max-height: 250px;">
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+
+document.addEventListener('DOMContentLoaded', function() {
+
+    // 1. Dynamic Font Color Contrast Calculation for Badges
+
+    function getContrastColor(hexColor) {
+
+        if (!hexColor) return '#ffffff';
+
+        const hex = hexColor.replace('#', '');
+
+        if (hex.length !== 6) return '#000000';
+
+        
+
+        const r = parseInt(hex.substring(0, 2), 16);
+
+        const g = parseInt(hex.substring(2, 4), 16);
+
+        const b = parseInt(hex.substring(4, 6), 16);
+
+        
+
+        const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+
+        return luminance > 0.6 ? '#000000' : '#ffffff';
+
+    }
+
+
+
+    document.querySelectorAll('.color-badge').forEach(badge => {
+
+        const bgColor = badge.style.backgroundColor;
+
+        const rgbVals = bgColor.match(/\d+/g);
+
+        if (rgbVals && rgbVals.length >= 3) {
+
+            const hex = "#" + ((1 << 24) + (parseInt(rgbVals[0]) << 16) + (parseInt(rgbVals[1]) << 8) + parseInt(rgbVals[2])).toString(16).slice(1);
+
+            badge.style.color = getContrastColor(hex);
+
+        }
+
+    });
+
+
+
+    // 2. Active Filter Button Toggle logic
+
+    const toggleBtn = document.getElementById('toggleActiveBtn');
+
+    const activeInput = document.getElementById('activeOnlyInput');
+
+    const itemSelect = document.getElementById('itemSelect');
+
+
+
+    if (toggleBtn) {
+
+        toggleBtn.addEventListener('click', function() {
+
+            const isCurrentlyActive = activeInput.value === '1';
+
+            
+
+            if (isCurrentlyActive) {
+
+                activeInput.value = '0';
+
+                toggleBtn.className = 'btn btn-sm btn-outline-secondary';
+
+                toggleBtn.textContent = 'Show Currently Selling Only';
+
+                Array.from(itemSelect.options).forEach(opt => opt.style.display = '');
+
+            } else {
+
+                activeInput.value = '1';
+
+                toggleBtn.className = 'btn btn-sm btn-success';
+
+                toggleBtn.textContent = '✓ Currently Selling Only';
+
+                Array.from(itemSelect.options).forEach(opt => {
+
+                    if (opt.value && opt.getAttribute('data-active') === '0') {
+
+                        opt.style.display = 'none';
+
+                        if (opt.selected) {
+
+                            itemSelect.value = '';
+
+                        }
+
+                    }
+
+                });
+
+            }
+
+        });
+
+    }
+
+});
+
+</script>
+{% endblock %}

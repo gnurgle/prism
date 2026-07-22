@@ -1,0 +1,203 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-dark text-white">
+                <h4 class="mb-0">{{ action if action else 'Record' }} Glass Sheet</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Glass Name (GLSNAME)</label>
+                            <input type="text" name="GLSNAME" class="form-control" value="{{ glass.GLSNAME if glass else '' }}" required maxlength="25">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Manufacturer (GLSMANF)</label>
+                            <input type="text" name="GLSMANF" class="form-control" value="{{ glass.GLSMANF if glass else '' }}" maxlength="25">
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Glass Texture (GLSTEX)</label>
+                            <select name="GLSTEX" class="form-select">
+                                <option value="">-- Select Texture --</option>
+                                {% for t in textures %}
+                                    <option value="{{ t.GLSTEX }}" {% if glass and glass.GLSTEX == t.GLSTEX %}selected{% endif %}>
+                                        {{ t.GLSTEX }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Glass Color (COLOR)</label>
+                            
+                            <!-- Hidden input to hold the submitted value for Flask -->
+                            <input type="hidden" name="COLOR" id="selected-color-input" value="{{ glass.COLOR if glass else '' }}">
+
+                            <!-- Custom Dropdown Button -->
+                            <div class="dropdown">
+                                <button class="btn btn-outline-secondary dropdown-toggle w-100 d-flex align-items-center justify-content-between bg-white text-dark" 
+                                        type="button" 
+                                        id="colorDropdownBtn" 
+                                        data-bs-toggle="dropdown" 
+                                        aria-expanded="false">
+                                    <span id="selected-color-label" class="d-flex align-items-center gap-2">
+                                        {% if glass and glass.COLOR %}
+                                            <span class="d-inline-block rounded border" style="width: 18px; height: 18px; background-color: #{{ glass.CHEX|string|replace('#', '') if glass.CHEX else 'ccc' }};"></span>
+                                            {{ glass.COLOR }}
+                                        {% else %}
+                                            <span class="text-muted">-- Select Color --</span>
+                                        {% endif %}
+                                    </span>
+                                </button>
+
+                                <!-- Dropdown Menu List -->
+                                <ul class="dropdown-menu w-100 shadow-sm" aria-labelledby="colorDropdownBtn" style="max-height: 250px; overflow-y: auto;">
+                                    <!-- Option to clear choice -->
+                                    <li>
+                                        <a class="dropdown-item d-flex align-items-center gap-2" href="javascript:void(0);" onclick="selectColor('', '', '-- Select Color --')">
+                                            <span class="d-inline-block rounded border bg-transparent" style="width: 18px; height: 18px;"></span>
+                                            <span class="text-muted">-- Select Color --</span>
+                                        </a>
+                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
+
+                                    <!-- Loop over colors and render color swatches -->
+                                    {% for c in colors %}
+                                    <li>
+                                        <a class="dropdown-item d-flex align-items-center gap-2 {% if glass and glass.COLOR == c.COLOR %}active{% endif %}" 
+                                           href="javascript:void(0);" 
+                                           onclick="selectColor('{{ c.COLOR }}', '{{ c.CHEX or 'ffffff' }}', '{{ c.COLOR }}')">
+                                            <!-- Color Swatch Box -->
+                                            <span class="d-inline-block rounded border flex-shrink-0" 
+                                                  style="width: 18px; height: 18px; background-color: #{{ c.CHEX|string|replace('#', '') if c.CHEX else 'ffffff' }};"></span>
+                                            <!-- Color Name -->
+                                            <span>{{ c.COLOR }}</span>
+                                        </a>
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6 mt-3 mt-md-0">
+                            <label class="form-label">Supplier Source (GLSOURCE)</label>
+                            <select name="GLSOURCE" class="form-select">
+                                <option value="">-- Select Source --</option>
+                                {% for s in sources %}
+                                    <option value="{{ s.GLSOURCE }}" {% if glass and glass.GLSOURCE == s.GLSOURCE %}selected{% endif %}>
+                                        {{ s.GLSOURCE }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Length (GLSLEN)</label>
+                            <input type="number" name="GLSLEN" class="form-control" value="{{ glass.GLSLEN if glass else '' }}" placeholder="inches">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Width (GLSWID)</label>
+                            <input type="number" name="GLSWID" class="form-control" value="{{ glass.GLSWID if glass else '' }}" placeholder="inches">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Thickness (GLSTHK)</label>
+                            <input type="number" name="GLSTHK" class="form-control" value="{{ glass.GLSTHK if glass else '' }}" placeholder="mm">
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Sheet Pricing (GPC Entry)</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" step="1.00" min="0" name="GLSPRICE" class="form-control" value="{{ glass.GLSPRICE if glass else '' }}" placeholder="0.00">
+                            </div>
+                        </div>
+			<div class="col-md-6">
+                            <label class="form-label">Upload Glass Image (Auto-resized 256x256)</label>
+                            <input type="file" name="GLSIMG_FILE" class="form-control" accept="image/*">
+                            
+                            <!-- Fallback / Optional manual path string input -->
+                            <input type="hidden" name="GLSIMG" value="{{ glass.GLSIMG if glass else '' }}">
+                            {% if glass and glass.GLSIMG %}
+                            <div class="form-text text-truncate mt-1">
+                                Current path: <code>{{ glass.GLSIMG }}</code>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Purchase URL (GLLINK)</label>
+                        <input type="text" name="GLLINK" class="form-control" value="{{ glass.GLLINK if glass else '' }}">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Visual Properties</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="GLSIRI" id="GLSIRI" {% if glass and glass.GLSIRI %}checked{% endif %}>
+                            <label class="form-check-label" for="GLSIRI">Iridescent (GLSIRI)</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="GLSOPAL" id="GLSOPAL" {% if glass and glass.GLSOPAL %}checked{% endif %}>
+                            <label class="form-check-label" for="GLSOPAL">Opalescent (GLSOPAL)</label>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Notes (GLSNOTE)</label>
+                        <textarea name="GLSNOTE" class="form-control" rows="3">{{ glass.GLSNOTE if glass else '' }}</textarea>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <a href="{{ url_for('list_glass') }}" class="btn btn-secondary">Cancel</a>
+                        
+                        <div>
+                            {% if action == 'Edit' and glass %}
+                            <button type="submit" form="delete-glass-form" class="btn btn-danger me-2" onclick="return confirm('Are you sure you want to delete this glass sheet?');">
+                                Delete Glass
+                            </button>
+                            {% endif %}
+                            <button type="submit" class="btn btn-success">Save Glass Sheet</button>
+                        </div>
+                    </div>
+                </form>
+
+                {% if action == 'Edit' and glass %}
+                <!-- Separate hidden form for deletion -->
+                <form id="delete-glass-form" action="{{ url_for('delete_glass', glass_id=glass.GLASSID) }}" method="POST" style="display: none;"></form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function selectColor(val, hex, name) {
+    // 1. Update the hidden form input
+    document.getElementById('selected-color-input').value = val;
+    
+    // 2. Format hex string (remove any stray '#')
+    const cleanHex = String(hex).replace('#', '').trim();
+    
+    // 3. Update the visible button text and color swatch
+    const labelContainer = document.getElementById('selected-color-label');
+    if (val) {
+        labelContainer.innerHTML = `
+            <span class="d-inline-block rounded border" style="width: 18px; height: 18px; background-color: #${cleanHex};"></span>
+            ${name}
+        `;
+    } else {
+        labelContainer.innerHTML = `<span class="text-muted">-- Select Color --</span>`;
+    }
+}
+</script>
+{% endblock %}
