@@ -1,0 +1,473 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h2 class="mb-0">Glass Inventory Tracking</h2>
+        <small class="text-muted">Showing {{ inventory_items|length }} item(s)</small>
+    </div>
+    <div class="d-flex gap-2">
+        {# --- On/Off Toggle Button for Image Previews --- #}
+        <button type="button" id="thumbnailToggleBtn" class="btn btn-outline-secondary d-flex align-items-center gap-1" onclick="toggleThumbnails()">
+            🖼️ <span id="toggleBtnText">Show Previews: OFF</span>
+        </button>
+
+        {# --- Stock Visibility Toggle Cycle Button --- #}
+        {% set stock_mode = filters.stock_display | default('all') %}
+        <button type="button" id="stockDisplayToggleBtn" class="btn btn-outline-secondary d-flex align-items-center gap-1" onclick="cycleStockDisplay()">
+            📦 <span id="stockDisplayBtnText">
+                {% if stock_mode == 'out' %}Stock: Out Only
+                {% elif stock_mode == 'hide' %}Stock: Hide Out
+                {% else %}Stock: Show All{% endif %}
+            </span>
+        </button>
+
+        <button type="button" class="btn btn-outline-secondary d-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#filterModal">
+            🔍 Filter Results
+            {% if filters.q or filters.manf or filters.tex or filters.color or filters.source or filters.min_price or filters.max_price or filters.stock_filter or filters.iridescent or filters.opalescent or (stock_mode and stock_mode != 'all') %}
+                <span class="badge bg-primary rounded-pill">Active</span>
+            {% endif %}
+        </button>
+        <a href="{{ url_for('list_glass') }}" class="btn btn-outline-secondary">← Back to Glass Directory</a>
+    </div>
+</div>
+
+{# --- Active Filter Indicators --- #}
+{% if filters.q or filters.manf or filters.tex or filters.color or filters.source or filters.min_price or filters.max_price or filters.stock_filter or filters.iridescent or filters.opalescent or (stock_mode and stock_mode != 'all') %}
+<div class="alert alert-info py-2 px-3 d-flex align-items-center justify-content-between mb-3">
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+        <small class="fw-bold">Active Filters:</small>
+        {% if filters.q %}<span class="badge bg-light text-dark border">Search: "{{ filters.q }}"</span>{% endif %}
+        {% if stock_mode == 'out' %}<span class="badge bg-light text-dark border">Stock View: Out of Stock Only</span>{% endif %}
+        {% if stock_mode == 'hide' %}<span class="badge bg-light text-dark border">Stock View: Hide Out of Stock</span>{% endif %}
+        {% if filters.stock_filter %}
+            <span class="badge bg-light text-dark border">Stock Status Filter: 
+                {% if filters.stock_filter == 'out' %}Out of Stock{% elif filters.stock_filter == 'low' %}Low Stock (1){% elif filters.stock_filter == 'in' %}In Stock (>1){% endif %}
+            </span>
+        {% endif %}
+        {% if filters.manf %}<span class="badge bg-light text-dark border">Manf: {{ filters.manf }}</span>{% endif %}
+        {% if filters.tex %}<span class="badge bg-light text-dark border">Texture: {{ filters.tex }}</span>{% endif %}
+        {% if filters.color %}<span class="badge bg-light text-dark border">Color: {{ filters.color }}</span>{% endif %}
+        {% if filters.iridescent %}<span class="badge bg-light text-dark border">Iridescent</span>{% endif %}
+        {% if filters.opalescent %}<span class="badge bg-light text-dark border">Opalescent</span>{% endif %}
+        {% if filters.source %}<span class="badge bg-light text-dark border">Source: {{ filters.source }}</span>{% endif %}
+        {% if filters.min_price %}<span class="badge bg-light text-dark border">Min Price: ${{ filters.min_price }}</span>{% endif %}
+        {% if filters.max_price %}<span class="badge bg-light text-dark border">Max Price: ${{ filters.max_price }}</span>{% endif %}
+    </div>
+    <a href="{{ url_for('glass_inventory') }}" class="btn btn-sm btn-link text-decoration-none p-0">Clear All</a>
+</div>
+{% endif %}
+
+{# Helper macro to generate clickable sortable table headers #}
+{% macro sort_header(col_key, label) %}
+    {% set new_order = 'desc' if current_sort == col_key and current_order == 'asc' else 'asc' %}
+    <a href="{{ url_for('glass_inventory', sort_by=col_key, order=new_order, **filters) }}" class="text-white text-decoration-none d-block">
+        {{ label }}
+        {% if current_sort == col_key %}
+            <small>{{ '▲' if current_order == 'asc' else '▼' }}</small>
+        {% else %}
+            <small class="text-muted" style="opacity: 0.4;">↕</small>
+        {% endif %}
+    </a>
+{% endmacro %}
+
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <table class="table table-striped table-hover mb-0 align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th style="width: 80px;" class="text-center">Image</th>
+                    <th>{{ sort_header('GLSNAME', 'Glass Sheet Name') }}</th>
+                    <th>{{ sort_header('COLOR_HSV', 'Color / Texture / Finish') }}</th>
+                    <th>{{ sort_header('GLSLEN', 'Dimensions') }}</th>
+                    <th class="text-center">{{ sort_header('CURRENT_STOCK', 'Current Stock') }}</th>
+                    <th>{{ sort_header('LAST_UPDATED', 'Last Updated') }}</th>
+                    <th class="text-end">Quick Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in inventory_items %}
+                {% set stock = item.CURRENT_STOCK if item.CURRENT_STOCK is not none else 0 %}
+                
+                {# Prepend static/ to image path if relative #}
+                {% set img_src = item.GLSIMG %}
+                {% if img_src %}
+                    {% if not img_src.startswith('http') and not img_src.startswith('/') and not img_src.startswith('static/') %}
+                        {% set img_src = 'static/' + img_src %}
+                    {% endif %}
+                {% endif %}
+
+                <tr>
+                    <td class="text-center">
+                        {% if img_src %}
+                            {% set resolved_img_url = url_for('static', filename=img_src.replace('static/', '')) if img_src.startswith('static/') else img_src %}
+                            <div class="image-container-wrapper position-relative d-inline-block">
+                                <button type="button" class="btn btn-sm btn-light border p-0 image-preview-btn shadow-sm"
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#imagePreviewModal"
+                                        data-imgsrc="{{ resolved_img_url }}"
+                                        data-glassname="{{ item.GLSNAME }}"
+                                        onmouseenter="showHoverPopup(event, '{{ resolved_img_url }}')"
+                                        onmouseleave="hideHoverPopup()"
+                                        style="width: 36px; height: 36px;">
+                                    <span class="icon-view fs-6">🖼️</span>
+                                    <img src="{{ resolved_img_url }}" class="thumb-view rounded d-none" style="width: 34px; height: 34px; object-fit: cover;" alt="thumb">
+                                </button>
+                            </div>
+                        {% else %}
+                            <div class="bg-secondary text-white rounded d-inline-flex align-items-center justify-content-center p-1" 
+                                 style="width: 36px; height: 36px; font-size: 8px; line-height: 1.1; text-align: center;"
+                                 title="No image exists">
+                                no image
+                            </div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('glass_detail', glass_id=item.GLASSID) }}" class="fw-bold text-decoration-none text-primary">
+                            {{ item.GLSNAME }}
+                        </a>
+                        <div class="small text-muted d-flex align-items-center gap-1 mt-1">
+                            <span>{{ item.GLSMANF or 'Generic' }}</span>
+                            {% if item.SRCWEB == 1 %}
+                                <span class="badge bg-info text-dark" style="font-size: 0.65rem;">Online Order</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td>
+                        <div class="d-flex flex-wrap gap-1 align-items-center">
+                            {% if item.COLOR %}
+                                {% set bg_hex = item.CHEX if item.CHEX else 'ccc' %}
+                                {% if not bg_hex.startswith('#') %}
+                                    {% set bg_hex = '#' + bg_hex %}
+                                {% endif %}
+                                <span class="badge border px-2 py-1" style="background-color: {{ bg_hex }}; color: #000 !important; text-shadow: 0px 0px 3px rgba(255,255,255,0.9), 0px 0px 3px rgba(255,255,255,0.9); font-weight: 600;">
+                                    {{ item.COLOR }}
+                                </span>
+                            {% endif %}
+                            {% if item.GLSTEX %}
+                                <span class="badge bg-secondary text-white px-2 py-1">
+                                    {{ item.GLSTEX }}
+                                </span>
+                            {% endif %}
+                            {% if item.GLSIRI %}
+                                <span class="badge px-2 py-1" style="background-color: #0dcaf0; color: #000 !important; text-shadow: 0px 0px 3px rgba(255,255,255,0.9); font-weight: 600;">
+                                    Iridescent
+                                </span>
+                            {% endif %}
+                            {% if item.GLSOPAL %}
+                                <span class="badge px-2 py-1" style="background-color: #ffc107; color: #000 !important; text-shadow: 0px 0px 3px rgba(255,255,255,0.9); font-weight: 600;">
+                                    Opalescent
+                                </span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td>
+                        {% if item.GLSLEN %}{{ item.GLSLEN }}" × {{ item.GLSWID }}"{% else %}—{% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if stock <= 0 %}
+                            <span class="badge bg-danger px-3 py-2">Out of Stock (0)</span>
+                        {% elif stock == 1 %}
+                            <span class="badge bg-warning text-dark px-3 py-2">Low Stock (1)</span>
+                        {% else %}
+                            <span class="badge bg-success px-3 py-2">In Stock ({{ stock }})</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="text-muted small">{{ item.LAST_UPDATED or 'Never' }}</span>
+                    </td>
+                    <td class="text-end">
+                        <button type="button" class="btn btn-sm btn-outline-primary adjust-btn"
+                                data-bs-toggle="modal" 
+                                data-bs-target="#adjustModal"
+                                data-glassid="{{ item.GLASSID }}"
+                                data-glassname="{{ item.GLSNAME }}"
+                                data-currentstock="{{ stock }}">
+                            ± Adjust Stock
+                        </button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="text-center py-5 text-muted">
+                        No active glass sheets match your criteria. 
+                        {% if filters.q or filters.manf or filters.tex or filters.color or filters.source or filters.min_price or filters.max_price or filters.stock_filter or filters.iridescent or filters.opalescent %}
+                            <a href="{{ url_for('glass_inventory') }}">Reset filters</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{# --- Hover Popup Floating Card (256x256 Preview) --- #}
+<div id="hoverImageCard" class="card shadow position-fixed d-none" style="z-index: 1080; width: 268px; pointer-events: none;">
+    <div class="card-body p-1 text-center bg-dark rounded">
+        <img id="hoverCardImg" src="" class="rounded" style="width: 256px; height: 256px; object-fit: cover;" alt="Preview">
+    </div>
+</div>
+
+<!-- Image Preview Modal -->
+<div class="modal fade" id="imagePreviewModal" tabindex="-1" aria-labelledby="imagePreviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title" id="imagePreviewModalLabel">Glass Image Preview</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center bg-light">
+                <img id="modalPreviewImg" src="" alt="Glass Sheet Preview" class="img-fluid rounded shadow-sm" style="max-height: 70vh;">
+            </div>
+            <div class="modal-footer justify-content-between">
+                <span id="modalImageCaption" class="text-muted fw-bold"></span>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter Modal Popup -->
+<div class="modal fade" id="filterModal" tabindex="-1" aria-labelledby="filterModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title" id="filterModalLabel">Filter Glass Inventory</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('glass_inventory') }}" method="GET" id="filterForm">
+                <input type="hidden" name="sort_by" value="{{ current_sort }}">
+                <input type="hidden" name="order" value="{{ current_order }}">
+                <input type="hidden" name="stock_display" id="stockDisplayInput" value="{{ stock_mode }}">
+
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Search Glass Name or Notes</label>
+                        <input type="text" name="q" class="form-control" value="{{ filters.q }}" placeholder="Keywords...">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Stock Status Level</label>
+                        <select name="stock_filter" class="form-select">
+                            <option value="">-- All Stock Levels --</option>
+                            <option value="out" {% if filters.stock_filter == 'out' %}selected{% endif %}>Out of Stock (0)</option>
+                            <option value="low" {% if filters.stock_filter == 'low' %}selected{% endif %}>Low Stock (1)</option>
+                            <option value="in" {% if filters.stock_filter == 'in' %}selected{% endif %}>In Stock (&gt; 1)</option>
+                        </select>
+                    </div>
+
+                    {# Boolean Checkboxes for Finish Filters #}
+                    <div class="mb-3 p-3 bg-light border rounded">
+                        <label class="form-label fw-bold d-block mb-2">Special Finishes</label>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" name="iridescent" value="1" id="filterIri" {% if filters.iridescent %}checked{% endif %}>
+                            <label class="form-check-label" for="filterIri">Iridescent Only</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" name="opalescent" value="1" id="filterOpal" {% if filters.opalescent %}checked{% endif %}>
+                            <label class="form-check-label" for="filterOpal">Opalescent Only</label>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Manufacturer</label>
+                            <select name="manf" class="form-select">
+                                <option value="">-- All Manufacturers --</option>
+                                {% for m in manufacturers %}
+                                    <option value="{{ m.GLSMANF }}" {% if filters.manf == m.GLSMANF %}selected{% endif %}>{{ m.GLSMANF }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Texture</label>
+                            <select name="tex" class="form-select">
+                                <option value="">-- All Textures --</option>
+                                {% for t in textures %}
+                                    <option value="{{ t.GLSTEX }}" {% if filters.tex == t.GLSTEX %}selected{% endif %}>{{ t.GLSTEX }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Color</label>
+                        <select name="color" class="form-select">
+                            <option value="">-- All Colors --</option>
+                            {% for c in colors %}
+                                <option value="{{ c.COLOR }}" {% if filters.color == c.COLOR %}selected{% endif %}>{{ c.COLOR }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Supplier Source</label>
+                        <select name="source" class="form-select">
+                            <option value="">-- All Sources --</option>
+                            {% for s in sources %}
+                                <option value="{{ s.GLSOURCE }}" {% if filters.source == s.GLSOURCE %}selected{% endif %}>{{ s.GLSOURCE }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Min Price ($)</label>
+                            <input type="number" step="0.01" name="min_price" class="form-control" value="{{ filters.min_price }}" placeholder="0.00">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Max Price ($)</label>
+                            <input type="number" step="0.01" name="max_price" class="form-control" value="{{ filters.max_price }}" placeholder="100.00">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-between">
+                    <a href="{{ url_for('glass_inventory') }}" class="btn btn-outline-secondary">Clear Filters</a>
+                    <button type="submit" class="btn btn-primary">Apply Filters</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Stock Adjustment Modal Popup -->
+<div class="modal fade" id="adjustModal" tabindex="-1" aria-labelledby="adjustModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title" id="adjustModalLabel">Adjust Inventory Level</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('glass_inventory') }}" method="POST">
+                <input type="hidden" name="GLASSID" id="modalGlassId">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Glass Sheet:</label>
+                        <h4 id="modalGlassName" class="text-primary fw-bold"></h4>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">New Total Stock Level</label>
+                        <input type="number" name="GLSSTOCK" id="modalStockInput" class="form-control" required min="0">
+                        <small class="text-muted">Enter the absolute physical count available.</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Adjustment Date</label>
+                        <input type="date" name="TS" class="form-control" value="{{ today_date }}" required>
+                        <small class="text-muted">Defaults to today's date automatically.</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Adjustment</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleThumbnails() {
+    const isThumbView = document.body.classList.toggle('thumb-view-active');
+    const toggleBtnText = document.getElementById('toggleBtnText');
+    const toggleBtn = document.getElementById('thumbnailToggleBtn');
+
+    document.querySelectorAll('.image-preview-btn').forEach(btn => {
+        const iconSpan = btn.querySelector('.icon-view');
+        const thumbImg = btn.querySelector('.thumb-view');
+        
+        if (isThumbView) {
+            if (iconSpan) iconSpan.classList.add('d-none');
+            if (thumbImg) thumbImg.classList.remove('d-none');
+            btn.style.width = '42px';
+            btn.style.height = '42px';
+        } else {
+            if (iconSpan) iconSpan.classList.remove('d-none');
+            if (thumbImg) thumbImg.classList.add('d-none');
+            btn.style.width = '36px';
+            btn.style.height = '36px';
+        }
+    });
+
+    if (isThumbView) {
+        toggleBtnText.textContent = "Show Previews: ON";
+        toggleBtn.classList.replace('btn-outline-secondary', 'btn-primary');
+        localStorage.setItem('glassInvThumbView', 'true');
+    } else {
+        toggleBtnText.textContent = "Show Previews: OFF";
+        toggleBtn.classList.replace('btn-primary', 'btn-outline-secondary');
+        localStorage.setItem('glassInvThumbView', 'false');
+    }
+}
+
+function cycleStockDisplay() {
+    const urlParams = new URLSearchParams(window.location.search);
+    let currentMode = urlParams.get('stock_display') || 'all';
+    
+    // Cycle: all -> out -> hide -> all
+    let nextMode = 'all';
+    if (currentMode === 'all') {
+        nextMode = 'out';
+    } else if (currentMode === 'out') {
+        nextMode = 'hide';
+    } else {
+        nextMode = 'all';
+    }
+    
+    if (nextMode === 'all') {
+        urlParams.delete('stock_display');
+    } else {
+        urlParams.set('stock_display', nextMode);
+    }
+    
+    window.location.search = urlParams.toString();
+}
+
+function showHoverPopup(event, imgSrc) {
+    const card = document.getElementById('hoverImageCard');
+    const cardImg = document.getElementById('hoverCardImg');
+    cardImg.src = imgSrc;
+    
+    const rect = event.target.getBoundingClientRect();
+    let topPos = rect.top - 100;
+    if (topPos < 10) topPos = 10;
+    
+    card.style.left = (rect.right + 12) + 'px';
+    card.style.top = topPos + 'px';
+    card.classList.remove('d-none');
+}
+
+function hideHoverPopup() {
+    const card = document.getElementById('hoverImageCard');
+    card.classList.add('d-none');
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    if (localStorage.getItem('glassInvThumbView') === 'true') {
+        toggleThumbnails();
+    }
+
+    const adjustModal = document.getElementById('adjustModal');
+    if (adjustModal) {
+        adjustModal.addEventListener('show.bs.modal', function (event) {
+            const button = event.relatedTarget;
+            document.getElementById('modalGlassId').value = button.getAttribute('data-glassid');
+            document.getElementById('modalGlassName').textContent = button.getAttribute('data-glassname');
+            document.getElementById('modalStockInput').value = button.getAttribute('data-currentstock');
+        });
+    }
+
+    const imagePreviewModal = document.getElementById('imagePreviewModal');
+    if (imagePreviewModal) {
+        imagePreviewModal.addEventListener('show.bs.modal', function (event) {
+            const button = event.relatedTarget;
+            const imgSrc = button.getAttribute('data-imgsrc');
+            const glassName = button.getAttribute('data-glassname');
+            
+            document.getElementById('modalPreviewImg').src = imgSrc;
+            document.getElementById('modalImageCaption').textContent = glassName;
+        });
+    }
+});
+</script>
+{% endblock %}

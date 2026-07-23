@@ -53,3 +53,44 @@ def process_and_save_image(file_obj, upload_subfolder, custom_filename_base, tar
 
     # Return web-friendly relative path (e.g. 'images/glass/12_Red_Opal.jpg')
     return os.path.join(upload_subfolder, filename).replace('\\', '/')
+
+def hex_to_hsv(hex_str):
+
+    """Takes a hex color string (e.g., 'FF0000' or '#FF0000') and returns a numeric sortable tuple/value (H, S, V)."""
+    if not hex_str:
+        return (360, 0, 1.0) # Default sorting value for missing colors (push to end)
+
+    hex_str = hex_str.lstrip('#')
+    if len(hex_str) != 6:
+        return (360, 0, 1.0)
+    
+    try:
+        r = int(hex_str[0:2], 16) / 255.0
+        g = int(hex_str[2:4], 16) / 255.0
+        b = int(hex_str[4:6], 16) / 255.0
+    except ValueError:
+        return (360, 0, 1.0)
+
+    max_c = max(r, g, b)
+    min_c = min(r, g, b)
+    diff = max_c - min_c
+
+    # Value
+    v = max_c
+
+    # Saturation
+    s = 0 if max_c == 0 else (diff / max_c)
+
+    # Hue
+    if diff == 0:
+        h = 0
+    elif max_c == r:
+        h = (60 * ((g - b) / diff) + 360) % 360
+    elif max_c == g:
+        h = (60 * ((b - r) / diff) + 120) % 360
+    else:
+        h = (60 * ((r - g) / diff) + 240) % 360
+
+    # Return a single comparable numeric weight or tuple. 
+    # Combining H, S, V into a single floating-point number: (H * 1000) + (S * 100) + V
+    return (h * 1000) + (s * 100) + v

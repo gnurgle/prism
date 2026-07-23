@@ -1,7 +1,8 @@
 import os
 import sqlite3
-from utils import process_and_save_image
+from utils import process_and_save_image, hex_to_hsv
 from flask import Flask, flash, redirect, render_template, request, url_for
+from datetime import date
 
 app = Flask(__name__, static_folder='static')
 app.secret_key = "changethislatertoaenv"
@@ -425,57 +426,31 @@ def create_glass():
 @app.route('/glass/<int:glass_id>')
 
 def glass_detail(glass_id):
-
     db = get_db()
-
     # Fetch glass details with pricing history, supplier details, and hex color code
-
     glass = db.execute('''
-
         SELECT g.*, p.GLSPRICE, s.SRCWEB, s.GLSLOGO, c.CHEX
-
         FROM GSI g
-
         LEFT JOIN GPC p ON g.GLASSID = p.GLASSID
-
         LEFT JOIN GSL s ON g.GLSOURCE = s.GLSOURCE
-
         LEFT JOIN COLOR c ON g.COLOR = c.COLOR
-
         WHERE g.GLASSID = ?
-
     ''', (glass_id,)).fetchone()
 
-
-
     if not glass:
-
         flash('Glass sheet record not found.', 'danger')
-
         return redirect(url_for('list_glass'))
 
-
-
     # Fetch any items that utilize this glass as a component (IGC)
-
     components = db.execute('''
-
         SELECT c.*, i.ITMNAME 
-
         FROM IGC c
-
         JOIN ITM i ON c.ITEMID = i.ITEMID
-
         WHERE c.GLASSID = ?
-
     ''', (glass_id,)).fetchall()
 
-
-
     return render_template(
-
         'glass_detail.html', glass=glass, components=components
-
     )
 
 # --- EDIT GLASS SHEET ---
@@ -597,6 +572,197 @@ def delete_glass(glass_id):
     
     flash(f"Glass sheet #{glass_id} deactivated successfully.", "warning")
     return redirect(url_for('list_glass'))
+
+@app.route('/glass/inventory', methods=['GET', 'POST'])
+def glass_inventory():
+
+    db = get_db()
+
+    if request.method == 'POST':
+        glass_id = request.form.get('GLASSID')
+        adjustment = request.form.get('GLSSTOCK')
+        trans_date = request.form.get('TS') or date.today().isoformat()
+
+        if glass_id and adjustment:
+            db.execute(
+                """
+                INSERT INTO GLSINV (GLASSID, GLSSTOCK, TS)
+                VALUES (?, ?, ?)
+                """,
+                (glass_id, int(adjustment), trans_date)
+            )
+            db.commit()
+            flash("Inventory level adjusted successfully!", "success")
+        else:
+            flash("Invalid input parameters for stock adjustment.", "danger")
+            
+        return redirect(url_for('glass_inventory'))
+
+    # --- Capture Sort & Filter Parameters ---
+    sort_by = request.args.get('sort_by', 'GLSNAME')
+    order = request.args.get('order', 'asc').lower()
+    if order not in ['asc', 'desc']:
+        order = 'asc'
+
+    q = request.args.get('q', '').strip()
+    manf = request.args.get('manf', '').strip()
+    tex = request.args.get('tex', '').strip()
+    color = request.args.get('color', '').strip()
+    source = request.args.get('source', '').strip()
+    min_price = request.args.get('min_price', '').strip()
+    max_price = request.args.get('max_price', '').strip()
+    stock_filter = request.args.get('stock_filter', '').strip()
+    iridescent_filter = request.args.get('iridescent')
+    opalescent_filter = request.args.get('opalescent')
+    stock_display_mode = request.args.get('stock_display', 'all')
+
+    allowed_sorts = {
+        'GLASSID': 'GLASSID',
+        'GLSNAME': 'GLSNAME',
+        'GLSMANF': 'GLSMANF',
+        'GLSTEX': 'GLSTEX',
+        'COLOR': 'COLOR',
+        'COLOR_HSV': 'COLOR_HSV',
+        'GLSIRI': 'GLSIRI',
+        'GLSOPAL': 'GLSOPAL',
+        'GLSLEN': 'GLSLEN',
+        'CURRENT_STOCK': 'CURRENT_STOCK',
+        'LAST_UPDATED': 'LAST_UPDATED'
+    }
+    
+    # If sorting by COLOR_HSV, fetch sorted by secondary or default column from SQL, then sort in Python
+    sql_sort_column = 'GLSNAME' if sort_by == 'COLOR_HSV' else allowed_sorts.get(sort_by, 'GLSNAME')
+
+    # Build dynamic WHERE clause for base query
+    where_clauses = ["g.ISACTIVE = 1"]
+    params = []
+
+    if q:
+        where_clauses.append("(g.GLSNAME LIKE ? OR g.GLSMANF LIKE ? OR g.GLSNOTE LIKE ?)")
+        params.extend([f"%{q}%", f"%{q}%", f"%{q}%"])
+    if manf:
+        where_clauses.append("g.GLSMANF = ?")
+        params.append(manf)
+    if tex:
+        where_clauses.append("g.GLSTEX = ?")
+        params.append(tex)
+    if color:
+        where_clauses.append("g.COLOR = ?")
+        params.append(color)
+    if iridescent_filter:
+        where_clauses.append("g.GLSIRI = ?")
+        params.append(iridescent_filter)
+    if opalescent_filter:
+        where_clauses.append("g.GLSOPAL = ?")
+        params.append(opalescent_filter)
+    if source:
+        where_clauses.append("g.GLSOURCE = ?")
+        params.append(source)
+    if min_price:
+        where_clauses.append("p.GLSPRICE >= ?")
+        params.append(min_price)
+    if max_price:
+        where_clauses.append("p.GLSPRICE <= ?")
+        params.append(max_price)
+
+    where_sql = f"WHERE {' AND '.join(where_clauses)}"
+
+    having_conditions = []
+    if stock_filter == 'out':
+        having_conditions.append("CURRENT_STOCK = 0")
+    elif stock_filter == 'low':
+        having_conditions.append("CURRENT_STOCK = 1")
+    elif stock_filter == 'in':
+        having_conditions.append("CURRENT_STOCK > 1")
+
+    if stock_display_mode == 'out':
+        having_conditions.append("CURRENT_STOCK <= 0")
+    elif stock_display_mode == 'hide':
+        having_conditions.append("CURRENT_STOCK > 0")
+
+    # Add GROUP BY GLASSID so the HAVING clause is valid syntax in SQLite
+    stock_having_sql = f"GROUP BY GLASSID HAVING {' AND '.join(having_conditions)}" if having_conditions else ""
+
+    query = f"""
+        SELECT GLASSID, GLSNAME, GLSMANF, GLSLEN, GLSWID, GLSTHK, GLSTEX, 
+               GLSIRI, GLSOPAL, GLSOURCE, GLLINK, GLSIMG, GLSNOTE, COLOR, 
+               ISACTIVE, CHEX, GLSPRICE, SRCWEB, CURRENT_STOCK, LAST_UPDATED
+        FROM (
+            SELECT g.GLASSID, g.GLSNAME, g.GLSMANF, g.GLSLEN, g.GLSWID, g.GLSTHK, 
+                   g.GLSTEX, g.GLSIRI, g.GLSOPAL, g.GLSOURCE, g.GLLINK, g.GLSIMG, 
+                   g.GLSNOTE, g.COLOR, g.ISACTIVE, c.CHEX, p.GLSPRICE, l.SRCWEB,
+                   COALESCE((
+                       SELECT i.GLSSTOCK 
+                       FROM GLSINV i 
+                       WHERE i.GLASSID = g.GLASSID 
+                       ORDER BY i.TS DESC, i.GLSTRNID DESC 
+                       LIMIT 1
+                   ), 0) AS CURRENT_STOCK,
+                   (
+                       SELECT i.TS 
+                       FROM GLSINV i 
+                       WHERE i.GLASSID = g.GLASSID 
+                       ORDER BY i.TS DESC, i.GLSTRNID DESC 
+                       LIMIT 1
+                   ) AS LAST_UPDATED
+            FROM GSI g
+            LEFT JOIN COLOR c ON g.COLOR = c.COLOR
+            LEFT JOIN GPC p ON g.GLASSID = p.GLASSID
+            LEFT JOIN GSL l ON g.GLSOURCE = l.GLSOURCE
+            {where_sql}
+        ) sub
+        {stock_having_sql}
+        ORDER BY {sql_sort_column} {order.upper()}
+    """
+    raw_items = db.execute(query, params).fetchall()
+
+    # Post-process items to attach HSV values and handle numeric sort cleanly if requested
+    inventory_items = []
+    for row in raw_items:
+        item = dict(row)
+        item['COLOR_HSV'] = hex_to_hsv(item.get('CHEX'))
+        inventory_items.append(item)
+
+    if sort_by == 'COLOR_HSV':
+        inventory_items.sort(
+            key=lambda x: x['COLOR_HSV'],
+            reverse=(order == 'desc')
+        )
+
+    # --- Fetch Lookups for Filter Dropdowns ---
+    textures = db.execute("SELECT DISTINCT GLSTEX FROM GSI WHERE ISACTIVE = 1 AND GLSTEX IS NOT NULL AND GLSTEX != '' ORDER BY GLSTEX").fetchall()
+    colors = db.execute("SELECT * FROM COLOR ORDER BY COLOR").fetchall()
+    sources = db.execute("SELECT DISTINCT GLSOURCE FROM GSI WHERE ISACTIVE = 1 AND GLSOURCE IS NOT NULL AND GLSOURCE != '' ORDER BY GLSOURCE").fetchall()
+    manufacturers = db.execute("SELECT DISTINCT GLSMANF FROM GSI WHERE ISACTIVE = 1 AND GLSMANF IS NOT NULL AND GLSMANF != '' ORDER BY GLSMANF").fetchall()
+    iridescent_options = db.execute("SELECT DISTINCT GLSIRI FROM GSI WHERE ISACTIVE = 1 AND GLSIRI = 1").fetchall()
+    opalescent_options = db.execute("SELECT DISTINCT GLSOPAL FROM GSI WHERE ISACTIVE = 1 AND GLSOPAL = 1").fetchall()
+
+    return render_template(
+        'glass_inventory.html',
+        inventory_items=inventory_items,
+        textures=textures,
+        colors=colors,
+        sources=sources,
+        manufacturers=manufacturers,
+        iridescent_options=iridescent_options,
+        opalescent_options=opalescent_options,
+        current_sort=sort_by,
+        current_order=order,
+        today_date=date.today().isoformat(),
+        filters={
+            'q': request.args.get('q', ''),
+            'manf': request.args.get('manf', ''),
+            'tex': request.args.get('tex', ''),
+            'color': request.args.get('color', ''),
+            'source': request.args.get('source', ''),
+            'min_price': request.args.get('min_price', ''),
+            'max_price': request.args.get('max_price', ''),
+            'stock_filter': request.args.get('stock_filter', ''),
+            'stock_display': stock_display_mode,
+            'iridescent': request.args.get('iridescent', ''),
+            'opalescent': request.args.get('opalescent', '')
+        }
+    )
 
 # ============================================================================
 # 3. INVENTORY & WORK-IN-PROGRESS TRACKING (ICC, ITR)
