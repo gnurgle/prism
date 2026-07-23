@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+
+
+
+{% block content %}
+
+<div class="row justify-content-center">
+
+    <div class="col-md-6">
+
+        <div class="card shadow-sm">
+
+            <div class="card-header bg-dark text-white">
+
+                <h4 class="mb-0">Upload New Template Image</h4>
+
+            </div>
+
+            <div class="card-body">
+
+                <form method="POST" enctype="multipart/form-data">
+
+                    <div class="mb-3">
+
+                        <label class="form-label">Select Item (ITMNAME)</label>
+
+                        <select name="ITEMID" class="form-select" required>
+
+                            <option value="">-- Choose Item --</option>
+
+                            {% for item in items %}
+
+                                <option value="{{ item.ITEMID }}">{{ item.ITMNAME }} (ID: {{ item.ITEMID }})</option>
+
+                            {% endfor %}
+
+                        </select>
+
+                    </div>
+
+
+
+                    <div class="mb-3">
+
+                        <label class="form-label">Template Image File</label>
+
+                        <input type="file" name="template_image" class="form-control" accept="image/*" required>
+
+                        <div class="form-text">Will be saved as ITEMID_ITMNAME in static/images/templates and converted to SVG.</div>
+
+                    </div>
+
+
+
+                    <div class="d-flex justify-content-between">
+
+                        <a href="{{ url_for('index') }}" class="btn btn-secondary">Cancel</a>
+
+                        <button type="submit" class="btn btn-success">Upload & Convert</button>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

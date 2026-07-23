@@ -1,0 +1,341 @@
+{% extends 'base.html' %}
+
+
+
+{% block content %}
+
+<div class="row justify-content-center">
+
+    <div class="col-md-11">
+
+        <div class="card shadow-sm">
+
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+
+                <h4 class="mb-0">Interactive Whitespaces: {{ item.ITMNAME }}</h4>
+
+                <a href="{{ url_for('index') }}" class="btn btn-outline-light btn-sm">Done</a>
+
+            </div>
+
+            <div class="card-body text-center">
+
+                <p class="text-muted">Click any numbered region below to view or delete it.</p>
+
+                
+
+                <!-- Responsive SVG container scaled to fit the page -->
+
+                <div class="svg-container border rounded bg-white p-3 mx-auto position-relative" style="max-width: 100%; width: 100%; height: 70vh; overflow: hidden; display: flex; justify-content: center; align-items: center;">
+
+                    <object data="{{ svg_url }}" type="image/svg+xml" id="svg-object" style="width: 100%; height: 100%; max-height: 100%; object-fit: contain;"></object>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<!-- Bootstrap Popup Modal with Delete Option -->
+
+<div class="modal fade" id="whitespaceModal" tabindex="-1" aria-hidden="true">
+
+  <div class="modal-dialog modal-dialog-centered">
+
+    <div class="modal-content">
+
+      <div class="modal-header bg-primary text-white">
+
+        <h5 class="modal-title">Selected Region</h5>
+
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+
+      </div>
+
+      <div class="modal-body text-center py-4">
+
+        <p class="text-muted mb-1">Whitespace Region Number:</p>
+
+        <h2 id="modal-whitespace-number" class="fw-bold text-primary mb-3">--</h2>
+
+        <p class="text-danger small mb-0" id="delete-confirmation-text" style="display: none;">Are you sure you want to delete this region?</p>
+
+      </div>
+
+      <div class="modal-footer justify-content-between">
+
+        <button type="button" class="btn btn-danger" id="btn-delete-prompt">Delete Region</button>
+
+        <div id="delete-actions" style="display: none;">
+
+          <button type="button" class="btn btn-secondary me-2" id="btn-cancel-delete">Cancel</button>
+
+          <button type="button" class="btn btn-danger" id="btn-confirm-delete">Yes, Delete</button>
+
+        </div>
+
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="btn-close-modal">Close</button>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+
+<script>
+
+document.addEventListener("DOMContentLoaded", function() {
+
+    const svgObject = document.getElementById('svg-object');
+
+    let activePathElement = null;
+
+    let activeTextElement = null;
+
+
+
+    // Modal elements
+
+    const modalNumber = document.getElementById('modal-whitespace-number');
+
+    const deletePromptBtn = document.getElementById('btn-delete-prompt');
+
+    const deleteActions = document.getElementById('delete-actions');
+
+    const deleteConfirmationText = document.getElementById('delete-confirmation-text');
+
+    const closeModalBtn = document.getElementById('btn-close-modal');
+
+    const cancelDeleteBtn = document.getElementById('btn-cancel-delete');
+
+    const confirmDeleteBtn = document.getElementById('btn-confirm-delete');
+
+    
+
+    const modalElement = document.getElementById('whitespaceModal');
+
+    const myModal = new bootstrap.Modal(modalElement);
+
+
+
+    // Reset delete confirmation view state whenever modal is hidden
+
+    modalElement.addEventListener('hidden.bs.modal', function () {
+
+        deletePromptBtn.style.display = 'inline-block';
+
+        deleteActions.style.display = 'none';
+
+        deleteConfirmationText.style.display = 'none';
+
+        closeModalBtn.style.display = 'inline-block';
+
+        activePathElement = null;
+
+        activeTextElement = null;
+
+    });
+
+
+
+    deletePromptBtn.addEventListener('click', function() {
+
+        deletePromptBtn.style.display = 'none';
+
+        closeModalBtn.style.display = 'none';
+
+        deleteActions.style.display = 'block';
+
+        deleteConfirmationText.style.display = 'block';
+
+    });
+
+
+
+    cancelDeleteBtn.addEventListener('click', function() {
+
+        deleteActions.style.display = 'none';
+
+        deleteConfirmationText.style.display = 'none';
+
+        deletePromptBtn.style.display = 'inline-block';
+
+        closeModalBtn.style.display = 'inline-block';
+
+    });
+
+
+
+    confirmDeleteBtn.addEventListener('click', function() {
+
+        if (activePathElement) {
+
+            activePathElement.remove();
+
+        }
+
+        if (activeTextElement) {
+
+            activeTextElement.remove();
+
+        }
+
+        myModal.hide();
+
+    });
+
+    
+
+    svgObject.addEventListener('load', function() {
+
+        const svgDoc = svgObject.contentDocument;
+
+        if (!svgDoc) return;
+
+        
+
+        // Ensure the inner SVG scales cleanly within the object wrapper
+
+        const svgElement = svgDoc.querySelector('svg');
+
+        if (svgElement) {
+
+            svgElement.setAttribute('width', '100%');
+
+            svgElement.setAttribute('height', '100%');
+
+            if (!svgElement.getAttribute('viewBox')) {
+
+                svgElement.setAttribute('viewBox', '0 0 800 800');
+
+            }
+
+        }
+
+        
+
+        // Target paths using data attributes or direct path tags generated by Python
+
+        const areas = svgDoc.querySelectorAll('path');
+
+        
+
+        areas.forEach((area, index) => {
+
+            const num = area.getAttribute('data-region-id') || area.getAttribute('data-number') || (index + 1);
+
+            
+
+            // Ensure the path has a fill so it registers click events properly across its area
+
+            if (!area.getAttribute('fill') || area.getAttribute('fill') === 'none') {
+
+                area.setAttribute('fill', 'rgba(0,0,0,0)');
+
+                area.style.cursor = 'pointer';
+
+            }
+
+            
+
+            // Add interactivity handlers
+
+            area.addEventListener('click', function(e) {
+
+                e.stopPropagation();
+
+                activePathElement = area;
+
+                modalNumber.innerText = `#${num}`;
+
+                
+
+                // Find associated text label matching this region number
+
+                const labels = svgDoc.querySelectorAll('text');
+
+                labels.forEach(lbl => {
+
+                    if (lbl.getAttribute('data-region-id') === String(num) || lbl.textContent === String(num)) {
+
+                        activeTextElement = lbl;
+
+                    }
+
+                });
+
+
+
+                myModal.show();
+
+            });
+
+
+
+            // Dynamically inject visual number badges over each region center if bounding box exists
+
+            try {
+
+                const bbox = area.getBBox();
+
+                if (bbox && bbox.width > 0 && bbox.height > 0) {
+
+                    const cx = bbox.x + bbox.width / 2;
+
+                    const cy = bbox.y + bbox.height / 2;
+
+                    
+
+                    const textEl = svgDoc.createElementNS("http://www.w3.org/2000/svg", "text");
+
+                    textEl.setAttribute("x", cx);
+
+                    textEl.setAttribute("y", cy);
+
+                    textEl.setAttribute("fill", "#dc3545");
+
+                    textEl.setAttribute("font-weight", "bold");
+
+                    textEl.setAttribute("font-size", "14px");
+
+                    textEl.setAttribute("text-anchor", "middle");
+
+                    textEl.setAttribute("dominant-baseline", "central");
+
+                    textEl.setAttribute("data-region-id", String(num));
+
+                    textEl.setAttribute("style", "pointer-events: none; user-select: none;");
+
+                    textEl.textContent = num;
+
+                    
+
+                    svgElement.appendChild(textEl);
+
+                }
+
+            } catch (err) {
+
+                // BBox calculation fallback safely ignored for complex path definitions
+
+            }
+
+        });
+
+    });
+
+});
+
+</script>
+
+{% endblock %}

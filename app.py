@@ -1,12 +1,24 @@
 import os
 import sqlite3
-from utils import process_and_save_image, hex_to_hsv
-from flask import Flask, flash, redirect, render_template, request, url_for
+import xml.etree.ElementTree as ET
+from lxml import etree
+from svgpathtools import svg2paths, wsvg
+from utils import process_and_save_image, hex_to_hsv, convert_image_to_svg, remove_svg_region_and_renumber
+from flask import Flask, flash, redirect, render_template, request, url_for, render_template_string
 from datetime import date
 
 app = Flask(__name__, static_folder='static')
 app.secret_key = "changethislatertoaenv"
 DATABASE = "inventory.db"
+
+# Ensure these directories exist in your project root
+UPLOAD_FOLDER_TEMPLATES = 'static/images/templates'
+UPLOAD_FOLDER_SVG = 'static/images/svg'
+UPLOAD_FOLDER_GLASS = 'static/images/glass'
+
+os.makedirs(UPLOAD_FOLDER_TEMPLATES, exist_ok=True)
+os.makedirs(UPLOAD_FOLDER_SVG, exist_ok=True)
+os.makedirs(UPLOAD_FOLDER_GLASS, exist_ok=True)
 
 
 def get_db():
@@ -765,6 +777,332 @@ def glass_inventory():
     )
 
 # ============================================================================
+# COMPONENTS
+# ============================================================================
+
+@app.route("/template/upload", methods=["GET", "POST"])
+
+
+
+def upload_template():
+
+    db = get_db()
+
+    if request.method == "POST":
+        item_id = request.form.get("ITEMID")
+        file = request.files.get("template_image")
+
+        if not item_id or not file:
+            flash("Please select an item and upload an image.", "danger")
+            return redirect(request.url)
+            
+        item = db.execute("SELECT * FROM ITM WHERE ITEMID = ?", (item_id,)).fetchone()
+
+        if not item:
+            flash("Selected item not found.", "danger")
+            return redirect(url_for("index"))
+            
+        # Format filename safely
+        safe_item_name = "".join(c for c in item['ITMNAME'] if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
+        file_ext = os.path.splitext(file.filename)[1] or '.png'
+        filename = f"{item['ITEMID']}_{safe_item_name}{file_ext}"
+        
+        # Save uploaded raster image
+        img_path = os.path.join(UPLOAD_FOLDER_TEMPLATES, filename)
+        file.save(img_path)
+        
+        # Update database path
+        relative_img_path = f"images/templates/{filename}"
+        db.execute("UPDATE ITM SET ITMPTRN = ? WHERE ITEMID = ?", (relative_img_path, item_id))
+        db.commit()
+        
+        # Automatically convert to SVG using the reusable method
+        svg_filename = f"{item['ITEMID']}_{safe_item_name}.svg"
+        svg_path = os.path.join(UPLOAD_FOLDER_SVG, svg_filename)
+        
+        success = convert_image_to_svg(img_path, svg_path)
+        if success:
+          # Save the SVG path to ITM.ITMSVG after successful conversion
+            relative_svg_path = f"images/svg/{svg_filename}"
+
+            db.execute("UPDATE ITM SET ITMSVG = ? WHERE ITEMID = ?", (relative_svg_path, item_id))
+            db.commit()
+            flash("Template uploaded and converted to SVG via pyautotrace successfully!", "success")
+        else:
+            flash("Template uploaded, but SVG conversion failed.", "warning")
+            
+        return redirect(url_for('edit_template', item_id=item_id))
+    items = db.execute("SELECT ITEMID, ITMNAME FROM ITM").fetchall()
+    return render_template("template_upload.html", items=items)
+
+
+@app.route("/template/whitespaces/<int:item_id>")
+
+def view_template_whitespaces(item_id):
+
+    db = get_db()
+    item = db.execute("SELECT * FROM ITM WHERE ITEMID = ?", (item_id,)).fetchone()
+    if not item or not item['ITMPTRN']:
+        flash("Template not found or image not uploaded.", "danger")
+        return redirect(url_for("index"))
+        
+    safe_item_name = "".join(c for c in item['ITMNAME'] if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
+    svg_filename = f"{item['ITEMID']}_{safe_item_name}.svg"
+    svg_path = os.path.join(UPLOAD_FOLDER_SVG, svg_filename)
+    svg_url = url_for('static', filename=f"images/svg/{svg_filename}")
+    
+    # 1. Autoparse the SVG to discover path/shape elements
+    clickable_regions = []
+    if os.path.exists(svg_path):
+        try:
+            # Register namespaces to prevent prefix issues with SVG elements
+            ET.register_namespace('', "http://www.w3.org/2000/svg")
+            tree = ET.parse(svg_path)
+            root = tree.getroot()
+            
+            # Find all path, rect, circle, or polygon elements inside the SVG
+            # SVG elements often use namespaces like {http://www.w3.org/2000/svg}path
+            elements = []
+            for elem in root.iter():
+                tag_name = elem.tag.split('}')[-1].lower()
+                if tag_name in ['path', 'rect', 'polygon', 'circle', 'polyline']:
+                    elements.append(elem)
+            
+            # 2. Extract bounds/positions to sort them accurately from LEFT to RIGHT
+            parsed_elements = []
+            for idx, el in enumerate(elements):
+                # Basic heuristic fallback bounding extraction or attributes
+                # If it's a rect, it has x coordinate
+                x_val = 0.0
+                if el.tag.endswith('rect'):
+                    x_val = float(el.attrib.get('x', 0))
+                elif el.tag.endswith('circle'):
+                    x_val = float(el.attrib.get('cx', 0)) - float(el.attrib.get('r', 0))
+                else:
+                    # For paths or polygons, check if we can parse basic attributes or fallback to index
+                    x_val = float(idx * 10) # fallback sorting offset
+                
+                parsed_elements.append((x_val, idx, el))
+            
+            # Sort elements strictly from left to right based on X coordinate
+            parsed_elements.sort(key=lambda item: item[0])
+            
+            # 3. Assign sequential numbers from left to right and inject clickable properties
+            for index, (x, orig_idx, el) in enumerate(parsed_elements, start=1):
+                region_id = f"region_{index}"
+                el.set('id', region_id)
+                el.set('data-number', str(index))
+                # Add styling classes for interactive popups and hover cursors
+                existing_class = el.attrib.get('class', '')
+                el.set('class', f"{existing_class} whitespace-area".strip())
+                el.set('style', 'cursor: pointer; fill-opacity: 0.2; stroke: #007bff; stroke-width: 2px;')
+                
+                clickable_regions.append({
+                    "number": index,
+                    "id": region_id
+                })
+                
+            # Save modified SVG back or keep it in memory for rendering
+            tree.write(svg_path)
+            
+        except Exception as e:
+            print(f"Error parsing SVG for whitespaces: {e}")
+
+    return render_template("template_whitespaces.html", item=item, svg_url=svg_url, regions=clickable_regions)
+# ============================================================================
+# TEMPLATES
+# ============================================================================
+
+@app.route('/template/<int:item_id>/edit', methods=['GET', 'POST'])
+
+def edit_template(item_id):
+
+    conn = get_db()
+
+    item = conn.execute('SELECT * FROM ITM WHERE ITEMID = ?', (item_id,)).fetchone()
+
+    
+
+    if not item:
+
+        conn.close()
+
+        flash('Template not found.', 'danger')
+
+        return redirect(url_for('index'))
+
+
+
+    svg_file_field = item['ITMSVG'] or f"{item_id}.svg"
+
+    svg_path = os.path.join(app.root_path, 'static', svg_file_field)
+
+
+
+    message = None
+
+
+
+    if request.method == 'POST':
+
+        target_region_num = request.form.get('region_id')
+
+        print(f"ROUTE CONSOLE WRITE ---> Target File: '{svg_path}' | Region to Delete: '{target_region_num}'")
+
+
+
+        if not os.path.exists(svg_path):
+
+            message = f"Error: File does not exist at absolute path: {svg_path}"
+
+        else:
+
+            try:
+
+                # 1. Parse using robust XML parser settings
+
+                parser = etree.XMLParser(remove_blank_text=True, recover=True)
+
+                tree = etree.parse(svg_path, parser)
+
+                
+
+                # 2. Use local-name() wildcard to bypass strict or missing namespace prefix issues
+
+                path_elements = tree.xpath('//*[local-name()="path"]')
+
+
+
+                removed = False
+
+                for elem in path_elements:
+
+                    region_val = elem.get('data-region-id')
+
+                    elem_id = elem.get('id', '')
+
+
+
+                    # Match by data-region-id or ID string format (e.g., 'region-2' or '2')
+
+                    if (region_val and str(region_val).strip() == str(target_region_num)) or (elem_id in [f"region-{target_region_num}", str(target_region_num)]):
+
+                        
+
+                        parent = elem.getparent()
+
+                        if parent is not None:
+
+                            parent.remove(elem)
+
+                            removed = True
+
+                            print(f"ROUTE SUCCESS: Removed element ID '{elem_id}', data-region-id '{region_val}'")
+
+                        break
+
+
+
+                if removed:
+
+                    # 3. Re-fetch remaining paths and re-index attributes sequentially
+
+                    remaining_paths = tree.xpath('//*[local-name()="path"]')
+
+                    for new_idx, elem in enumerate(remaining_paths, start=1):
+
+                        elem.set('id', f'region-{new_idx}')
+
+                        elem.set('data-region-id', str(new_idx))
+
+                        if elem.get('data-number') is not None:
+
+                            elem.set('data-number', str(new_idx))
+
+
+
+                    # 4. Explicitly write back out to disk using binary mode
+
+                    root = tree.getroot()
+
+                    xml_bytes = etree.tostring(root, pretty_print=True, xml_declaration=True, encoding='utf-8')
+
+                    with open(svg_path, 'wb') as f:
+
+                        f.write(xml_bytes)
+
+
+
+                    flash(f"Success! Region {target_region_num} deleted and file updated on disk.", "success")
+
+                else:
+
+                    flash(f"Warning: Could not find any path matching region ID '{target_region_num}' in {svg_file_field}.", "warning")
+
+            except Exception as e:
+
+                flash(f"Exception occurred during processing: {str(e)}", "danger")
+
+                print(f"ROUTE EXCEPTION: {e}")
+
+
+
+        conn.close()
+
+        return redirect(url_for('edit_template', item_id=item_id))
+
+
+
+    conn.close()
+
+
+
+    # Read current state of paths for display on the template interface
+
+    paths_list = []
+
+    if os.path.exists(svg_path):
+
+        try:
+
+            parser = etree.XMLParser(remove_blank_text=True, recover=True)
+
+            tree = etree.parse(svg_path, parser)
+
+            path_elements = tree.xpath('//*[local-name()="path"]')
+
+            for idx, elem in enumerate(path_elements):
+
+                region_label = elem.get('data-region-id') or elem.get('data-number') or str(idx + 1)
+
+                element_id = elem.get('id', f'path-{idx+1}')
+
+                paths_list.append({
+
+                    'index': idx,
+
+                    'id': element_id,
+
+                    'label': region_label,
+
+                    'data_region_id': region_label
+
+                })
+
+        except Exception as e:
+
+            print(f"Error reading paths for template view: {e}")
+
+
+
+    return render_template('edit_template.html', item=item, paths_list=paths_list)
+
+
+
+
+
+
+# ============================================================================
 # 3. INVENTORY & WORK-IN-PROGRESS TRACKING (ICC, ITR)
 # ============================================================================
 
@@ -858,6 +1196,279 @@ def record_sale():
     venues = db.execute("SELECT VENUEID, VENUELOC FROM VENUE").fetchall()
     return render_template("sale_form.html", items=items, venues=venues)
 
+
+@app.route('/test-svg-delete', methods=['GET', 'POST'])
+
+def test_svg_delete():
+
+    """
+
+    Dedicated test page to isolate and verify lxml-based SVG path deletion 
+
+    and sequential renumbering without any database dependencies.
+
+    """
+
+    # Target a specific test file inside your static directory (e.g., 'static/test.svg')
+
+    # Change 'test.svg' to any existing SVG filename in your static folder to test.
+
+    svg_filename = request.args.get('file', 'test.svg')
+
+    svg_path = os.path.join(app.root_path, 'static', svg_filename)
+
+
+
+    message = None
+
+    paths_found = []
+
+
+
+    if request.method == 'POST':
+
+        target_region_num = request.form.get('region_id')
+
+        print(f"TEST PAGE CONSOLE WRITE ---> Target File: '{svg_path}' | Region to Delete: '{target_region_num}'")
+
+
+
+        if not os.path.exists(svg_path):
+
+            message = f"Error: File does not exist at absolute path: {svg_path}"
+
+        else:
+
+            try:
+
+                # 1. Parse using robust XML parser settings
+
+                parser = etree.XMLParser(remove_blank_text=True, recover=True)
+
+                tree = etree.parse(svg_path, parser)
+
+                
+
+                # 2. Use local-name() wildcard to bypass strict or missing namespace prefix issues
+
+                path_elements = tree.xpath('//*[local-name()="path"]')
+
+
+
+                removed = False
+
+                for elem in path_elements:
+
+                    region_val = elem.get('data-region-id')
+
+                    elem_id = elem.get('id', '')
+
+
+
+                    # Match by data-region-id or ID string format (e.g., 'region-2' or '2')
+
+                    if (region_val and str(region_val).strip() == str(target_region_num)) or (elem_id in [f"region-{target_region_num}", str(target_region_num)]):
+                        
+
+                        parent = elem.getparent()
+
+                        if parent is not None:
+
+                            parent.remove(elem)
+
+                            removed = True
+
+                            print(f"TEST SUCCESS: Removed element ID '{elem_id}', data-region-id '{region_val}'")
+
+                        break
+
+
+
+                if removed:
+
+                    # 3. Re-fetch remaining paths and re-index attributes sequentially
+
+                    remaining_paths = tree.xpath('//*[local-name()="path"]')
+
+                    for new_idx, elem in enumerate(remaining_paths, start=1):
+
+                        elem.set('id', f'region-{new_idx}')
+
+                        elem.set('data-region-id', str(new_idx))
+
+                        if elem.get('data-number') is not None:
+
+                            elem.set('data-number', str(new_idx))
+
+
+
+                    # 4. Explicitly write back out to disk using binary mode
+
+                    root = tree.getroot()
+
+                    xml_bytes = etree.tostring(root, pretty_print=True, xml_declaration=True, encoding='utf-8')
+
+                    with open(svg_path, 'wb') as f:
+
+                        f.write(xml_bytes)
+
+
+
+                    message = f"Success! Region {target_region_num} deleted and file updated on disk."
+
+                else:
+
+                    message = f"Warning: Could not find any path matching region ID '{target_region_num}' in {svg_filename}."
+
+            except Exception as e:
+
+                message = f"Exception occurred during processing: {str(e)}"
+
+                print(f"TEST EXCEPTION: {e}")
+
+
+
+    # Read current state of paths for display on the test interface
+
+    if os.path.exists(svg_path):
+
+        try:
+
+            parser = etree.XMLParser(remove_blank_text=True, recover=True)
+
+            tree = etree.parse(svg_path, parser)
+
+            path_elements = tree.xpath('//*[local-name()="path"]')
+
+            for idx, elem in enumerate(path_elements):
+
+                paths_found.append({
+
+                    'index': idx,
+
+                    'id': elem.get('id', 'N/A'),
+
+                    'data_region_id': elem.get('data-region-id', 'N/A')
+
+                })
+
+        except Exception as e:
+
+            print(f"Error reading paths for test view: {e}")
+
+
+
+    # Inline HTML template for quick standalone testing
+
+    html_template = """
+
+    <!doctype html>
+
+    <html lang="en">
+
+    <head>
+
+        <title>SVG Deletion Test Harness</title>
+
+        <style>
+
+            body { font-family: Arial, sans-serif; margin: 40px; background: #f4f4f9; color: #333; }
+
+            .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+
+            th { background-color: #007bff; color: white; }
+
+            .btn { background: #dc3545; color: white; border: none; padding: 6px 12px; cursor: pointer; border-radius: 4px; }
+
+            .btn:hover { background: #c82333; }
+
+            .alert { padding: 10px; background: #e2e3e5; border-left: 5px solid #6c757d; margin-bottom: 15px; }
+
+        </style>
+
+    </head>
+
+    <body>
+
+        <div class="card">
+
+            <h2>SVG Deletion Diagnostic Harness</h2>
+
+            <p>Target File Path: <code>static/{{ filename }}</code></p>
+
+            {% if message %}
+
+                <div class="alert"><strong>Status:</strong> {{ message }}</div>
+
+            {% endif %}
+
+            
+
+            <h3>Paths Currently Inside File:</h3>
+
+            {% if paths %}
+
+                <table>
+
+                    <tr>
+
+                        <th>DOM Index</th>
+
+                        <th>ID Attribute</th>
+
+                        <th>data-region-id</th>
+
+                        <th>Action</th>
+
+                    </tr>
+
+                    {% for p in paths %}
+
+                    <tr>
+
+                        <td>{{ p.index }}</td>
+
+                        <td><code>{{ p.id }}</code></td>
+
+                        <td><code>{{ p.data_region_id }}</code></td>
+
+                        <td>
+
+                            <form method="POST" style="margin: 0;">
+
+                                <input type="hidden" name="region_id" value="{{ p.data_region_id if p.data_region_id != 'N/A' else loop.index }}">
+
+                                <button type="submit" class="btn">Delete This Path</button>
+
+                            </form>
+
+                        </td>
+
+                    </tr>
+
+                    {% endfor %}
+
+                </table>
+
+            {% else %}
+
+                <p style="color: red;">No &lt;path&gt; elements found or file does not exist!</p>
+
+            {% endif %}
+
+        </div>
+
+    </body>
+
+    </html>
+
+    """
+
+    return render_template_string(html_template, filename=svg_filename, message=message, paths=paths_found)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=7665, debug=True)
