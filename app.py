@@ -49,6 +49,8 @@ def init_db():
         db.execute(
             "INSERT OR IGNORE INTO COLOR (COLOR, CHEX) VALUES ('Red', 'FF0000'), ('Orange', 'FF8000'), ('Yellow', 'FFFF00'), ('Chartreuse Green', '80FF00'), ('Green', '00FF00'), ('Spring Green', '00FF80'), ('Azure', '0080FF'), ('Blue', '0000FF'), ('Violet', '8000FF'), ('Magenta', 'FF00FF'), ('Rose', 'FF0080'), ('White', '000000'), ('Black', 'FFFFFF'), ('Grey', '808080'), ('Transparent', '000000')"
         )
+        db.execute(
+            "INSERT OR IGNORE INTO GTRNS (GTRNSN, GTRNSV) VALUES ('Transparent', 60), ('Translucent', 75), ('Opaque', 95)"        )
 
         # Setup automated AUDIT trigger on ITM table changes
         db.executescript("""
@@ -366,12 +368,14 @@ def list_glass():
     )
 @app.route("/glass/new", methods=["GET", "POST"])
 def create_glass():
+
     db = get_db()
     if request.method == "POST":
 
         glsname = request.form.get('GLSNAME')
         glsmanf = request.form.get('GLSMANF')
         glstex = request.form.get('GLSTEX') or None
+        gtrnsn = request.form.get('GTRNSN') or None
         color = request.form.get('COLOR') or None
         glsource = request.form.get('GLSOURCE') or None
         glslen = request.form.get('GLSLEN') or None
@@ -387,13 +391,13 @@ def create_glass():
 
         cursor = db.execute(
             """
-            INSERT INTO GSI (GLSNAME, GLSMANF, GLSTEX, COLOR, GLSOURCE, 
+            INSERT INTO GSI (GLSNAME, GLSMANF, GLSTEX, GTRNSN, COLOR, GLSOURCE, 
                 GLSLEN, GLSWID, GLSTHK, GLSIRI,GLSOPAL, GLLINK, 
                 GLSIMG, GLSNOTE, ISACTIVE)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """,
             (
-                glsname, glsmanf, glstex, color, glsource, glslen,
+                glsname, glsmanf, glstex, gtrnsn, color, glsource, glslen,
                 glswid, glsthk, glsiri, glsopal, gllink, glsimg,
                 glsnote, isactive
             ),
@@ -424,19 +428,20 @@ def create_glass():
 
         db.commit()
         flash("Glass sheet recorded successfully!", "success")
+
         return redirect(url_for("list_glass"))
+
+
 
     textures = db.execute("SELECT * FROM GTL").fetchall()
     colors = db.execute("SELECT * FROM COLOR").fetchall()
     sources = db.execute("SELECT * FROM GSL").fetchall()
+    transparency = db.execute("SELECT * FROM GTRNS").fetchall()
     return render_template(
-        "glass_form.html", textures=textures, colors=colors, sources=sources
+        "glass_form.html", textures=textures, transparency=transparency, colors=colors, sources=sources
     )
-
 # --- GLASS DETAIL SUMMARY PAGE ---
-
 @app.route('/glass/<int:glass_id>')
-
 def glass_detail(glass_id):
     db = get_db()
     # Fetch glass details with pricing history, supplier details, and hex color code
@@ -465,9 +470,10 @@ def glass_detail(glass_id):
         'glass_detail.html', glass=glass, components=components
     )
 
-# --- EDIT GLASS SHEET ---
 @app.route('/glass/edit/<int:glass_id>', methods=['GET', 'POST'])
+
 def edit_glass(glass_id):
+
     db = get_db()
 
     glass = db.execute('''
@@ -475,7 +481,9 @@ def edit_glass(glass_id):
         FROM GSI g 
         LEFT JOIN GPC p ON g.GLASSID = p.GLASSID 
         LEFT JOIN COLOR c ON g.COLOR = c.COLOR 
+        LEFT JOIN GTRNS t ON g.GTRNSN = t.GTRNSN
         WHERE g.GLASSID = ?
+
     ''', (glass_id,)).fetchone()
 
     if not glass:
@@ -486,6 +494,7 @@ def edit_glass(glass_id):
         glsname = request.form.get('GLSNAME')
         glsmanf = request.form.get('GLSMANF')
         glstex = request.form.get('GLSTEX') or None
+        gtrnsn = request.form.get('GTRNSN') or None
         color = request.form.get('COLOR') or None
         glsource = request.form.get('GLSOURCE') or None
         glslen = request.form.get('GLSLEN') or None
@@ -496,6 +505,8 @@ def edit_glass(glass_id):
         gllink = request.form.get('GLLINK') or None
         glsnote = request.form.get('GLSNOTE')
         price = request.form.get('GLSPRICE')
+
+
 
         # Handle File Upload or maintain manual text string entry
         file = request.files.get('GLSIMG_FILE')
@@ -515,7 +526,7 @@ def edit_glass(glass_id):
         db.execute(
             '''
             UPDATE GSI 
-            SET GLSNAME = ?, GLSMANF = ?, GLSTEX = ?, COLOR = ?, GLSOURCE = ?, 
+            SET GLSNAME = ?, GLSMANF = ?, GLSTEX = ?, GTRNSN = ?, COLOR = ?, GLSOURCE = ?, 
                 GLSLEN = ?, GLSWID = ?, GLSTHK = ?, GLSIRI = ?, 
                 GLSOPAL = ?, GLLINK = ?, GLSIMG = ?, GLSNOTE = ?
             WHERE GLASSID = ?
@@ -524,6 +535,7 @@ def edit_glass(glass_id):
                 glsname,
                 glsmanf,
                 glstex,
+                gtrnsn,
                 color,
                 glsource,
                 glslen,
@@ -563,15 +575,19 @@ def edit_glass(glass_id):
         return redirect(url_for('glass_detail', glass_id=glass_id))
 
     textures = db.execute('SELECT * FROM GTL').fetchall()
+    transparency = db.execute('SELECT * FROM GTRNS').fetchall()
     colors = db.execute('SELECT * FROM COLOR').fetchall()
     sources = db.execute('SELECT * FROM GSL').fetchall()
+
     return render_template(
         'glass_form.html',
         glass=glass,
         textures=textures,
+        transparency=transparency,
         colors=colors,
         sources=sources,
         action='Edit',
+
     )
 
 @app.route('/glass/delete/<int:glass_id>', methods=['POST'])
@@ -1250,7 +1266,9 @@ def build_components():
 
 
 @app.route('/edit_components/<int:item_id>', methods=['GET'])
+
 def edit_components(item_id):
+
     db = get_db()
 
     # Fetch Item and its SVG
@@ -1267,20 +1285,27 @@ def edit_components(item_id):
 
     # Fetch components joined with glass and color info to map svg regions to color hexes and textures
     # IGC -> GSI -> COLOR
+
     components = db.execute('''
         SELECT 
             i.COMPID, i.COMPNAME, i.ITEMID, i.COMPNUM, i.SVGREG, 
-            i.GLASSID, i.COMPLEN, i.COMPWID, i.COMPNOTE, 
+            i.GLASSID, i.COMPLEN, i.COMPWID, i.COMPNOTE,
             i.ISSCRAP, i.ISGRAIN, i.ISACTIVE,
-            c.CHEX, g.GLSTEX
+            c.CHEX, g.GLSTEX, g.GTRNSN, g.GLSIMG, t.GTRNSV
         FROM IGC i
         LEFT JOIN GSI g ON i.GLASSID = g.GLASSID
         LEFT JOIN COLOR c ON g.COLOR = c.COLOR
+        LEFT JOIN GTRNS t ON g.GTRNSN = t.GTRNSN
         WHERE i.ITEMID = ?
+
     ''', (item_id,)).fetchall()
 
+
+
     # Convert components to a dictionary keyed by SVGREG for easy lookup in the template
+
     comp_map = {}
+
     for comp in components:
         comp_map[comp['SVGREG']] = {
             'COMPID': comp['COMPID'],
@@ -1293,7 +1318,9 @@ def edit_components(item_id):
             'ISSCRAP': 1 if comp['ISSCRAP'] else 0,
             'ISGRAIN': 1 if comp['ISGRAIN'] else 0,
             'CHEX': comp['CHEX'] or 'cccccc', # default grey if no color assigned
-            'GLSTEX': comp['GLSTEX'] or ''
+            'GLSIMG': comp['GLSIMG'] or '',
+            'GLSTEX': comp['GLSTEX'] or '',
+            'GTRNSV': comp['GTRNSV']
         }
 
     return render_template(
@@ -1301,7 +1328,143 @@ def edit_components(item_id):
         item=item, 
         svg_url=svg_url, 
         glass_options=glass_options, 
+
         components_json=comp_map
+
+    )
+
+
+
+
+@app.route('/edit_componentsb/<int:item_id>', methods=['GET'])
+
+def edit_componentsb(item_id):
+
+    db = get_db()
+
+    
+
+    # Fetch item details
+
+    item = db.execute('SELECT * FROM ITM WHERE ITEMID = ?', (item_id,)).fetchone()
+
+    if not item:
+
+        flash('Item not found.', 'danger')
+
+        return redirect(url_for('index'))
+
+    
+
+    # Fetch available glass options for the dropdown
+
+    glass_options = db.execute('SELECT GLASSID, GLSNAME FROM GSI ORDER BY GLSNAME').fetchall()
+
+    
+
+    # Fetch components joined with glass inventory (GSI/GLS) and color data, including GLTRS and GLSTEX
+
+    query = '''
+
+        SELECT 
+
+            c.COMPID,
+
+            c.COMPNUM,
+
+            c.COMPNAME,
+
+            c.COMPLEN,
+
+            c.COMPWID,
+
+            c.GLASSID,
+
+            c.ISSCRAP,
+
+            c.ISGRAIN,
+
+            g.GLSNAME,
+
+            g.GLSTEX,
+
+            g.GLTRS,
+
+            clr.CHEX
+
+        FROM IGC c
+
+        LEFT JOIN GSI gsi ON c.GLASSID = gsi.GLASSID
+
+
+        LEFT JOIN COLOR clr ON gsi.COLORID = clr.COLORID
+
+        WHERE c.ITEMID = ?
+
+    '''
+
+    components = db.execute(query, (item_id,)).fetchall()
+
+    
+
+    # Map components by COMPNUM (or region identifier) for easy JS lookup
+
+    components_json = {}
+
+    for comp in components:
+
+        # Using COMPNUM as the key to match region IDs in the SVG canvas
+
+        region_key = str(comp['COMPNUM'])
+
+        components_json[region_key] = {
+
+            'COMPID': comp['COMPID'],
+
+            'COMPNUM': comp['COMPNUM'],
+
+            'COMPNAME': comp['COMPNAME'] or '',
+
+            'COMPLEN': comp['COMPLEN'] or 0,
+
+            'COMPWID': comp['COMPWID'] or 0,
+
+            'GLASSID': comp['GLASSID'] or '',
+
+            'GLSNAME': comp['GLSNAME'] or '',
+
+            'GLSTEX': comp['GLSTEX'] or '',
+
+            'GLTRS': comp['GLTRS'] if comp['GLTRS'] is not None else 75, # Fallback to 75 if null
+
+            'CHEX': comp['CHEX'] or 'cccccc',
+
+            'ISSCRAP': comp['ISSCRAP'] or 0,
+
+            'ISGRAIN': comp['ISGRAIN'] or 0
+
+        }
+
+        
+
+    # URL for the SVG file stored in static/svgs/ or similar path based on your app structure
+
+    svg_url = url_for('static', filename=f'svgs/{item["ITMSVG"]}') if 'ITMSVG' in item and item['ITMSVG'] else url_for('static', filename='svgs/default.svg')
+
+
+
+    return render_template(
+
+        'edit_components.html',
+
+        item=item,
+
+        glass_options=glass_options,
+
+        components_json=components_json,
+
+        svg_url=svg_url
+
     )
 
 @app.route('/update_component', methods=['POST'])

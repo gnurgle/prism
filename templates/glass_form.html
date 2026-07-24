@@ -32,7 +32,17 @@
                                 {% endfor %}
                             </select>
                         </div>
-
+			<div class="col-md-6">
+			    <label for="GTRNSN" class="form-label">Transparency</label>
+			    <select class="form-select" id="GTRNSN" name="GTRNSN">
+			        <option value="">-- Select Transparency --</option>
+			        {% for t in transparency %}
+			            <option value="{{ t.GTRNSN }}" {% if glass and glass.GTRNSN == t.GTRNSN %}selected{% endif %}>
+			                {{ t.GTRNSN }}
+			            </option>
+			        {% endfor %}
+				</select>
+			</div>
                         <div class="col-md-6">
                             <label class="form-label">Glass Color (COLOR)</label>
                             

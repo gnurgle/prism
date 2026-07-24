@@ -1,17 +1,15 @@
-/* Apply 25% transparency to all SVG path regions by default */
 svg path {
-    fill-opacity: 0.75;
+
     stroke-opacity: 0.85;
-    transition: fill-opacity 0.2s ease, stroke 0.2s ease;
+
+    transition: opacity 0.2s ease, stroke 0.2s ease;
+
 }
+
+
 
 svg path:hover {
-    fill-opacity: 0.9;
-}
 
-/* Bumpy glass (Waterglass) texture effect applied via CSS pattern */
-.waterglass-texture {
-    /* Subtle wavy glass displacement/ripple illusion using multiple repeating linear gradients */
-    fill: url(#waterglass-pattern) !important;
-    fill-opacity: 0.75 !important;
+    opacity: 0.75;
+
 }

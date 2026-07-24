@@ -13,7 +13,7 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def process_and_save_image(file_obj, upload_subfolder, custom_filename_base, target_size=(256, 256)):
+def process_and_save_image(file_obj, upload_subfolder, custom_filename_base, target_size=(1024, 1024)):
     """
     Modular utility to upload, process, and resize images.
     
