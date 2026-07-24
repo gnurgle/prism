@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+
+
+{% block content %}
+
+<div class="row justify-content-center mt-4">
+
+    <div class="col-md-6">
+
+        <div class="card shadow-sm">
+
+            <div class="card-header bg-dark text-white">
+
+                <h4 class="mb-0">Build Components</h4>
+
+            </div>
+
+            <div class="card-body">
+
+                <form method="POST" action="{{ url_for('build_components') }}" class="row g-3 align-items-center">
+
+                    <div class="col-auto flex-grow-1">
+
+                        <label for="item_id" class="visually-hidden">Select Item</label>
+
+                        <select name="item_id" id="item_id" class="form-select" required>
+
+                            <option value="" disabled selected>-- Select Item Name --</option>
+
+                            {% for item in items %}
+
+                                <option value="{{ item.ITEMID }}">{{ item.ITMNAME }}</option>
+
+                            {% endfor %}
+
+                        </select>
+
+                    </div>
+
+                    <div class="col-auto">
+
+                        <button type="submit" class="btn btn-primary">Build Components</button>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

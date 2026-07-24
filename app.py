@@ -38,7 +38,7 @@ def init_db():
 
         # Seed Lookup tables if empty
         db.execute(
-            "INSERT OR IGNORE INTO GTL (GLSTEX) VALUES ('Smooth'), ('Wispy'), ('Waterglass')"
+            "INSERT OR IGNORE INTO GTL (GLSTEX) VALUES ('Smooth'), ('Wispy'), ('Waterglass'), ('Muffle'), ('RoughRolled'), ('Hammered'), ('Mottled'), ('Dichroic')"
         )
         db.execute(
             "INSERT OR IGNORE INTO GSL (GLSOURCE, SRCWEB) VALUES ('Colorado Glass Co', 1), ('Hobby Lobby', 0), ('Charlotte Glass', 0)"
@@ -1098,8 +1098,239 @@ def edit_template(item_id):
     return render_template('edit_template.html', item=item, paths_list=paths_list)
 
 
+# ============================================================================
+# COMPONENTS
+# ============================================================================
+
+@app.route('/build_components', methods=['GET', 'POST'])
+
+def build_components():
+
+    db = get_db()
+
+    
+
+    if request.method == 'POST':
+
+        selected_item_id = request.form.get('item_id')
+
+        
+
+        if not selected_item_id:
+
+            flash('Please select a valid item.', 'danger')
+
+            return redirect(url_for('build_components'))
+
+            
+
+        # Fetch the selected item
+
+        item = db.execute('SELECT * FROM ITM WHERE ITEMID = ?', (selected_item_id,)).fetchone()
+
+        
+
+        svg_filename = item['ITMSVG'] if (item and 'ITMSVG' in item.keys()) else None
+
+        
+
+        if item and svg_filename:
+
+            # 1. Do a search first and remove any items from IGC where IGC.ITEMID = selected ITEMID
+
+            db.execute('DELETE FROM IGC WHERE ITEMID = ?', (selected_item_id,))
+
+            
+
+            # 2. Locate and parse the SVG file from static/
+
+            svg_path = os.path.join(app.root_path, 'static', svg_filename)
+
+            
+
+            if os.path.exists(svg_path):
+
+                try:
+
+                    ET.register_namespace('', "http://www.w3.org/2000/svg")
+
+                    tree = ET.parse(svg_path)
+
+                    root = tree.getroot()
+
+                    
+
+                    # Find all path elements
+
+                    paths = root.findall('.//{http://www.w3.org/2000/svg}path')
+
+                    if not paths:
+
+                        paths = root.findall('.//path')
+
+                        
+
+                    comp_counter = 1
+
+                    for path in paths:
+
+                        # Extract data-region-id attribute
+
+                        region_id = None
+
+                        for k, v in path.attrib.items():
+
+                            if 'data-region-id' in k.lower() or k.lower() == 'region-id':
+
+                                region_id = v
+
+                                break
+
+                        
+
+                        if not region_id:
+
+                            region_id = comp_counter
+
+                            
+
+                        try:
+
+                            svg_reg_val = int(region_id)
+
+                        except ValueError:
+
+                            svg_reg_val = comp_counter
+
+                            
+
+                        # 3. Insert into IGC table: Saving ITEMID, SVGREG, COMPNUM, and setting ISACTIVE = 1
+
+                        db.execute('''
+
+                            INSERT INTO IGC (ITEMID, SVGREG, COMPNUM, ISACTIVE)
+
+                            VALUES (?, ?, ?, 1)
+
+                        ''', (selected_item_id, svg_reg_val, comp_counter))
+
+                        
+
+                        comp_counter += 1
+
+                        
+
+                    db.commit()
+
+                    flash('Components successfully built and saved to IGC!', 'success')
+
+                except Exception as e:
+
+                    flash(f'Error parsing SVG file: {str(e)}', 'danger')
+
+            else:
+
+                flash(f'SVG file not found at static/{svg_filename}', 'danger')
+
+        else:
+
+            flash('Selected item does not have a reference SVG file or ITMSVG is empty.', 'warning')
+
+            
+
+        return redirect(url_for('build_components'))
 
 
+
+    # GET Request: Fetch all items to populate the dropdown by ITM.ITMNAME
+
+    items = db.execute('SELECT ITEMID, ITMNAME FROM ITM').fetchall()
+
+    return render_template('build_components.html', items=items)
+
+
+@app.route('/edit_components/<int:item_id>', methods=['GET'])
+def edit_components(item_id):
+    db = get_db()
+
+    # Fetch Item and its SVG
+    item = db.execute('SELECT * FROM ITM WHERE ITEMID = ?', (item_id,)).fetchone()
+    if not item:
+        flash('Item not found.', 'danger')
+        return redirect(url_for('index'))
+
+    svg_filename = item['ITMSVG'] if 'ITMSVG' in item.keys() else None
+    svg_url = url_for('static', filename=svg_filename) if svg_filename else ''
+
+    # Fetch all glass options for the dropdown (GSI table)
+    glass_options = db.execute('SELECT GLASSID, GLSNAME FROM GSI WHERE ISACTIVE = 1').fetchall()
+
+    # Fetch components joined with glass and color info to map svg regions to color hexes and textures
+    # IGC -> GSI -> COLOR
+    components = db.execute('''
+        SELECT 
+            i.COMPID, i.COMPNAME, i.ITEMID, i.COMPNUM, i.SVGREG, 
+            i.GLASSID, i.COMPLEN, i.COMPWID, i.COMPNOTE, 
+            i.ISSCRAP, i.ISGRAIN, i.ISACTIVE,
+            c.CHEX, g.GLSTEX
+        FROM IGC i
+        LEFT JOIN GSI g ON i.GLASSID = g.GLASSID
+        LEFT JOIN COLOR c ON g.COLOR = c.COLOR
+        WHERE i.ITEMID = ?
+    ''', (item_id,)).fetchall()
+
+    # Convert components to a dictionary keyed by SVGREG for easy lookup in the template
+    comp_map = {}
+    for comp in components:
+        comp_map[comp['SVGREG']] = {
+            'COMPID': comp['COMPID'],
+            'COMPNAME': comp['COMPNAME'] or '',
+            'COMPNUM': comp['COMPNUM'] or '',
+            'SVGREG': comp['SVGREG'],
+            'GLASSID': comp['GLASSID'] or '',
+            'COMPLEN': comp['COMPLEN'] or '',
+            'COMPWID': comp['COMPWID'] or '',
+            'ISSCRAP': 1 if comp['ISSCRAP'] else 0,
+            'ISGRAIN': 1 if comp['ISGRAIN'] else 0,
+            'CHEX': comp['CHEX'] or 'cccccc', # default grey if no color assigned
+            'GLSTEX': comp['GLSTEX'] or ''
+        }
+
+    return render_template(
+        'edit_components.html', 
+        item=item, 
+        svg_url=svg_url, 
+        glass_options=glass_options, 
+        components_json=comp_map
+    )
+
+@app.route('/update_component', methods=['POST'])
+def update_component():
+    db = get_db()
+
+    comp_id = request.form.get('comp_id')
+    item_id = request.form.get('item_id')
+    comp_num = request.form.get('comp_num')
+    comp_name = request.form.get('comp_name')
+    comp_len = request.form.get('comp_len')
+    comp_wid = request.form.get('comp_wid')
+    glass_id = request.form.get('glass_id') or None
+    isscrap = 1 if request.form.get('isscrap') else 0
+    isgrain = 1 if request.form.get('isgrain') else 0
+
+    if not comp_id:
+        flash('Invalid component selection.', 'danger')
+        return redirect(url_for('edit_components', item_id=item_id))
+
+    db.execute('''
+        UPDATE IGC 
+        SET COMPNUM = ?, COMPNAME = ?, COMPLEN = ?, COMPWID = ?, GLASSID = ?, ISSCRAP = ?, ISGRAIN = ?
+        WHERE COMPID = ?
+    ''', (comp_num, comp_name, comp_len, comp_wid, glass_id, isscrap, isgrain, comp_id))
+    db.commit()
+
+    flash('Component updated successfully!', 'success')
+    return redirect(url_for('edit_components', item_id=item_id))
 
 
 # ============================================================================

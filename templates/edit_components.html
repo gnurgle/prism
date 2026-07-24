@@ -1,0 +1,219 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- Reference the separate stylesheet for 25% transparency and effects -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/svg_effects.css') }}">
+
+<div class="row vh-80">
+    <!-- Sidebar: Component Information & Edit Form -->
+    <div class="col-md-4 bg-white border-end p-4 shadow-sm" style="height: 80vh; overflow-y: auto;">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4 class="mb-0">Component Details</h4>
+            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm">Back</a>
+        </div>
+        <hr>
+        
+        <div id="no-selection-msg" class="text-muted text-center py-5">
+            <p>Click any region in the SVG viewer to view and edit component properties.</p>
+        </div>
+
+        <form id="component-form" method="POST" action="{{ url_for('update_component') }}" style="display: none;">
+            <input type="hidden" name="item_id" value="{{ item.ITEMID }}">
+            <input type="hidden" id="comp_id" name="comp_id">
+
+            <div class="mb-3">
+                <label for="comp_num" class="form-label fw-bold">Component Number (COMPNUM)</label>
+                <input type="number" class="form-control" id="comp_num" name="comp_num">
+            </div>
+
+            <div class="mb-3">
+                <label for="comp_name" class="form-label fw-bold">Component Name (COMPNAME)</label>
+                <input type="text" class="form-control" id="comp_name" name="comp_name">
+            </div>
+
+            <div class="row">
+                <div class="col-6 mb-3">
+                    <label for="comp_len" class="form-label fw-bold">Length (COMPLEN)</label>
+                    <input type="number" step="any" class="form-control" id="comp_len" name="comp_len">
+                </div>
+                <div class="col-6 mb-3">
+                    <label for="comp_wid" class="form-label fw-bold">Width (COMPWID)</label>
+                    <input type="number" step="any" class="form-control" id="comp_wid" name="comp_wid">
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label for="glass_id" class="form-label fw-bold">Component Glass (GSI)</label>
+                <select class="form-select" id="glass_id" name="glass_id">
+                    <option value="">-- Select Glass --</option>
+                    {% for glass in glass_options %}
+                        <option value="{{ glass.GLASSID }}">{{ glass.GLSNAME }} (ID: {{ glass.GLASSID }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-3 form-check">
+                <input type="checkbox" class="form-check-input" id="isscrap" name="isscrap" value="1">
+                <label class="form-check-label" for="isscrap">Is Scrap (ISSCRAP)</label>
+            </div>
+
+            <div class="mb-3 form-check">
+                <input type="checkbox" class="form-check-input" id="isgrain" name="isgrain" value="1">
+                <label class="form-check-label" for="isgrain">Grain Specific (ISGRAIN)</label>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100 mt-3">Save Changes</button>
+        </form>
+    </div>
+
+    <!-- Main Focus: Interactive SVG Canvas -->
+    <div class="col-md-8 d-flex flex-column align-items-center justify-content-center bg-light p-3" style="height: 80vh;">
+        <h5 class="text-secondary mb-2">{{ item.ITMNAME }} - Interactive Layout</h5>
+        <div class="svg-container border rounded bg-white p-2 shadow-sm w-100 h-100 d-flex justify-content-center align-items-center overflow-hidden">
+            <object data="{{ svg_url }}" type="image/svg+xml" id="svg-object" style="width: 100%; height: 100%; object-fit: contain;"></object>
+        </div>
+    </div>
+</div>
+
+<script>
+const componentsData = {{ components_json | tojson }};
+
+document.addEventListener("DOMContentLoaded", function() {
+    const svgObject = document.getElementById('svg-object');
+
+    svgObject.addEventListener('load', function() {
+        const svgDoc = svgObject.contentDocument;
+        if (!svgDoc) return;
+
+        const svgElement = svgDoc.querySelector('svg');
+        if (!svgElement) return;
+
+        // Ensure proper scaling viewport if viewBox is absent
+        if (!svgElement.getAttribute('viewBox')) {
+            svgElement.setAttribute('viewBox', '0 0 800 800');
+        }
+
+        // Dynamically inject a SVG <defs> container if missing
+        let defs = svgElement.querySelector('defs');
+        if (!defs) {
+            defs = svgDoc.createElementNS("http://www.w3.org/2000/svg", "defs");
+            svgElement.insertBefore(defs, svgElement.firstChild);
+        }
+
+        // Get SVG height calculation for 5% font size
+        let svgHeight = svgElement.viewBox.baseVal.height || svgElement.clientHeight || 800;
+        let fontSize = svgHeight * 0.05; // 5% of height
+
+        const paths = svgDoc.querySelectorAll('path');
+
+        paths.forEach((path, index) => {
+            const regionId = path.getAttribute('data-region-id') || path.getAttribute('data-number') || (index + 1);
+            const comp = componentsData[regionId];
+
+            let baseColor = (comp && comp.CHEX) ? '#' + comp.CHEX : '#cccccc';
+
+            // Check if a texture is assigned (GLSTEX)
+            if (comp && comp.GLSTEX && comp.GLSTEX.trim() !== '') {
+                // Convert texture name to lowercase filename (e.g., "Waterglass" -> "waterglass.jpg")
+                const textureFilename = comp.GLSTEX.trim().toLowerCase() + '.jpg';
+                const textureUrl = "{{ url_for('static', filename='images/effects/') }}" + textureFilename;
+
+                // Unique pattern ID per region and texture type
+                const patternId = `texture-pattern-${regionId}-${comp.GLSTEX.trim().toLowerCase()}`;
+                
+                const pattern = svgDoc.createElementNS("http://www.w3.org/2000/svg", "pattern");
+                pattern.setAttribute("id", patternId);
+                // Scaled up by 400% (300 * 4 = 1200)
+                pattern.setAttribute("width", "1200");
+                pattern.setAttribute("height", "1200");
+                pattern.setAttribute("patternUnits", "userSpaceOnUse");
+                
+                // 1. Solid color background layer driven by CHEX
+                const baseRect = svgDoc.createElementNS("http://www.w3.org/2000/svg", "rect");
+                baseRect.setAttribute("width", "1200");
+                baseRect.setAttribute("height", "1200");
+                baseRect.setAttribute("fill", baseColor);
+                
+                // 2. Texture overlay image layer scaled up to match pattern dimensions
+                const textureImage = svgDoc.createElementNS("http://www.w3.org/2000/svg", "image");
+                textureImage.setAttributeNS("http://www.w3.org/1999/xlink", "href", textureUrl);
+                textureImage.setAttribute("href", textureUrl);
+                textureImage.setAttribute("width", "1200");
+                textureImage.setAttribute("height", "1200");
+                textureImage.setAttribute("preserveAspectRatio", "none");
+                textureImage.setAttribute("style", "mix-blend-mode: multiply; opacity: 0.65;");
+
+                pattern.appendChild(baseRect);
+                pattern.appendChild(textureImage);
+                defs.appendChild(pattern);
+
+                path.setAttribute('fill', `url(#${patternId})`);
+            } else {
+                // Fall back to solid CHEX color if no texture is specified
+                path.setAttribute('fill', baseColor);
+            }
+
+            // Dark grey lead/caming outline for stained glass look
+            path.setAttribute('stroke', '#222222');      
+            path.setAttribute('stroke-width', '2');    
+            path.setAttribute('stroke-linejoin', 'round'); 
+
+            path.style.cursor = 'pointer';
+
+            // Click listener for path selection
+            path.addEventListener('click', function(e) {
+                e.stopPropagation();
+                populateSidebar(regionId);
+            });
+
+            // Dynamically inject region label at 5% height font size centered in bounding box
+            try {
+                const bbox = path.getBBox();
+                if (bbox && bbox.width > 0 && bbox.height > 0) {
+                    const cx = bbox.x + bbox.width / 2;
+                    const cy = bbox.y + bbox.height / 2;
+
+                    const textEl = svgDoc.createElementNS("http://www.w3.org/2000/svg", "text");
+                    textEl.setAttribute("x", cx);
+                    textEl.setAttribute("y", cy);
+                    textEl.setAttribute("fill", "#000000");
+                    textEl.setAttribute("font-weight", "bold");
+                    textEl.setAttribute("font-size", fontSize + "px");
+                    textEl.setAttribute("text-anchor", "middle");
+                    textEl.setAttribute("dominant-baseline", "central");
+                    textEl.setAttribute("style", "pointer-events: none; user-select: none;");
+                    textEl.textContent = regionId;
+
+                    svgElement.appendChild(textEl);
+                }
+            } catch (err) {
+                console.warn("Could not calculate bounding box for path element", err);
+            }
+        });
+    });
+});
+
+function populateSidebar(regionId) {
+    const comp = componentsData[regionId];
+    const noSelectionMsg = document.getElementById('no-selection-msg');
+    const componentForm = document.getElementById('component-form');
+
+    if (!comp) {
+        alert(`No component configuration found for Region ID: ${regionId}. Please build components first.`);
+        return;
+    }
+
+    noSelectionMsg.style.display = 'none';
+    componentForm.style.display = 'block';
+
+    document.getElementById('comp_id').value = comp.COMPID;
+    document.getElementById('comp_num').value = comp.COMPNUM;
+    document.getElementById('comp_name').value = comp.COMPNAME;
+    document.getElementById('comp_len').value = comp.COMPLEN;
+    document.getElementById('comp_wid').value = comp.COMPWID;
+    document.getElementById('glass_id').value = comp.GLASSID;
+    document.getElementById('isscrap').checked = comp.ISSCRAP === 1;
+    document.getElementById('isgrain').checked = comp.ISGRAIN === 1;
+}
+</script>
+{% endblock %}
