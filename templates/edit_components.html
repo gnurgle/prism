@@ -107,18 +107,11 @@
             <object data="{{ svg_url }}" type="image/svg+xml" id="svg-object" style="width: 100%; height: 100%; object-fit: contain;"></object>
 
 <!-- Bottom-right overlay buttons for stroke-width adjustment (Updated with high-contrast text styling) -->
-
 <div style="position: absolute; bottom: 10px; right: 10px; z-index: 10; display: flex; gap: 5px;">
-
     <button id="stroke-thin-btn" type="button" class="btn btn-sm btn-secondary active text-white font-weight-bold shadow-sm" title="Thin Line" onclick="setStrokeWidth(2)">🔽</button>
-
     <button id="stroke-thick-btn" type="button" class="btn btn-sm btn-light text-dark font-weight-bold shadow-sm" title="Thick Line" onclick="setStrokeWidth(22)">🔼</button>
-
 </div>
-
-
     </div><object id="svg-object" data="{{ url_for('static', filename='images/layout.svg') }}" type="image/svg+xml"></object>
-
 </div>
 
 
@@ -126,855 +119,432 @@
 
 
 <script>
-
 const componentsData = {{ components_json | tojson }};
-
 const outsideBgUrl = "{{ url_for('static', filename='images/backgrounds/outside.jpg') }}";
-
 const glassImgBaseUrl = "{{ url_for('static', filename='/') }}";
-
 const effectImgBaseUrl = "{{ url_for('static', filename='images/effects/') }}";
 
-
-
 let bgPosX = 50;
-
 let bgPosY = 50;
-
 let isDraggingJoystick = false;
-
 let startMouseX = 0;
-
 let startMouseY = 0;
-
 let startBgPosX = 50;
-
 let startBgPosY = 50;
-
 let currentAppearanceMode = 'chex'; // 'chex' or 'image'
-
 let currentStrokeWidth = 2; // Default stroke width
 
-
-
 function setAppearanceMode(mode) {
-
     currentAppearanceMode = mode;
-
     
-
     const chexBtn = document.getElementById('mode-chex-btn');
-
     const imgBtn = document.getElementById('mode-img-btn');
-
     
-
     if (mode === 'chex') {
-
         chexBtn.classList.add('active', 'btn-secondary');
-
         chexBtn.classList.remove('btn-light');
-
         imgBtn.classList.remove('active', 'btn-secondary');
-
         imgBtn.classList.add('btn-light');
-
     } else {
-
         imgBtn.classList.add('active', 'btn-secondary');
-
         imgBtn.classList.remove('btn-light');
-
         chexBtn.classList.remove('active', 'btn-secondary');
-
         chexBtn.classList.add('btn-light');
-
     }
 
-
-
     renderSvgContent();
-
 }
-
-
 
 function setStrokeWidth(width) {
-
     currentStrokeWidth = width;
 
-
-
     const thinBtn = document.getElementById('stroke-thin-btn');
-
     const thickBtn = document.getElementById('stroke-thick-btn');
 
-
-
     if (width <= 2) {
-
         thinBtn.classList.add('active', 'btn-secondary', 'text-white');
-
         thinBtn.classList.remove('btn-light', 'text-dark');
-
         thickBtn.classList.remove('active', 'btn-secondary', 'text-white');
-
         thickBtn.classList.add('btn-light', 'text-dark');
-
     } else {
-
         thickBtn.classList.add('active', 'btn-secondary', 'text-white');
-
         thickBtn.classList.remove('btn-light', 'text-dark');
-
         thinBtn.classList.remove('active', 'btn-secondary', 'text-white');
-
         thinBtn.classList.add('btn-light', 'text-dark');
-
     }
-
-
 
     renderSvgContent();
-
 }
-
-
 
 function setSvgBackground(type) {
-
     const wrapper = document.getElementById('svg-wrapper');
-
     const joystick = document.getElementById('bg-joystick');
-
     
-
     document.getElementById('bg-white-btn').classList.remove('active', 'btn-secondary');
-
     document.getElementById('bg-outside-btn').classList.remove('active', 'btn-secondary');
-
     document.getElementById('bg-transparent-btn').classList.remove('active', 'btn-secondary');
 
-
-
     if (type === 'white') {
-
         wrapper.style.backgroundColor = '#ffffff';
-
         wrapper.style.backgroundImage = 'none';
-
         joystick.style.display = 'none';
-
         resetJoystick();
-
         document.getElementById('bg-white-btn').classList.add('active', 'btn-secondary');
-
     } else if (type === 'outside') {
-
         wrapper.style.backgroundColor = 'transparent';
-
         wrapper.style.backgroundImage = `url('${outsideBgUrl}')`;
-
         wrapper.style.backgroundSize = 'auto 150%';
-
         wrapper.style.backgroundPosition = `${bgPosX}% ${bgPosY}%`;
-
         joystick.style.display = 'flex';
-
         document.getElementById('bg-outside-btn').classList.add('active', 'btn-secondary');
-
     } else if (type === 'transparent') {
-
         wrapper.style.backgroundColor = 'transparent';
-
         wrapper.style.backgroundImage = 'none';
-
         joystick.style.display = 'none';
-
         resetJoystick();
-
         document.getElementById('bg-transparent-btn').classList.add('active', 'btn-secondary');
-
     }
-
 }
-
-
 
 function resetJoystick() {
-
     isDraggingJoystick = false;
-
     const knob = document.getElementById('joystick-knob');
-
     if (knob) knob.style.transform = `translate(0px, 0px)`;
-
     const svgObject = document.getElementById('svg-object');
-
     if (svgObject) svgObject.style.pointerEvents = 'auto';
-
 }
 
-
-
 document.addEventListener("DOMContentLoaded", function() {
-
     const joystick = document.getElementById('bg-joystick');
-
     const knob = document.getElementById('joystick-knob');
-
     const wrapper = document.getElementById('svg-wrapper');
-
     const svgObject = document.getElementById('svg-object');
 
-
-
     function startDrag(clientX, clientY) {
-
         isDraggingJoystick = true;
-
         joystick.style.cursor = 'grabbing';
-
         startMouseX = clientX;
-
         startMouseY = clientY;
-
         startBgPosX = bgPosX;
-
         startBgPosY = bgPosY;
 
-
-
         if (svgObject) svgObject.style.pointerEvents = 'none';
-
     }
-
-
 
     function moveDrag(clientX, clientY) {
-
         if (!isDraggingJoystick) return;
 
-
-
         const rect = joystick.getBoundingClientRect();
-
         const centerX = rect.left + rect.width / 2;
-
         const centerY = rect.top + rect.height / 2;
 
-
-
         let dx = clientX - centerX;
-
         let dy = clientY - centerY;
 
-
-
         const maxRadius = (rect.width / 2) - 15;
-
         const distance = Math.sqrt(dx * dx + dy * dy);
 
-
-
         let visualDx = dx;
-
         let visualDy = dy;
-
         if (distance > maxRadius && distance > 0) {
-
             visualDx = (dx / distance) * maxRadius;
-
             visualDy = (dy / distance) * maxRadius;
-
         }
-
-
 
         const mouseDeltaX = clientX - startMouseX;
-
         const mouseDeltaY = clientY - startMouseY;
 
-
-
         bgPosX = Math.max(0, Math.min(100, startBgPosX - (mouseDeltaX * 0.15)));
-
         bgPosY = Math.max(0, Math.min(100, startBgPosY - (mouseDeltaY * 0.15)));
 
-
-
         wrapper.style.backgroundPosition = `${bgPosX}% ${bgPosY}%`;
-
         knob.style.transform = `translate(${visualDx}px, ${visualDy}px)`;
-
     }
-
-
 
     function endDrag() {
-
         if (isDraggingJoystick) {
-
             isDraggingJoystick = false;
-
             joystick.style.cursor = 'grab';
-
             knob.style.transform = `translate(0px, 0px)`;
 
-
-
             if (svgObject) svgObject.style.pointerEvents = 'auto';
-
         }
-
     }
 
-
-
     joystick.addEventListener('mousedown', function(e) {
-
         if (e.button !== 0) return;
-
         startDrag(e.clientX, e.clientY);
-
         e.preventDefault();
-
     });
-
-
 
     document.addEventListener('mousemove', function(e) {
-
         moveDrag(e.clientX, e.clientY);
-
     });
-
-
 
     document.addEventListener('mouseup', function(e) {
-
         endDrag();
-
     });
-
-
 
     joystick.addEventListener('touchstart', function(e) {
-
         if (e.touches.length > 0) {
-
             startDrag(e.touches[0].clientX, e.touches[0].clientY);
-
             e.preventDefault();
-
         }
-
     }, { passive: false });
 
-
-
     document.addEventListener('touchmove', function(e) {
-
         if (e.touches.length > 0) {
-
             moveDrag(e.touches.clientX, e.touches.clientY);
-
         }
-
     }, { passive: true });
 
-
-
     document.addEventListener('touchend', function(e) {
-
         endDrag();
-
     });
-
-
 
     svgObject.addEventListener('load', function() {
-
         renderSvgContent();
-
     });
-
 });
 
 
-
 function renderSvgContent() {
-
     const svgObject = document.getElementById('svg-object');
-
     if (!svgObject) return;
 
-
-
     const svgDoc = svgObject.contentDocument;
-
     if (!svgDoc) return;
 
-
-
     const svgElement = svgDoc.querySelector('svg');
-
     if (!svgElement) return;
 
-
-
     if (!svgElement.getAttribute('viewBox')) {
-
         svgElement.setAttribute('viewBox', '0 0 800 800');
-
     }
-
-
-
+    
     const viewBoxAttr = svgElement.getAttribute('viewBox');
-
     const viewBoxParts = viewBoxAttr.split(/[\s,]+/).map(parseFloat);
-
     const svgWidth = viewBoxParts.length === 4 ? viewBoxParts[2] : 800;
-
     const svgHeight = viewBoxParts.length === 4 ? viewBoxParts[3] : 800;
 
-
-
     let defs = svgElement.querySelector('defs');
-
     if (!defs) {
-
         defs = svgDoc.createElementNS("http://www.w3.org/2000/svg", "defs");
-
         svgElement.insertBefore(defs, svgElement.firstChild);
-
     } else {
-
         const oldPatterns = defs.querySelectorAll('pattern[id^="texture-pattern-"]');
-
         oldPatterns.forEach(p => p.remove());
-
         const oldFilters = defs.querySelectorAll('filter[id^="bump-filter-"]');
-
         oldFilters.forEach(f => f.remove());
-
     }
-
-
 
     let fontSize = svgHeight * 0.05;
 
-
-
     const paths = svgDoc.querySelectorAll('path');
 
-
-
     paths.forEach((path, index) => {
-
         const regionId = path.getAttribute('data-region-id') || path.getAttribute('data-number') || (index + 1);
-
         const comp = componentsData[regionId];
-
         
-
         const labelText = (comp && comp.COMPNUM !== undefined && comp.COMPNUM !== null && comp.COMPNUM !== '') ? comp.COMPNUM : regionId;
-
-
 
         let baseColor = (comp && comp.CHEX) ? '#' + comp.CHEX : '#cccccc';
 
-
-
         let trsValue = 75;
-
         if (comp && comp.GTRNSV !== undefined && comp.GTRNSV !== null && comp.GTRNSV !== '') {
-
             trsValue = parseFloat(comp.GTRNSV);
-
         }
-
         trsValue = Math.max(0, Math.min(100, trsValue));
-
         const shapeOpacity = (trsValue / 100).toFixed(2);
 
-
-
         let useImageFill = false;
-
         let imageUrl = '';
-
         if (currentAppearanceMode === 'image' && comp && comp.GLSIMG && comp.GLSIMG.trim() !== '') {
-
             useImageFill = true;
-
             imageUrl = glassImgBaseUrl + comp.GLSIMG.trim();
-
         }
-
-
 
         const hasTexture = !useImageFill && comp && comp.GLSTEX && comp.GLSTEX.trim() !== '';
 
-
-
         if (hasTexture || useImageFill) {
-
             const patternId = `texture-pattern-${regionId}-${currentAppearanceMode}-${comp ? (useImageFill ? comp.GLSIMG : comp.GLSTEX) : 'none'}`;
-
             
-
             const pattern = svgDoc.createElementNS("http://www.w3.org/2000/svg", "pattern");
-
             pattern.setAttribute("id", patternId);
-
             pattern.setAttribute("width", "1200");
-
             pattern.setAttribute("height", "1200");
-
             pattern.setAttribute("patternUnits", "userSpaceOnUse");
-
             
-
             if (useImageFill) {
-
                 const imgWidth = svgWidth * 2;
-
                 const imgHeight = svgHeight * 2;
-
                 
-
                 const centerX = (1200 - imgWidth) / 2;
-
                 const centerY = (1200 - imgHeight) / 2;
-
                 
-
                 const maxOffsetX = svgWidth * 0.15;
-
                 const maxOffsetY = svgHeight * 0.15;
-
                 const randomOffsetX = (Math.random() * (maxOffsetX * 2)) - maxOffsetX;
-
                 const randomOffsetY = (Math.random() * (maxOffsetY * 2)) - maxOffsetY;
-
                 
-
                 const finalX = centerX + randomOffsetX;
-
                 const finalY = centerY + randomOffsetY;
 
-
-
                 const imageFill = svgDoc.createElementNS("http://www.w3.org/2000/svg", "image");
-
                 imageFill.setAttributeNS("http://www.w3.org/1999/xlink", "href", imageUrl);
-
                 imageFill.setAttribute("href", imageUrl);
-
                 imageFill.setAttribute("x", finalX);
-
                 imageFill.setAttribute("y", finalY);
-
                 imageFill.setAttribute("width", imgWidth);
-
                 imageFill.setAttribute("height", imgHeight);
-
                 imageFill.setAttribute("preserveAspectRatio", "none");
-
                 imageFill.setAttribute("style", `opacity: ${shapeOpacity};`);
-
                 pattern.appendChild(imageFill);
-
             } else {
-
                 const baseRect = svgDoc.createElementNS("http://www.w3.org/2000/svg", "rect");
-
                 baseRect.setAttribute("width", "1200");
-
                 baseRect.setAttribute("height", "1200");
-
                 baseRect.setAttribute("fill", baseColor);
-
                 baseRect.setAttribute("opacity", shapeOpacity);
-
                 pattern.appendChild(baseRect);
 
-
-
                 const textureFilename = comp.GLSTEX.trim().toLowerCase() + '.jpg';
-
                 const textureUrl = effectImgBaseUrl + textureFilename;
 
-
-
                 const textureImage = svgDoc.createElementNS("http://www.w3.org/2000/svg", "image");
-
                 textureImage.setAttributeNS("http://www.w3.org/1999/xlink", "href", textureUrl);
-
                 textureImage.setAttribute("href", textureUrl);
-
                 textureImage.setAttribute("width", "1200");
-
                 textureImage.setAttribute("height", "1200");
-
                 textureImage.setAttribute("preserveAspectRatio", "none");
-
                 textureImage.setAttribute("style", `mix-blend-mode: multiply; opacity: ${shapeOpacity}; filter: grayscale(100%);`);
-
                 pattern.appendChild(textureImage);
-
             }
 
-
-
             defs.appendChild(pattern);
-
             path.setAttribute('fill', `url(#${patternId})`);
-
             path.removeAttribute('fill-opacity');
-
         } else {
-
             path.setAttribute('fill', baseColor);
-
             path.setAttribute('fill-opacity', shapeOpacity);
-
         }
 
-
-
-        // Strict Bump Map filter with explicit SourceAlpha clipping
-
+// Strict Bump Map filter with explicit SourceAlpha clipping
         if (hasTexture) {
-
             const textureFilterId = `bump-filter-${regionId}`;
-
             const filter = svgDoc.createElementNS("http://www.w3.org/2000/svg", "filter");
-
             filter.setAttribute("id", textureFilterId);
-
-            // Ensure filter boundary tracks tightly with element bounds
-
-            filter.setAttribute("x", "0%");
-
-            filter.setAttribute("y", "0%");
-
-            filter.setAttribute("width", "100%");
-
-            filter.setAttribute("height", "100%");
-
-
+            
+            // Give the filter breathing room to calculate without clipping early
+            filter.setAttribute("x", "-20%");
+            filter.setAttribute("y", "-20%");
+            filter.setAttribute("width", "140%");
+            filter.setAttribute("height", "140%");
 
             const feColorMatrix = svgDoc.createElementNS("http://www.w3.org/2000/svg", "feColorMatrix");
-
             feColorMatrix.setAttribute("type", "matrix");
-
             feColorMatrix.setAttribute("values", "0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0.2126 0.7152 0.0722 0 0");
-
             filter.appendChild(feColorMatrix);
 
-
-
             const feDiffuse = svgDoc.createElementNS("http://www.w3.org/2000/svg", "feDiffuseLighting");
-
             feDiffuse.setAttribute("lighting-color", "#ffffff");
-
             feDiffuse.setAttribute("surfaceScale", "4");
-
             feDiffuse.setAttribute("result", "light");
 
-
-
             const feLight = svgDoc.createElementNS("http://www.w3.org/2000/svg", "feDistantLight");
-
             feLight.setAttribute("azimuth", "45");
-
             feLight.setAttribute("elevation", "60");
-
             feDiffuse.appendChild(feLight);
-
             filter.appendChild(feDiffuse);
 
-
-
             const feBlend = svgDoc.createElementNS("http://www.w3.org/2000/svg", "feBlend");
-
             feBlend.setAttribute("mode", "multiply");
-
             feBlend.setAttribute("in", "SourceGraphic");
-
             feBlend.setAttribute("in2", "light");
-
             feBlend.setAttribute("result", "blended");
-
             filter.appendChild(feBlend);
 
-
-
-            // Clip the filter output strictly to the path shape using SourceAlpha
-
+            // CRITICAL: This hard-clips the filter output strictly to the path's original shape
             const feComposite = svgDoc.createElementNS("http://www.w3.org/2000/svg", "feComposite");
-
             feComposite.setAttribute("in", "blended");
-
             feComposite.setAttribute("in2", "SourceAlpha");
-
             feComposite.setAttribute("operator", "in");
-
             filter.appendChild(feComposite);
 
-
-
             defs.appendChild(filter);
-
             path.style.filter = `url(#${textureFilterId})`;
-
         } else {
-
-            path.style.filter = 'none';
-
-        }
-
-
+            path.style.filter = 'none';        }
 
         path.removeAttribute('opacity');
-
         path.setAttribute('stroke', '#222222');      
-
         path.setAttribute('stroke-width', currentStrokeWidth);    
-
         path.setAttribute('stroke-linejoin', 'round'); 
-
-
 
         path.style.cursor = 'pointer';
 
-
-
         const newPath = path.cloneNode(true);
-
         path.parentNode.replaceChild(newPath, path);
 
-
-
         newPath.addEventListener('click', function(e) {
-
             e.stopPropagation();
-
             populateSidebar(regionId);
-
         });
-
-
 
         const existingText = svgElement.querySelector(`text[data-region-label="${regionId}"]`);
 
         if (!existingText) {
-
             try {
-
                 const bbox = newPath.getBBox();
-
                 if (bbox && bbox.width > 0 && bbox.height > 0) {
-
                     const cx = bbox.x + bbox.width / 2;
-
                     const cy = bbox.y + bbox.height / 2;
 
-
-
                     const textEl = svgDoc.createElementNS("http://www.w3.org/2000/svg", "text");
-
                     textEl.setAttribute("data-region-label", regionId);
-
                     textEl.setAttribute("x", cx);
-
                     textEl.setAttribute("y", cy);
-
                     textEl.setAttribute("fill", "#000000");
-
                     textEl.setAttribute("stroke", "#ffffff");
-
                     textEl.setAttribute("stroke-width", "3px");
-
                     textEl.setAttribute("stroke-linejoin", "round");
-
                     textEl.setAttribute("paint-order", "stroke fill");
-
                     textEl.setAttribute("font-weight", "bold");
-
                     textEl.setAttribute("font-size", fontSize + "px");
-
                     textEl.setAttribute("text-anchor", "middle");
-
                     textEl.setAttribute("dominant-baseline", "central");
-
                     textEl.setAttribute("style", "pointer-events: none; user-select: none;");
-
                     textEl.textContent = labelText;
 
-
-
                     svgElement.appendChild(textEl);
-
                 }
-
             } catch (err) {
-
                 console.warn("Could not calculate bounding box for path element", err);
-
             }
-
         }
-
     });
-
 }
 
-
-
 function populateSidebar(regionId) {
-
     const comp = componentsData[regionId];
-
     const noSelectionMsg = document.getElementById('no-selection-msg');
-
     const componentForm = document.getElementById('component-form');
 
-
-
     if (!comp) {
-
         alert(`No component configuration found for Region ID: ${regionId}. Please build components first.`);
-
         return;
-
     }
 
-
-
     noSelectionMsg.style.display = 'none';
-
     componentForm.style.display = 'block';
 
-
-
     document.getElementById('comp_id').value = comp.COMPID;
-
     document.getElementById('comp_num').value = comp.COMPNUM;
-
     document.getElementById('comp_name').value = comp.COMPNAME;
-
     document.getElementById('comp_len').value = comp.COMPLEN;
-
     document.getElementById('comp_wid').value = comp.COMPWID;
-
     document.getElementById('glass_id').value = comp.GLASSID;
-
     document.getElementById('isscrap').checked = comp.ISSCRAP === 1;
-
     document.getElementById('isgrain').checked = comp.ISGRAIN === 1;
 
 }
