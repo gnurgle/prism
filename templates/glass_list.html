@@ -3,13 +3,13 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
     <div>
-        <h2 class="mb-0">Glass Inventory Directory (`GSI`)</h2>
+        <h2 class="mb-0">Glass Sheet Directory</h2>
         <small class="text-muted">Showing {{ glasses|length }} item(s)</small>
     </div>
     <div class="d-flex gap-2">
         <button type="button" class="btn btn-outline-secondary d-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#filterModal">
             🔍 Filter Results
-            {% if filters.q or filters.manf or filters.tex or filters.source or filters.min_price or filters.max_price or filters.item_id %}
+            {% if filters.q or filters.manf or filters.tex or filters.color or filters.source or filters.min_price or filters.max_price or filters.item_id %}
                 <span class="badge bg-primary rounded-pill">Active</span>
             {% endif %}
         </button>
@@ -19,7 +19,7 @@
 
 {# --- Active Filter Indicators --- #}
 
-{% if filters.q or filters.manf or filters.tex or filters.source or filters.min_price or filters.max_price or filters.item_id %}
+{% if filters.q or filters.manf or filters.tex or filters.color or filters.source or filters.min_price or filters.max_price or filters.item_id %}
 <div class="alert alert-info py-2 px-3 d-flex align-items-center justify-content-between mb-3">
     <div class="d-flex flex-wrap gap-2 align-items-center">
         <small class="fw-bold">Active Filters:</small>
@@ -67,7 +67,6 @@
                     <th>{{ sort_header('GLSOURCE', 'Source') }}</th>
                     <th>{{ sort_header('GLSLEN', 'Dimensions') }}</th>
                     <th>{{ sort_header('GLSPRICE', 'Price') }}</th>
-                   <!--- <th class="text-end">Actions</th>--->
                 </tr>
             </thead>
             <tbody>
@@ -101,22 +100,12 @@
                     <td>
                         {% if g.GLSPRICE %}<strong class="text-success">${{ "%.2f"|format(g.GLSPRICE) }}</strong>{% else %}<span class="text-muted">Unpriced</span>{% endif %}
                     </td>
-			<!---
-                    <td class="text-end">
-                        <div class="d-inline-flex gap-1">
-                            <a href="{{ url_for('glass_detail', glass_id=g.GLASSID) }}" class="btn btn-sm btn-outline-info">View</a>
-                            <a href="{{ url_for('edit_glass', glass_id=g.GLASSID) }}" class="btn btn-sm btn-outline-primary">Edit</a>
-                            <form action="{{ url_for('delete_glass', glass_id=g.GLASSID) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete {{ g.GLSNAME }}?');">
-                                <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
-                            </form>
-                        </div>
-                    </td>--->
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="9" class="text-center py-5 text-muted">
-                        No glass sheets match your criteria. 
-                        {% if filters.q or filters.manf or filters.tex or filters.source or filters.min_price or filters.max_price or filters.item_id %}
+                    <td colspan="8" class="text-center py-5 text-muted">
+                        No glass sheets match your criteria.
+                        {% if filters.q or filters.manf or filters.tex or filters.color or filters.source or filters.min_price or filters.max_price or filters.item_id %}
                             <a href="{{ url_for('list_glass') }}">Reset filters</a>
                         {% endif %}
                     </td>
@@ -145,7 +134,7 @@
                     <div class="mb-3 p-3 bg-light rounded border">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <label class="form-label fw-bold mb-0">Used in Item Component</label>
-                            <button type="button" id="toggleActiveBtn" 
+                            <button type="button" id="toggleActiveBtn"
                                     class="btn btn-sm {% if filters.active_only == '1' %}btn-success{% else %}btn-outline-secondary{% endif %}">
                                 {% if filters.active_only == '1' %}
                                     ✓ Currently Selling Only
@@ -193,15 +182,56 @@
                             </select>
                         </div>
                     </div>
-                    <div class="col-md-6 mb-3">
+
+                    <div class="col-md-12 mb-3">
                         <label class="form-label fw-bold">Color</label>
-                        <select name="color" class="form-select">
-                            <option value="">-- All Colors --</option>
-                            {% for c in colors %}
-                                <option value="{{ c.COLOR }}" {% if filters.color == c.COLOR %}selected{% endif %}>{{ c.COLOR }}</option>
-                            {% endfor %}
-                        </select>
+
+                        <!-- Hidden input to hold the submitted value for Flask filters -->
+                        <input type="hidden" name="color" id="selected-color-input" value="{{ filters.color if filters.color else '' }}">
+
+                        <!-- Custom Dropdown Button -->
+                        <div class="dropdown">
+                            <button class="btn btn-outline-secondary dropdown-toggle w-100 d-flex align-items-center justify-content-between bg-white text-dark"
+                                    type="button"
+                                    id="colorDropdownBtn"
+                                    data-bs-toggle="dropdown"
+                                    aria-expanded="false">
+                                <span id="selected-color-label" class="d-flex align-items-center gap-2">
+                                    {% if filters.color %}
+                                        {% set active_color = colors | selectattr('COLOR', 'equalto', filters.color) | first %}
+                                        <span class="d-inline-block rounded border" style="width: 18px; height: 18px; background-color: #{{ active_color.CHEX|string|replace('#', '') if active_color and active_color.CHEX else 'ccc' }};"></span>
+                                        {{ filters.color }}
+                                    {% else %}
+                                        <span class="text-muted">-- All Colors --</span>
+                                    {% endif %}
+                                </span>
+                            </button>
+
+                            <!-- Dropdown Menu List -->
+                            <ul class="dropdown-menu w-100 shadow-sm" aria-labelledby="colorDropdownBtn" style="max-height: 250px; overflow-y: auto;">
+                                <li>
+                                    <a class="dropdown-item d-flex align-items-center gap-2" href="javascript:void(0);" onclick="selectColor('', '', '-- All Colors --')">
+                                        <span class="d-inline-block rounded border bg-transparent" style="width: 18px; height: 18px;"></span>
+                                        <span class="text-muted">-- All Colors --</span>
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+
+                                {% for c in colors %}
+                                <li>
+                                    <a class="dropdown-item d-flex align-items-center gap-2 {% if filters.color == c.COLOR %}active{% endif %}"
+                                       href="javascript:void(0);"
+                                       onclick="selectColor('{{ c.COLOR }}', '{{ c.CHEX or 'ffffff' }}', '{{ c.COLOR }}')">
+                                        <span class="d-inline-block rounded border flex-shrink-0"
+                                              style="width: 18px; height: 18px; background-color: #{{ c.CHEX|string|replace('#', '') if c.CHEX else 'ffffff' }};"></span>
+                                        <span>{{ c.COLOR }}</span>
+                                    </a>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
                     </div>
+
                     <div class="mb-3">
                         <label class="form-label fw-bold">Supplier Source</label>
                         <select name="source" class="form-select">
@@ -232,6 +262,7 @@
     </div>
 </div>
 
+<script src="{{ url_for('static', filename='js/color_dropdown.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // 1. Dynamic Font Color Contrast Calculation for Badges
@@ -239,11 +270,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!hexColor) return '#ffffff';
         const hex = hexColor.replace('#', '');
         if (hex.length !== 6) return '#000000';
-        
+
         const r = parseInt(hex.substring(0, 2), 16);
         const g = parseInt(hex.substring(2, 4), 16);
         const b = parseInt(hex.substring(4, 6), 16);
-        
+
         const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
         return luminance > 0.6 ? '#000000' : '#ffffff';
     }
@@ -265,7 +296,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (toggleBtn) {
         toggleBtn.addEventListener('click', function() {
             const isCurrentlyActive = activeInput.value === '1';
-            
+
             if (isCurrentlyActive) {
                 activeInput.value = '0';
                 toggleBtn.className = 'btn btn-sm btn-outline-secondary';
