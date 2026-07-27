@@ -29,6 +29,18 @@
                     <input type="text" class="form-control mt-2" id="NEW_ITMGRP" name="NEW_ITMGRP" placeholder="Or type a new group name...">
                 </div>
 
+                <!-- Added Item Length and Width Inputs -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="ITMLEN" class="form-label">Item Length (inches)</label>
+                        <input type="number" step="0.01" class="form-control" id="ITMLEN" name="ITMLEN" value="{{ item.ITMLEN if item and item.ITMLEN is not none else '' }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="ITMWID" class="form-label">Item Width (inches)</label>
+                        <input type="number" step="0.01" class="form-control" id="ITMWID" name="ITMWID" value="{{ item.ITMWID if item and item.ITMWID is not none else '' }}">
+                    </div>
+                </div>
+
                 <div class="row mb-3">
                     <div class="col-md-6">
                         <div class="form-check">

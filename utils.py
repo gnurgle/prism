@@ -550,3 +550,45 @@ def remove_svg_region_and_renumber(svg_path, target_region_id_num):
         print(f"HELPER EXCEPTION: Error processing SVG renumbering: {e}")
 
         return False
+
+def format_fractional_inches(value):
+    if value is None:
+        return '—'
+    try:
+        val = float(value)
+    except (ValueError, TypeError):
+        return '—'
+    
+    whole = int(val)
+    remainder = val - whole
+    
+    # Round to the nearest 1/8 (0.125)
+    eighths = round(remainder * 8)
+    
+    if eighths == 8:
+        whole += 1
+        eighths = 0
+    
+    # Reduce fractions
+    fractions = {
+        0: '',
+        1: '1/8',
+        2: '1/4',
+        3: '3/8',
+        4: '1/2',
+        5: '5/8',
+        6: '3/4',
+        7: '7/8'
+    }
+    
+    frac_str = fractions.get(eighths, '')
+    
+    if whole == 0 and frac_str == '':
+        return '0"'
+    elif whole == 0:
+        return f'{frac_str}"'
+    elif frac_str == '':
+        return f'{whole}"'
+    else:
+        return f'{whole} {frac_str}"'
+

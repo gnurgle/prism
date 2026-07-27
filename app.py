@@ -1,15 +1,18 @@
 import os
 import sqlite3
 import xml.etree.ElementTree as ET
+import re
 from lxml import etree
 from svgpathtools import svg2paths, wsvg
-from utils import process_and_save_image, hex_to_hsv, convert_image_to_svg, remove_svg_region_and_renumber
+from utils import process_and_save_image, hex_to_hsv, convert_image_to_svg, remove_svg_region_and_renumber, format_fractional_inches
 from flask import Flask, flash, redirect, render_template, request, url_for, render_template_string
 from datetime import date, datetime, timedelta
 
 app = Flask(__name__, static_folder='static')
 app.secret_key = "changethislatertoaenv"
 DATABASE = "inventory.db"
+
+app.jinja_env.filters['inch_format'] = format_fractional_inches
 
 # Ensure these directories exist in your project root
 UPLOAD_FOLDER_TEMPLATES = 'static/images/templates'
@@ -157,6 +160,30 @@ def item_detail(item_id):
         (item['ITMGRP'],),
     ).fetchall()
 
+  components_with_cost = db.execute(
+        """
+            SELECT c.COMPLEN, c.COMPWID, g.GLSLEN, g.GLSWID, 
+                   (SELECT gp.GLSPRICE FROM GPC gp 
+                    WHERE gp.GLASSID = g.GLASSID AND (gp.ENDDATE IS NULL OR gp.ENDDATE >= DATE('now'))
+                    ORDER BY gp.STDATE DESC LIMIT 1) AS LATEST_GLSPRICE
+            FROM IGC c
+            JOIN GSI g ON c.GLASSID = g.GLASSID
+            WHERE c.ITEMID = ? AND c.COMPLEN IS NOT NULL AND c.COMPWID IS NOT NULL
+                  AND g.GLSLEN IS NOT NULL AND g.GLSWID IS NOT NULL AND g.GLSLEN > 0 AND g.GLSWID > 0
+        """,
+        (item_id,),
+    ).fetchall()
+
+  materials_cost = 0.0
+  for comp in components_with_cost:
+      comp_sqin = (comp['COMPLEN'] or 0) * (comp['COMPWID'] or 0)
+      glass_sheet_area = (comp['GLSLEN'] or 1) * (comp['GLSWID'] or 1)
+      glass_sheet_price = comp['LATEST_GLSPRICE'] or 0.0
+        
+      if glass_sheet_area > 0:
+          cost_per_sqin = glass_sheet_price / glass_sheet_area
+          materials_cost += comp_sqin * cost_per_sqin
+
   return render_template(
       'item_detail.html',
       item=item,
@@ -164,6 +191,7 @@ def item_detail(item_id):
       current_price=current_price,
       lowest_price=lowest_price,
       highest_price=highest_price,
+      materials_cost=materials_cost,
       group_siblings=group_siblings,
   )
 # -----------------------------------------------------------------------------
@@ -173,146 +201,166 @@ def item_detail(item_id):
 
 @app.route('/item/create', methods=['GET', 'POST'])
 def create_item():
-  """Create a new Item record and handle group/image inputs."""
-  db = get_db()
+    """Create a new Item record and handle group/image inputs."""
+    db = get_db()
 
-  if request.method == 'POST':
-    itm_name = request.form.get('ITMNAME', '').strip()
-    itm_grp = request.form.get('ITMGRP', '').strip()
-    new_grp = request.form.get('NEW_ITMGRP', '').strip()
-    oneoff = 1 if request.form.get('ONEOFF') else 0
-    current = 1 if request.form.get('CURRENT') else 0
-    itm_note = request.form.get('ITMNOTE', '').strip()
+    if request.method == 'POST':
+        itm_name = request.form.get('ITMNAME', '').strip()
+        itm_grp = request.form.get('ITMGRP', '').strip()
+        new_grp = request.form.get('NEW_ITMGRP', '').strip()
+        
+        # Parse dimensions securely
+        itm_len_val = request.form.get('ITMLEN')
+        itm_wid_val = request.form.get('ITMWID')
+        itm_len = float(itm_len_val) if itm_len_val else None
+        itm_wid = float(itm_wid_val) if itm_wid_val else None
 
-    # Handle new group insertion if provided
-    selected_group = itm_grp
-    if new_grp:
-      selected_group = new_grp
-      existing_grp = db.execute(
-          'SELECT 1 FROM IGP WHERE ITMGRP = ?', (new_grp,)
-      ).fetchone()
-      if not existing_grp:
-        db.execute(
-            'INSERT INTO IGP (ITMGRP, ISACTIVE) VALUES (?, 1)', (new_grp,)
-        )
+        oneoff = 1 if request.form.get('ONEOFF') else 0
+        current = 1 if request.form.get('CURRENT') else 0
+        itm_note = request.form.get('ITMNOTE', '').strip()
 
-    # Save initial record to get the item_id for naming the image file
-    cursor = db.cursor()
-    cursor.execute(
-        """
-            INSERT INTO ITM (ITMNAME, ITMGRP, ONEOFF, CURRENT, ITMNOTE, ITMIMG)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """,
-        (itm_name, selected_group, oneoff, current, itm_note, None),
-    )
-    item_id = cursor.lastrowid
-    db.commit()
+        # Group safeguard: if no option selected and new input is blank, assign None
+        selected_group = None
+        if new_grp:
+            selected_group = new_grp
+            existing_grp = db.execute(
+                'SELECT 1 FROM IGP WHERE ITMGRP = ?', (new_grp,)
+            ).fetchone()
+            if not existing_grp:
+                db.execute(
+                    'INSERT INTO IGP (ITMGRP, ISACTIVE) VALUES (?, 1)', (new_grp,)
+                )
+        elif itm_grp:
+            selected_group = itm_grp
 
-    # Handle image upload using the modular helper signature
-    image_path = None
-    if 'ITMIMG_FILE' in request.files:
-      file = request.files['ITMIMG_FILE']
-      if file and file.filename != '':
-        image_path = process_and_save_image(
-            file,
-            upload_subfolder='images/items',
-            custom_filename_base=f'{item_id}_{itm_name}',
-            target_size=(1024, 1024),
-        )
-        # Update record with the final image path if uploaded
+        # Save initial record to get the item_id for naming the image file
+        cursor = db.cursor()
         cursor.execute(
-            'UPDATE ITM SET ITMIMG = ? WHERE ITEMID = ?', (image_path, item_id)
+            """
+                INSERT INTO ITM (ITMNAME, ITMGRP, ITMLEN, ITMWID, ONEOFF, CURRENT, ITMNOTE, ITMIMG)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (itm_name, selected_group, itm_len, itm_wid, oneoff, current, itm_note, None),
         )
+        item_id = cursor.lastrowid
         db.commit()
 
-    flash(f'Item "{itm_name}" successfully created.', 'success')
-    return redirect(url_for('item_detail', item_id=item_id))
+        # Handle image upload using the modular helper signature
+        image_path = None
+        if 'ITMIMG_FILE' in request.files:
+            file = request.files['ITMIMG_FILE']
+            if file and file.filename != '':
+                image_path = process_and_save_image(
+                    file,
+                    upload_subfolder='images/items',
+                    custom_filename_base=f'{item_id}_{itm_name}',
+                    target_size=(1024, 1024),
+                )
+                cursor.execute(
+                    'UPDATE ITM SET ITMIMG = ? WHERE ITEMID = ?', (image_path, item_id)
+                )
+                db.commit()
 
-  groups = db.execute(
-      'SELECT DISTINCT ITMGRP FROM ITM WHERE ITMGRP IS NOT NULL AND ITMGRP !='
-      " '' ORDER BY ITMGRP"
-  ).fetchall()
-  return render_template('item_form.html', action='Create', groups=groups)
+        flash(f'Item "{itm_name}" successfully created.', 'success')
+        return redirect(url_for('item_detail', item_id=item_id))
+
+    groups = db.execute(
+        'SELECT DISTINCT ITMGRP FROM ITM WHERE ITMGRP IS NOT NULL AND ITMGRP !='
+        " '' ORDER BY ITMGRP"
+    ).fetchall()
+    return render_template('item_form.html', action='Create', groups=groups)
 
 
 @app.route('/item/<int:item_id>/edit', methods=['GET', 'POST'])
 def edit_item(item_id):
-  """Edit an existing Item record, matching glass image upload handling."""
-  db = get_db()
+    """Edit an existing Item record, matching glass image upload handling."""
+    db = get_db()
 
-  item = db.execute(
-      'SELECT * FROM ITM WHERE ITEMID = ?', (item_id,)
-  ).fetchone()
+    item = db.execute(
+        'SELECT * FROM ITM WHERE ITEMID = ?', (item_id,)
+    ).fetchone()
 
-  if not item:
-    flash('Item record not found.', 'danger')
-    return redirect(url_for('index'))
+    if not item:
+        flash('Item record not found.', 'danger')
+        return redirect(url_for('index'))
 
-  if request.method == 'POST':
-    itm_name = request.form.get('ITMNAME', '').strip()
-    itm_grp = request.form.get('ITMGRP', '').strip()
-    new_grp = request.form.get('NEW_ITMGRP', '').strip()
-    oneoff = 1 if request.form.get('ONEOFF') else 0
-    current = 1 if request.form.get('CURRENT') else 0
-    itm_note = request.form.get('ITMNOTE', '').strip()
+    if request.method == 'POST':
+        itm_name = request.form.get('ITMNAME', '').strip()
+        itm_grp = request.form.get('ITMGRP', '').strip()
+        new_grp = request.form.get('NEW_ITMGRP', '').strip()
+        
+        # Parse dimensions securely
+        itm_len_val = request.form.get('ITMLEN')
+        itm_wid_val = request.form.get('ITMWID')
+        itm_len = float(itm_len_val) if itm_len_val else None
+        itm_wid = float(itm_wid_val) if itm_wid_val else None
 
-    selected_group = itm_grp
-    if new_grp:
-      selected_group = new_grp
-      existing_grp = db.execute(
-          'SELECT 1 FROM IGP WHERE ITMGRP = ?', (new_grp,)
-      ).fetchone()
-      if not existing_grp:
+        oneoff = 1 if request.form.get('ONEOFF') else 0
+        current = 1 if request.form.get('CURRENT') else 0
+        itm_note = request.form.get('ITMNOTE', '').strip()
+
+        selected_group = None
+        if new_grp:
+            selected_group = new_grp
+            existing_grp = db.execute(
+                'SELECT 1 FROM IGP WHERE ITMGRP = ?', (new_grp,)
+            ).fetchone()
+            if not existing_grp:
+                db.execute(
+                    'INSERT INTO IGP (ITMGRP, ISACTIVE) VALUES (?, 1)', (new_grp,)
+                )
+        elif itm_grp:
+            selected_group = itm_grp
+
+        # Keep existing image unless a new file is uploaded
+        image_path = item['ITMIMG']
+        if 'ITMIMG_FILE' in request.files:
+            file = request.files['ITMIMG_FILE']
+            if file and file.filename != '':
+                image_path = process_and_save_image(
+                    file,
+                    upload_subfolder='images/items',
+                    custom_filename_base=f'{item_id}_{itm_name}',
+                    target_size=(1024, 1024),
+                )
+
         db.execute(
-            'INSERT INTO IGP (ITMGRP, ISACTIVE) VALUES (?, 1)', (new_grp,)
+            """
+                UPDATE ITM 
+                SET ITMNAME = ?, 
+                    ITMGRP = ?, 
+                    ITMLEN = ?,
+                    ITMWID = ?,
+                    ONEOFF = ?, 
+                    CURRENT = ?, 
+                    ITMNOTE = ?, 
+                    ITMIMG = ?
+                WHERE ITEMID = ?
+            """,
+            (
+                itm_name,
+                selected_group,
+                itm_len,
+                itm_wid,
+                oneoff,
+                current,
+                itm_note,
+                image_path,
+                item_id,
+            ),
         )
+        db.commit()
 
-    # Keep existing image unless a new file is uploaded
-    image_path = item['ITMIMG']
-    if 'ITMIMG_FILE' in request.files:
-      file = request.files['ITMIMG_FILE']
-      if file and file.filename != '':
-        image_path = process_and_save_image(
-            file,
-            upload_subfolder='images/items',
-            custom_filename_base=f'{item_id}_{itm_name}',
-            target_size=(1024, 1024),
-        )
+        flash(f'Item "{itm_name}" updated successfully.', 'success')
+        return redirect(url_for('item_detail', item_id=item_id))
 
-    db.execute(
-        """
-            UPDATE ITM 
-            SET ITMNAME = ?, 
-                ITMGRP = ?, 
-                ONEOFF = ?, 
-                CURRENT = ?, 
-                ITMNOTE = ?, 
-                ITMIMG = ?
-            WHERE ITEMID = ?
-        """,
-        (
-            itm_name,
-            selected_group,
-            oneoff,
-            current,
-            itm_note,
-            image_path,
-            item_id,
-        ),
+    groups = db.execute(
+        'SELECT DISTINCT ITMGRP FROM ITM WHERE ITMGRP IS NOT NULL AND ITMGRP !='
+        " '' ORDER BY ITMGRP"
+    ).fetchall()
+    return render_template(
+        'item_form.html', action='Edit', item=item, groups=groups
     )
-    db.commit()
-
-    flash(f'Item "{itm_name}" updated successfully.', 'success')
-    return redirect(url_for('item_detail', item_id=item_id))
-
-  groups = db.execute(
-      'SELECT DISTINCT ITMGRP FROM ITM WHERE ITMGRP IS NOT NULL AND ITMGRP !='
-      " '' ORDER BY ITMGRP"
-  ).fetchall()
-  return render_template(
-      'item_form.html', action='Edit', item=item, groups=groups
-  )
-
 
 @app.route('/item/<int:item_id>/history')
 def price_history(item_id):
@@ -1426,37 +1474,83 @@ def edit_template(item_id):
 @app.route('/build_components', methods=['GET', 'POST'])
 def build_components():
     db = get_db()
-    
+
     if request.method == 'POST':
         selected_item_id = request.form.get('item_id')
-        
+
         if not selected_item_id:
             flash('Please select a valid item.', 'danger')
             return redirect(url_for('build_components'))
-            
+
         # Fetch the selected item
         item = db.execute('SELECT * FROM ITM WHERE ITEMID = ?', (selected_item_id,)).fetchone()
-        
+
         svg_filename = item['ITMSVG'] if (item and 'ITMSVG' in item.keys()) else None
-        
+
         if item and svg_filename:
+            # Check if ITMLEN and ITMWID are valid (non-zero and non-negative)
+            item_keys = item.keys()
+            itm_len = item['ITMLEN'] if (item and 'ITMLEN' in item_keys) else None
+            itm_wid = item['ITMWID'] if (item and 'ITMWID' in item_keys) else None
+            
+            has_valid_dimensions = False
+            try:
+                itm_len_val = float(itm_len) if itm_len is not None else 0.0
+                itm_wid_val = float(itm_wid) if itm_wid is not None else 0.0
+                if itm_len_val > 0 and itm_wid_val > 0:
+                    has_valid_dimensions = True
+            except (ValueError, TypeError):
+                has_valid_dimensions = False
+
             # 1. Do a search first and remove any items from IGC where IGC.ITEMID = selected ITEMID
             db.execute('DELETE FROM IGC WHERE ITEMID = ?', (selected_item_id,))
-            
+
             # 2. Locate and parse the SVG file from static/
             svg_path = os.path.join(app.root_path, 'static', svg_filename)
-            
+
             if os.path.exists(svg_path):
                 try:
+                    import re
+                    import xml.etree.ElementTree as ET
+                    
                     ET.register_namespace('', "http://www.w3.org/2000/svg")
                     tree = ET.parse(svg_path)
                     root = tree.getroot()
+
+                    # Extract overall SVG dimensions (viewBox or width/height attributes)
+                    svg_width = None
+                    svg_height = None
                     
+                    viewBox = root.attrib.get('viewBox')
+                    if viewBox:
+                        parts = [float(p) for p in viewBox.replace(',', ' ').split() if p.strip()]
+                        if len(parts) == 4:
+                            svg_width = parts[2]
+                            svg_height = parts[3]
+
+                    if svg_width is None or svg_height is None:
+                        w_attr = root.attrib.get('width')
+                        h_attr = root.attrib.get('height')
+                        if w_attr and h_attr:
+                            try:
+                                svg_width = float(re.sub(r'[^0-9.]', '', w_attr))
+                                svg_height = float(re.sub(r'[^0-9.]', '', h_attr))
+                            except ValueError:
+                                pass
+
+                    # Fallback defaults if SVG scale is missing
+                    if not svg_width or not svg_height or svg_width <= 0 or svg_height <= 0:
+                        svg_width, svg_height = 100.0, 100.0
+
+                    # Map SVG Height -> ITM.ITMLEN (Length), and SVG Width -> ITM.ITMWID (Width)
+                    scale_x = itm_wid_val / svg_width if has_valid_dimensions else 1.0
+                    scale_y = itm_len_val / svg_height if has_valid_dimensions else 1.0
+
                     # Find all path elements
                     paths = root.findall('.//{http://www.w3.org/2000/svg}path')
                     if not paths:
                         paths = root.findall('.//path')
-                        
+
                     comp_counter = 1
                     for path in paths:
                         # Extract data-region-id attribute
@@ -1465,23 +1559,67 @@ def build_components():
                             if 'data-region-id' in k.lower() or k.lower() == 'region-id':
                                 region_id = v
                                 break
-                        
+
                         if not region_id:
                             region_id = comp_counter
-                            
+
                         try:
                             svg_reg_val = int(region_id)
                         except ValueError:
                             svg_reg_val = comp_counter
-                            
-                        # 3. Insert into IGC table: Saving ITEMID, SVGREG, COMPNUM, and setting ISACTIVE = 1
+
+                        comp_len = None
+                        comp_wid = None
+
+                        if has_valid_dimensions:
+                            path_data = path.attrib.get('d', '')
+                            try:
+                                try:
+                                    # Attempt 1: Use svgpathtools if installed (has native bbox)
+                                    from svgpathtools import parse_path
+                                    parsed = parse_path(path_data)
+                                    bbox = parsed.bbox() # (xmin, xmax, ymin, ymax)
+                                    box_w = bbox[1] - bbox[0]
+                                    box_h = bbox[3] - bbox[2]
+                                except ImportError:
+                                    # Attempt 2: Fallback to svg.path (requires manual bounds sampling)
+                                    from svg.path import parse_path
+                                    parsed = parse_path(path_data)
+                                    
+                                    xmin, xmax, ymin, ymax = float('inf'), float('-inf'), float('inf'), float('-inf')
+                                    for seg in parsed:
+                                        for i in range(11): 
+                                            pt = seg.point(i / 10.0)
+                                            xmin = min(xmin, pt.real)
+                                            xmax = max(xmax, pt.real)
+                                            ymin = min(ymin, pt.imag)
+                                            ymax = max(ymax, pt.imag)
+                                            
+                                    if xmin == float('inf'):
+                                        box_w, box_h = svg_width, svg_height
+                                    else:
+                                        box_w = xmax - xmin
+                                        box_h = ymax - ymin
+                            except Exception as e:
+                                print(f"Warning: Failed to parse bounding box for path {comp_counter}. Error: {e}")
+                                box_w, box_h = svg_width, svg_height
+
+                            # Scale down to physical dimensions (Width maps to ITMWID, Height maps to ITMLEN)
+                            raw_wid = box_w * scale_x
+                            raw_len = box_h * scale_y
+
+                            # Round to the nearest 1/8" (0.125)
+                            comp_len = round(raw_len / 0.125) * 0.125
+                            comp_wid = round(raw_wid / 0.125) * 0.125
+
+                        # 3. Insert into IGC table: Saving ITEMID, SVGREG, COMPNUM, COMPLEN, COMPWID, and setting ISACTIVE = 1
                         db.execute('''
-                            INSERT INTO IGC (ITEMID, SVGREG, COMPNUM, ISACTIVE)
-                            VALUES (?, ?, ?, 1)
-                        ''', (selected_item_id, svg_reg_val, comp_counter))
-                        
+                            INSERT INTO IGC (ITEMID, SVGREG, COMPNUM, COMPLEN, COMPWID, ISACTIVE)
+                            VALUES (?, ?, ?, ?, ?, 1)
+                        ''', (selected_item_id, svg_reg_val, comp_counter, comp_len, comp_wid))
+
                         comp_counter += 1
-                        
+
                     db.commit()
                     flash('Components successfully built and saved to IGC!', 'success')
                 except Exception as e:
@@ -1490,8 +1628,12 @@ def build_components():
                 flash(f'SVG file not found at static/{svg_filename}', 'danger')
         else:
             flash('Selected item does not have a reference SVG file or ITMSVG is empty.', 'warning')
-            
+
         return redirect(url_for('build_components'))
+
+
+
+
 
     # GET Request: Fetch all items to populate the dropdown by ITM.ITMNAME
     items = db.execute('SELECT ITEMID, ITMNAME FROM ITM').fetchall()

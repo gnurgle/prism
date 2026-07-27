@@ -30,6 +30,11 @@
                                     <th>Group:</th>
                                     <td><span class="badge bg-secondary">{{ item.ITMGRP or 'Unassigned' }}</span></td>
                                 </tr>
+                                <!-- Added Dimensions -->
+                                <tr>
+                                    <th>Dimensions (L×W):</th>
+                                    <td>{{ item.ITMLEN or '—' | inch_format }}" × {{ item.ITMWID or '—' | inch_format}}"</td>
+                                </tr>
                                 <tr>
                                     <th>One-Off Status:</th>
                                     <td>
@@ -127,7 +132,7 @@
                             <td>#{{ comp.COMPNUM }}</td>
                             <td><strong>{{ comp.COMPNAME or 'Unnamed' }}</strong></td>
                             <td>{{ comp.GLSNAME or 'Unassigned' }}</td>
-                            <td>{{ comp.COMPLEN or '—' }}" × {{ comp.COMPWID or '—' }}"</td>
+                            <td>{{ comp.COMPLEN | inch_format}}" × {{ comp.COMPWID | inch_format}}"</td>
                         </tr>
                         {% else %}
                         <tr>
@@ -142,7 +147,6 @@
 
     <!-- Right Column: Pricing and SVG Pattern -->
     <div class="col-md-4">
-
         <!-- Pricing Summary Box -->
         <div class="card shadow-sm mb-4 text-center">
             <div class="card-header bg-dark text-white">Pricing Summary</div>
@@ -169,6 +173,11 @@
                         </div>
                     </div>
                 </div>
+<!-- Added Materials Cost Row -->
+        <div class="border-top mt-3 pt-2 text-center">
+            <span class="text-muted small d-block">ESTIMATED MATERIALS COST</span>
+            <span class="h5 fw-bold text-dark">${% if materials_cost %}{{ "%.2f"|format(materials_cost) }}{% else %}0.00{% endif %}</span>
+        </div>
                 <div class="mt-3">
                     <a href="{{ url_for('edit_prices', item_id=item.ITEMID) }}" class="btn btn-outline-dark btn-sm w-100">Edit Prices</a>
                 </div>
@@ -194,7 +203,6 @@
                 {% endif %}
             </div>
         </div>
-
     </div>
 </div>
 
@@ -219,7 +227,6 @@ document.addEventListener("DOMContentLoaded", function() {
                         paths = svgDoc.getElementsByTagNameNS('*', 'path');
                     }
 
-                    // Reset all paths to standard black and normal stroke width (1)
                     paths.forEach(p => {
                         p.setAttribute('stroke', 'black');
                         p.style.stroke = 'black';
@@ -227,7 +234,6 @@ document.addEventListener("DOMContentLoaded", function() {
                         p.style.strokeWidth = '1';
                     });
 
-                    // Highlight target path in red with a stroke width of 20
                     paths.forEach((path, index) => {
                         const num = path.getAttribute('data-region-id') || path.getAttribute('data-number') || (index + 1);
                         if (num == compId) {
@@ -238,7 +244,6 @@ document.addEventListener("DOMContentLoaded", function() {
                         }
                     });
 
-                    // Highlight the clicked table row and unhighlight others
                     componentRows.forEach(r => r.classList.remove('table-active', 'table-warning'));
                     this.classList.add('table-active', 'table-warning');
                 });
