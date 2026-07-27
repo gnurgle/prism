@@ -1,83 +1,85 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="row justify-content-center">
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Dashboard</a>
+        <h2>{{ action }} Item</h2>
+    </div>
+</div>
+
+<form method="POST" enctype="multipart/form-data" class="row g-3">
     <div class="col-md-8">
-        <div class="card shadow-sm">
-            <div class="card-header bg-dark text-white">
-                <h4 class="mb-0">{{ action }} Item</h4>
-            </div>
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-dark text-white">Item Information</div>
             <div class="card-body">
-                <form method="POST">
-                    <div class="mb-3">
-                        <label class="form-label">Item Name (ITMNAME)</label>
-                        <input type="text" name="ITMNAME" class="form-control" value="{{ item.ITMNAME if item else '' }}" required maxlength="25">
-                    </div>
+                <div class="mb-3">
+                    <label for="ITMNAME" class="form-label">Item Name</label>
+                    <input type="text" class="form-control" id="ITMNAME" name="ITMNAME" value="{{ item.ITMNAME if item else '' }}" required>
+                </div>
 
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Item Group (ITMGRP)</label>
-                            <select name="ITMGRP" class="form-select">
-                                <option value="">-- Select Group --</option>
-                                {% for group in groups %}
-                                    <option value="{{ group.ITMGRP }}" {% if item and item.ITMGRP == group.ITMGRP %}selected{% endif %}>
-                                        {{ group.ITMGRP }}
-                                    </option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Variant (VARIID)</label>
-                            <select name="VARIID" class="form-select">
-                                <option value="">-- Select Variant --</option>
-                                {% for variant in variants %}
-                                    <option value="{{ variant.VARIID }}" {% if item and item.VARIID == variant.VARIID %}selected{% endif %}>
-                                        {{ variant.ITMVARI }} (Group: {{ variant.ITMGRP }})
-                                    </option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                    </div>
+                <div class="mb-3">
+                    <label for="ITMGRP" class="form-label">Item Group</label>
+                    <select class="form-select" id="ITMGRP" name="ITMGRP">
+                        <option value="">-- Select or Add Group --</option>
+                        {% for group in groups %}
+                            <option value="{{ group.ITMGRP }}" {% if item and item.ITMGRP == group.ITMGRP %}selected{% endif %}>{{ group.ITMGRP }}</option>
+                        {% endfor %}
+                    </select>
+                    <input type="text" class="form-control mt-2" id="NEW_ITMGRP" name="NEW_ITMGRP" placeholder="Or type a new group name...">
+                </div>
 
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Image Path (ITMIMG)</label>
-                            <input type="text" name="ITMIMG" class="form-control" value="{{ item.ITMIMG if item else '' }}">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Pattern Link (ITMPTRN)</label>
-                            <input type="text" name="ITMPTRN" class="form-control" value="{{ item.ITMPTRN if item else '' }}">
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Item Flags</label>
+                <div class="row mb-3">
+                    <div class="col-md-6">
                         <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="CURRENT" id="CURRENT" {% if not item or item.CURRENT %}checked{% endif %}>
-                            <label class="form-check-label" for="CURRENT">Currently Being Sold (CURRENT)</label>
+                            <input class="form-check-input" type="checkbox" id="ONEOFF" name="ONEOFF" value="1" {% if item and item.ONEOFF %}checked{% endif %}>
+                            <label class="form-check-label" for="ONEOFF">One-Off Item</label>
                         </div>
+                    </div>
+                    <div class="col-md-6">
                         <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="ONEOFF" id="ONEOFF" {% if item and item.ONEOFF %}checked{% endif %}>
-                            <label class="form-check-label" for="ONEOFF">One-Off Item (ONEOFF)</label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="VARIAT" id="VARIAT" {% if item and item.VARIAT %}checked{% endif %}>
-                            <label class="form-check-label" for="VARIAT">Has Variations (VARIAT)</label>
+                            <input class="form-check-input" type="checkbox" id="CURRENT" name="CURRENT" value="1" {% if not item or item.CURRENT %}checked{% endif %}>
+                            <label class="form-check-label" for="CURRENT">Currently Being Sold</label>
                         </div>
                     </div>
+                </div>
 
-                    <div class="mb-3">
-                        <label class="form-label">Notes (ITMNOTE)</label>
-                        <textarea name="ITMNOTE" class="form-control" rows="3">{{ item.ITMNOTE if item else '' }}</textarea>
-                    </div>
+                <div class="mb-3">
+                    <label for="ITMNOTE" class="form-label">Notes</label>
+                    <textarea class="form-control" id="ITMNOTE" name="ITMNOTE" rows="3">{{ item.ITMNOTE if item else '' }}</textarea>
+                </div>
+            </div>
+        </div>
 
-                    <div class="d-flex justify-content-between">
-                        <a href="{{ url_for('index') }}" class="btn btn-secondary">Cancel</a>
-                        <button type="submit" class="btn btn-success">{{ action }} Save Item</button>
-                    </div>
-                </form>
+        {% if item %}
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-secondary text-white">Template & SVG Workflow</div>
+            <div class="card-body">
+                <p class="text-muted">Manage the pattern template image and interactive component mapping for this item.</p>
+                <div class="d-flex gap-2">
+                    <a href="{{ url_for('upload_template') }}" class="btn btn-outline-primary btn-sm">Upload/Replace Template Image</a>
+                    {% if item.ITMSVG %}
+                        <a href="{{ url_for('edit_template', item_id=item.ITEMID) }}" class="btn btn-outline-dark btn-sm">Edit SVG Template Regions</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <button type="submit" class="btn btn-success">Save Item</button>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-dark text-white">Item Image</div>
+            <div class="card-body text-center">
+                {% if item and item.ITMIMG %}
+                    <img src="{{ url_for('static', filename=item.ITMIMG.lstrip('/')) }}" alt="{{ item.ITMNAME }}" class="img-fluid rounded border mb-3" style="max-height: 200px;">
+                {% endif %}
+                <label for="ITMIMG_FILE" class="form-label">Upload New Image</label>
+                <input class="form-control" type="file" id="ITMIMG_FILE" name="ITMIMG_FILE">
             </div>
         </div>
     </div>
-</div>
+</form>
 {% endblock %}

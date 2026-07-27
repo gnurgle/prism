@@ -5,7 +5,7 @@ from lxml import etree
 from svgpathtools import svg2paths, wsvg
 from utils import process_and_save_image, hex_to_hsv, convert_image_to_svg, remove_svg_region_and_renumber
 from flask import Flask, flash, redirect, render_template, request, url_for, render_template_string
-from datetime import date
+from datetime import date, datetime, timedelta
 
 app = Flask(__name__, static_folder='static')
 app.secret_key = "changethislatertoaenv"
@@ -91,122 +91,428 @@ def index():
     )
 
 
-# --- CREATE (Add New Item) ---
+@app.route('/item/<int:item_id>')
+def item_detail(item_id):
+  """Display full details, pricing metrics, components, and group siblings."""
+  db = get_db()
 
+  # Fetch core item record
+  item = db.execute(
+      'SELECT * FROM ITM WHERE ITEMID = ?', (item_id,)
+  ).fetchone()
 
-@app.route("/item/new", methods=["GET", "POST"])
-def create_item():
-    db = get_db()
+  if not item:
+    flash('Item record not found.', 'danger')
+    return redirect(url_for('index'))
 
-    if request.method == "POST":
-        itmname = request.form.get("ITMNAME")
-        itmgrp = request.form.get("ITMGRP") or None
-        variid = request.form.get("VARIID") or None
-        oneoff = 1 if request.form.get("ONEOFF") else 0
-        variat = 1 if request.form.get("VARIAT") else 0
-        current = 1 if request.form.get("CURRENT") else 0
-        itmimg = request.form.get("ITMIMG")
-        itmptrn = request.form.get("ITMPTRN")
-        itmnote = request.form.get("ITMNOTE")
+  # Fetch associated components (IGC) with joined glass info
+  components = db.execute(
+      """
+        SELECT c.*, g.GLSNAME 
+        FROM IGC c
+        LEFT JOIN GSI g ON c.GLASSID = g.GLASSID
+        WHERE c.ITEMID = ?
+        ORDER BY c.COMPNUM ASC
+    """,
+      (item_id,),
+  ).fetchall()
 
-        db.execute(
-            """
-            INSERT INTO ITM (ITMNAME, ITMGRP, VARIID, ONEOFF, VARIAT, CURRENT, ITMIMG, ITMPTRN, ITMNOTE)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  # Fetch Pricing Metrics from IPC table using correct columns (ITMPRICE, STDATE, ENDDATE)
+  current_price = db.execute(
+      """
+        SELECT ITMPRICE AS PRICE FROM IPC 
+        WHERE ITEMID = ? AND (ENDDATE IS NULL OR ENDDATE >= DATE('now'))
+        ORDER BY STDATE DESC LIMIT 1
+    """,
+      (item_id,),
+  ).fetchone()
+
+  lowest_price = db.execute(
+      """
+        SELECT ITMPRICE AS PRICE, STDATE AS START_DATE, ENDDATE AS END_DATE FROM IPC 
+        WHERE ITEMID = ? 
+        ORDER BY ITMPRICE ASC LIMIT 1
+    """,
+      (item_id,),
+  ).fetchone()
+
+  highest_price = db.execute(
+      """
+        SELECT ITMPRICE AS PRICE, STDATE AS START_DATE, ENDDATE AS END_DATE FROM IPC 
+        WHERE ITEMID = ? 
+        ORDER BY ITMPRICE DESC LIMIT 1
+    """,
+      (item_id,),
+  ).fetchone()
+
+  # Fetch group siblings if item is not a one-off and has a group assigned
+  group_siblings = []
+  if not item['ONEOFF'] and item['ITMGRP']:
+    group_siblings = db.execute(
+        """
+            SELECT ITEMID, ITMNAME FROM ITM 
+            WHERE ITMGRP = ? AND ONEOFF = 0
+            ORDER BY ITMNAME ASC
         """,
-            (
-                itmname,
-                itmgrp,
-                variid,
-                oneoff,
-                variat,
-                current,
-                itmimg,
-                itmptrn,
-                itmnote,
-            ),
+        (item['ITMGRP'],),
+    ).fetchall()
+
+  return render_template(
+      'item_detail.html',
+      item=item,
+      components=components,
+      current_price=current_price,
+      lowest_price=lowest_price,
+      highest_price=highest_price,
+      group_siblings=group_siblings,
+  )
+# -----------------------------------------------------------------------------
+# CREATE ITEM ROUTE
+# -----------------------------------------------------------------------------
+
+
+@app.route('/item/create', methods=['GET', 'POST'])
+def create_item():
+  """Create a new Item record and handle group/image inputs."""
+  db = get_db()
+
+  if request.method == 'POST':
+    itm_name = request.form.get('ITMNAME', '').strip()
+    itm_grp = request.form.get('ITMGRP', '').strip()
+    new_grp = request.form.get('NEW_ITMGRP', '').strip()
+    oneoff = 1 if request.form.get('ONEOFF') else 0
+    current = 1 if request.form.get('CURRENT') else 0
+    itm_note = request.form.get('ITMNOTE', '').strip()
+
+    # Handle new group insertion if provided
+    selected_group = itm_grp
+    if new_grp:
+      selected_group = new_grp
+      existing_grp = db.execute(
+          'SELECT 1 FROM IGP WHERE ITMGRP = ?', (new_grp,)
+      ).fetchone()
+      if not existing_grp:
+        db.execute(
+            'INSERT INTO IGP (ITMGRP, ISACTIVE) VALUES (?, 1)', (new_grp,)
+        )
+
+    # Save initial record to get the item_id for naming the image file
+    cursor = db.cursor()
+    cursor.execute(
+        """
+            INSERT INTO ITM (ITMNAME, ITMGRP, ONEOFF, CURRENT, ITMNOTE, ITMIMG)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (itm_name, selected_group, oneoff, current, itm_note, None),
+    )
+    item_id = cursor.lastrowid
+    db.commit()
+
+    # Handle image upload using the modular helper signature
+    image_path = None
+    if 'ITMIMG_FILE' in request.files:
+      file = request.files['ITMIMG_FILE']
+      if file and file.filename != '':
+        image_path = process_and_save_image(
+            file,
+            upload_subfolder='images/items',
+            custom_filename_base=f'{item_id}_{itm_name}',
+            target_size=(1024, 1024),
+        )
+        # Update record with the final image path if uploaded
+        cursor.execute(
+            'UPDATE ITM SET ITMIMG = ? WHERE ITEMID = ?', (image_path, item_id)
         )
         db.commit()
-        flash(f"Item '{itmname}' created successfully!", "success")
-        return redirect(url_for("index"))
 
-    groups = db.execute("SELECT * FROM IGP").fetchall()
-    variants = db.execute("SELECT * FROM IVR").fetchall()
-    return render_template(
-        "item_form.html", action="Create", groups=groups, variants=variants
-    )
+    flash(f'Item "{itm_name}" successfully created.', 'success')
+    return redirect(url_for('item_detail', item_id=item_id))
 
-
-# --- UPDATE (Edit Existing Item) ---
+  groups = db.execute(
+      'SELECT DISTINCT ITMGRP FROM ITM WHERE ITMGRP IS NOT NULL AND ITMGRP !='
+      " '' ORDER BY ITMGRP"
+  ).fetchall()
+  return render_template('item_form.html', action='Create', groups=groups)
 
 
-@app.route("/item/edit/<int:item_id>", methods=["GET", "POST"])
+@app.route('/item/<int:item_id>/edit', methods=['GET', 'POST'])
 def edit_item(item_id):
-    db = get_db()
+  """Edit an existing Item record, matching glass image upload handling."""
+  db = get_db()
 
-    item = db.execute(
-        "SELECT * FROM ITM WHERE ITEMID = ?", (item_id,)
-    ).fetchone()
-    if not item:
-        flash("Item not found.", "danger")
-        return redirect(url_for("index"))
+  item = db.execute(
+      'SELECT * FROM ITM WHERE ITEMID = ?', (item_id,)
+  ).fetchone()
 
-    if request.method == "POST":
-        itmname = request.form.get("ITMNAME")
-        itmgrp = request.form.get("ITMGRP") or None
-        variid = request.form.get("VARIID") or None
-        oneoff = 1 if request.form.get("ONEOFF") else 0
-        variat = 1 if request.form.get("VARIAT") else 0
-        current = 1 if request.form.get("CURRENT") else 0
-        itmimg = request.form.get("ITMIMG")
-        itmptrn = request.form.get("ITMPTRN")
-        itmnote = request.form.get("ITMNOTE")
+  if not item:
+    flash('Item record not found.', 'danger')
+    return redirect(url_for('index'))
 
+  if request.method == 'POST':
+    itm_name = request.form.get('ITMNAME', '').strip()
+    itm_grp = request.form.get('ITMGRP', '').strip()
+    new_grp = request.form.get('NEW_ITMGRP', '').strip()
+    oneoff = 1 if request.form.get('ONEOFF') else 0
+    current = 1 if request.form.get('CURRENT') else 0
+    itm_note = request.form.get('ITMNOTE', '').strip()
+
+    selected_group = itm_grp
+    if new_grp:
+      selected_group = new_grp
+      existing_grp = db.execute(
+          'SELECT 1 FROM IGP WHERE ITMGRP = ?', (new_grp,)
+      ).fetchone()
+      if not existing_grp:
         db.execute(
-            """
+            'INSERT INTO IGP (ITMGRP, ISACTIVE) VALUES (?, 1)', (new_grp,)
+        )
+
+    # Keep existing image unless a new file is uploaded
+    image_path = item['ITMIMG']
+    if 'ITMIMG_FILE' in request.files:
+      file = request.files['ITMIMG_FILE']
+      if file and file.filename != '':
+        image_path = process_and_save_image(
+            file,
+            upload_subfolder='images/items',
+            custom_filename_base=f'{item_id}_{itm_name}',
+            target_size=(1024, 1024),
+        )
+
+    db.execute(
+        """
             UPDATE ITM 
-            SET ITMNAME = ?, ITMGRP = ?, VARIID = ?, ONEOFF = ?, VARIAT = ?, CURRENT = ?, ITMIMG = ?, ITMPTRN = ?, ITMNOTE = ?
+            SET ITMNAME = ?, 
+                ITMGRP = ?, 
+                ONEOFF = ?, 
+                CURRENT = ?, 
+                ITMNOTE = ?, 
+                ITMIMG = ?
             WHERE ITEMID = ?
         """,
-            (
-                itmname,
-                itmgrp,
-                variid,
-                oneoff,
-                variat,
-                current,
-                itmimg,
-                itmptrn,
-                itmnote,
-                item_id,
-            ),
-        )
-        db.commit()
-        flash(f"Item #{item_id} updated successfully!", "success")
-        return redirect(url_for("index"))
+        (
+            itm_name,
+            selected_group,
+            oneoff,
+            current,
+            itm_note,
+            image_path,
+            item_id,
+        ),
+    )
+    db.commit()
 
-    groups = db.execute("SELECT * FROM IGP").fetchall()
-    variants = db.execute("SELECT * FROM IVR").fetchall()
-    return render_template(
-        "item_form.html",
-        action="Edit",
-        item=item,
-        groups=groups,
-        variants=variants,
+    flash(f'Item "{itm_name}" updated successfully.', 'success')
+    return redirect(url_for('item_detail', item_id=item_id))
+
+  groups = db.execute(
+      'SELECT DISTINCT ITMGRP FROM ITM WHERE ITMGRP IS NOT NULL AND ITMGRP !='
+      " '' ORDER BY ITMGRP"
+  ).fetchall()
+  return render_template(
+      'item_form.html', action='Edit', item=item, groups=groups
+  )
+
+
+@app.route('/item/<int:item_id>/history')
+def price_history(item_id):
+  """Display historical price list in descending order with calculated price changes and durations."""
+  db = get_db()
+  item = db.execute(
+      'SELECT * FROM ITM WHERE ITEMID = ?', (item_id,)
+  ).fetchone()
+
+  if not item:
+    flash('Item record not found.', 'danger')
+    return redirect(url_for('index'))
+
+  # Fetch all prices ordered chronologically ascending to compute deltas and durations easily
+  rows = db.execute(
+      """
+        SELECT rowid, ITMPRICE, STDATE, ENDDATE FROM IPC 
+        WHERE ITEMID = ? 
+        ORDER BY STDATE ASC
+    """,
+      (item_id,),
+  ).fetchall()
+
+  history_processed = []
+  prev_price = None
+
+  for row in rows:
+    price = row['ITMPRICE']
+    change = price - prev_price if prev_price is not None else None
+    prev_price = price
+
+    # Calculate duration
+    start_dt = (
+        datetime.strptime(row['STDATE'], '%Y-%m-%d')
+        if row['STDATE']
+        else None
+    )
+    end_dt = (
+        datetime.strptime(row['ENDDATE'], '%Y-%m-%d')
+        if row['ENDDATE']
+        else datetime.today()
     )
 
+    duration_str = 'N/A'
+    if start_dt:
+      delta = end_dt - start_dt
+      days = delta.days
+      years = days // 365
+      rem_days = days % 365
+      if years > 0:
+        duration_str = f'{years} yr{"" if years == 1 else "s"} {rem_days} day{"" if rem_days == 1 else "s"}'
+      else:
+        duration_str = f'{days} day{"" if days == 1 else ""}'
 
-# --- DELETE (Remove Item) ---
+    history_processed.append({
+        'ITMPRICE': price,
+        'change': change,
+        'STDATE': row['STDATE'],
+        'ENDDATE': row['ENDDATE'],
+        'duration_str': duration_str,
+    })
+
+  # Reverse to have descending order starting from present
+  history_processed.reverse()
+
+  return render_template(
+      'item_price_history.html', item=item, history=history_processed
+  )
 
 
-@app.route("/item/delete/<int:item_id>", methods=["POST"])
-def delete_item(item_id):
-    db = get_db()
-    db.execute("DELETE FROM ITM WHERE ITEMID = ?", (item_id,))
+@app.route('/prices/<int:item_id>/edit', methods=['GET', 'POST'])
+def edit_prices(item_id):
+  """Manage and insert prices with automated date shuffling and interval overlap adjustments."""
+  db = get_db()
+  item = db.execute(
+      'SELECT * FROM ITM WHERE ITEMID = ?', (item_id,)
+  ).fetchone()
+
+  if not item:
+    flash('Item record not found.', 'danger')
+    return redirect(url_for('index'))
+
+  if request.method == 'POST':
+    try:
+      new_price = float(request.form.get('ITMPRICE'))
+    except (TypeError, ValueError):
+      flash('Invalid price value provided.', 'danger')
+      return redirect(url_for('edit_prices', item_id=item_id))
+
+    new_st_str = request.form.get('STDATE')
+    is_current = 1 if request.form.get('is_current') else 0
+    new_end_str = None if is_current else request.form.get('ENDDATE')
+
+    new_st = datetime.strptime(new_st_str, '%Y-%m-%d').date()
+    new_end = (
+        datetime.strptime(new_end_str, '%Y-%m-%d').date()
+        if new_end_str
+        else None
+    )
+
+    if new_end and new_st > new_end:
+      flash('Start date cannot be after the end date.', 'danger')
+      return redirect(url_for('edit_prices', item_id=item_id))
+
+    cursor = db.cursor()
+
+    # Fetch existing price intervals for this item
+    existing_prices = cursor.execute(
+        """
+        SELECT rowid, ITMPRICE, STDATE, ENDDATE FROM IPC 
+        WHERE ITEMID = ?
+    """,
+        (item_id,),
+    ).fetchall()
+
+    # Process and adjust overlapping intervals
+    for row in existing_prices:
+      row_id = row['rowid']
+      ex_st_str = row['STDATE']
+      ex_end_str = row['ENDDATE']
+
+      ex_st = datetime.strptime(ex_st_str, '%Y-%m-%d').date() if ex_st_str else None
+      ex_end = datetime.strptime(ex_end_str, '%Y-%m-%d').date() if ex_end_str else None
+
+      # Case A: Existing range is completely inside the new range -> Delete it
+      if ex_st and new_st <= ex_st and (new_end is None or (ex_end and new_end >= ex_end)):
+        cursor.execute('DELETE FROM IPC WHERE rowid = ?', (row_id,))
+        continue
+
+      # Case B: New range is completely inside an existing range -> Split the existing range into two
+      if ex_st and ex_end and new_st > ex_st and new_end and new_end < ex_end:
+        # Update existing record to end right before new range starts (or day before)
+        split_end_date = (new_st - timedelta(days=1)).strftime('%Y-%m-%d')
+        cursor.execute(
+            'UPDATE IPC SET ENDDATE = ? WHERE rowid = ?',
+            (split_end_date, row_id)
+        )
+        # Insert the remaining tail piece of the old range
+        tail_start_date = (new_end + timedelta(days=1)).strftime('%Y-%m-%d')
+        cursor.execute(
+            'INSERT INTO IPC (ITEMID, ITMPRICE, STDATE, ENDDATE) VALUES (?, ?, ?, ?)',
+            (item_id, row['ITMPRICE'], tail_start_date, ex_end_str)
+        )
+        continue
+
+      # Case C: Overlap on the tail end of existing range (New start cuts into old range)
+      if ex_st and new_st > ex_st and (ex_end is None or new_st <= ex_end):
+        new_ex_end = (new_st - timedelta(days=1)).strftime('%Y-%m-%d')
+        cursor.execute(
+            'UPDATE IPC SET ENDDATE = ? WHERE rowid = ?',
+            (new_ex_end, row_id)
+        )
+
+      # Case D: Overlap on the front end of existing range (New end cuts into old range)
+      if new_end and ex_end and new_end >= ex_st and new_end < ex_end:
+        new_ex_st = (new_end + timedelta(days=1)).strftime('%Y-%m-%d')
+        cursor.execute(
+            'UPDATE IPC SET STDATE = ? WHERE rowid = ?',
+            (new_ex_st, row_id)
+        )
+
+      # Case E: If new range is ongoing (current), truncate any old ranges that overlap forward
+      if is_current and ex_st and ex_st >= new_st:
+        cursor.execute('DELETE FROM IPC WHERE rowid = ?', (row_id,))
+
+    # Insert the new price record cleanly
+    cursor.execute(
+        """
+        INSERT INTO IPC (ITEMID, ITMPRICE, STDATE, ENDDATE)
+        VALUES (?, ?, ?, ?)
+    """,
+        (item_id, new_price, new_st_str, new_end_str),
+    )
+
     db.commit()
-    flash(f"Item #{item_id} deleted successfully.", "warning")
-    return redirect(url_for("index"))
+    flash('Price range successfully saved and overlapping intervals adjusted.', 'success')
+    return redirect(url_for('edit_prices', item_id=item_id))
 
+  # GET Request: fetch all price rows ordered by start date descending
+  prices = db.execute(
+      """
+        SELECT rowid, ITMPRICE, STDATE, ENDDATE FROM IPC 
+        WHERE ITEMID = ? 
+        ORDER BY STDATE DESC
+    """,
+      (item_id,),
+  ).fetchall()
+
+  return render_template(
+      'item_edit_prices.html', item=item, prices=prices
+  )
+
+@app.route('/prices/<int:item_id>/delete/<int:price_id>', methods=['POST'])
+def delete_price(item_id, price_id):
+  """Delete a specific price entry row."""
+  db = get_db()
+  db.execute('DELETE FROM IPC WHERE rowid = ? AND ITEMID = ?', (price_id, item_id))
+  db.commit()
+  flash('Price tier removed.', 'success')
+  return redirect(url_for('edit_prices', item_id=item_id))
 
 # ============================================================================
 # 2. GLASS SHEET INVENTORY MANAGEMENT (GSI, GTL, GSL, GPC)
@@ -1116,152 +1422,79 @@ def edit_template(item_id):
 
 # ============================================================================
 # COMPONENTS
-# ============================================================================
-
+# =============================================================================
 @app.route('/build_components', methods=['GET', 'POST'])
-
 def build_components():
-
     db = get_db()
-
     
-
     if request.method == 'POST':
-
         selected_item_id = request.form.get('item_id')
-
         
-
         if not selected_item_id:
-
             flash('Please select a valid item.', 'danger')
-
             return redirect(url_for('build_components'))
-
             
-
         # Fetch the selected item
-
         item = db.execute('SELECT * FROM ITM WHERE ITEMID = ?', (selected_item_id,)).fetchone()
-
         
-
         svg_filename = item['ITMSVG'] if (item and 'ITMSVG' in item.keys()) else None
-
         
-
         if item and svg_filename:
-
             # 1. Do a search first and remove any items from IGC where IGC.ITEMID = selected ITEMID
-
             db.execute('DELETE FROM IGC WHERE ITEMID = ?', (selected_item_id,))
-
             
-
             # 2. Locate and parse the SVG file from static/
-
             svg_path = os.path.join(app.root_path, 'static', svg_filename)
-
             
-
             if os.path.exists(svg_path):
-
                 try:
-
                     ET.register_namespace('', "http://www.w3.org/2000/svg")
-
                     tree = ET.parse(svg_path)
-
                     root = tree.getroot()
-
                     
-
                     # Find all path elements
-
                     paths = root.findall('.//{http://www.w3.org/2000/svg}path')
-
                     if not paths:
-
                         paths = root.findall('.//path')
-
                         
-
                     comp_counter = 1
-
                     for path in paths:
-
                         # Extract data-region-id attribute
-
                         region_id = None
-
                         for k, v in path.attrib.items():
-
                             if 'data-region-id' in k.lower() or k.lower() == 'region-id':
-
                                 region_id = v
-
                                 break
-
                         
-
                         if not region_id:
-
                             region_id = comp_counter
-
                             
-
                         try:
-
                             svg_reg_val = int(region_id)
-
                         except ValueError:
-
                             svg_reg_val = comp_counter
-
                             
-
                         # 3. Insert into IGC table: Saving ITEMID, SVGREG, COMPNUM, and setting ISACTIVE = 1
-
                         db.execute('''
-
                             INSERT INTO IGC (ITEMID, SVGREG, COMPNUM, ISACTIVE)
-
                             VALUES (?, ?, ?, 1)
-
                         ''', (selected_item_id, svg_reg_val, comp_counter))
-
                         
-
                         comp_counter += 1
-
                         
-
                     db.commit()
-
                     flash('Components successfully built and saved to IGC!', 'success')
-
                 except Exception as e:
-
                     flash(f'Error parsing SVG file: {str(e)}', 'danger')
-
             else:
-
                 flash(f'SVG file not found at static/{svg_filename}', 'danger')
-
         else:
-
             flash('Selected item does not have a reference SVG file or ITMSVG is empty.', 'warning')
-
             
-
         return redirect(url_for('build_components'))
 
-
-
     # GET Request: Fetch all items to populate the dropdown by ITM.ITMNAME
-
     items = db.execute('SELECT ITEMID, ITMNAME FROM ITM').fetchall()
-
     return render_template('build_components.html', items=items)
 
 
