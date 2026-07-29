@@ -1,0 +1,213 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h2 class="mb-0">Misc Items Directory</h2>
+        <small class="text-muted">Showing {{ misc_items|length }} item(s)</small>
+    </div>
+    <div class="d-flex gap-2">
+        <button type="button" class="btn btn-outline-secondary d-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#filterModal">
+            🔍 Filter Results
+            {% if filters.q or filters.min_price or filters.max_price or filters.item_id %}
+                <span class="badge bg-primary rounded-pill">Active</span>
+            {% endif %}
+        </button>
+        <a href="{{ url_for('create_misc') }}" class="btn btn-primary">+ Add New Misc Item</a>
+    </div>
+</div>
+
+{# --- Active Filter Indicators --- #}
+
+{% if filters.q or filters.min_price or filters.max_price or filters.item_id %}
+<div class="alert alert-info py-2 px-3 d-flex align-items-center justify-content-between mb-3">
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+        <small class="fw-bold">Active Filters:</small>
+        {% if filters.q %}<span class="badge bg-light text-dark border">Search: "{{ filters.q }}"</span>{% endif %}
+        {% if filters.min_price %}<span class="badge bg-light text-dark border">Min Price: ${{ filters.min_price }}</span>{% endif %}
+        {% if filters.max_price %}<span class="badge bg-light text-dark border">Max Price: ${{ filters.max_price }}</span>{% endif %}
+        {% if filters.item_name %}
+            <span class="badge bg-light text-dark border">Used In Item: {{ filters.item_name }} </span>
+        {% endif %}
+        {% if filters.active_only == '1' %}
+            <span class="badge bg-success text-white">Actively Used Items Only</span>
+        {% endif %}
+    </div>
+    <a href="{{ url_for('list_glass') }}" class="btn btn-sm btn-link text-decoration-none p-0">Clear All</a>
+</div>
+{% endif %}
+
+{# Helper macro to generate clickable sortable table headers #}
+{% macro sort_header(col_key, label) %}
+    {% set new_order = 'desc' if current_sort == col_key and current_order == 'asc' else 'asc' %}
+    <a href="{{ url_for('list_glass', sort_by=col_key, order=new_order, **filters) }}" class="text-white text-decoration-none d-block">
+        {{ label }}
+        {% if current_sort == col_key %}
+            <small>{{ '▲' if current_order == 'asc' else '▼' }}</small>
+        {% else %}
+            <small class="text-muted" style="opacity: 0.4;">↕</small>
+        {% endif %}
+    </a>
+{% endmacro %}
+
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <table class="table table-striped table-hover mb-0 align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th>{{ sort_header('MSIID', 'ID') }}</th>
+                    <th>{{ sort_header('MSINAME', 'Name') }}</th>
+                    <th>{{ sort_header('MSIPRICE', 'Price') }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in misc_items %}
+                <tr>
+                    <td><strong>#{{ m.MSIID }}</strong></td>
+                    <td>
+                        <a href="{{ url_for('misc_detail', misc_id=m.MSIID) }}" class="fw-bold text-decoration-none text-primary">
+                            {{ m.MSINAME }}
+                        </a>
+                    </td>
+                    <td>
+                        {% if m.MSIPRICE %}<strong class="text-success">${{ "%.2f"|format(m.MSIPRICE) }}</strong>{% else %}<span class="text-muted">Unpriced</span>{% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" class="text-center py-5 text-muted">
+                        No items match your criteria.
+                        {% if filters.q or filters.min_price or filters.max_price or filters.item_id %}
+                            <a href="{{ url_for('list_glass') }}">Reset filters</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Filter Modal Popup -->
+<div class="modal fade" id="filterModal" tabindex="-1" aria-labelledby="filterModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title" id="filterModalLabel">Filter Misc Item Inventory</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('list_misc') }}" method="GET" id="miscFilterForm">
+                <input type="hidden" name="sort_by" value="{{ current_sort }}">
+                <input type="hidden" name="order" value="{{ current_order }}">
+                <input type="hidden" name="active_only" id="activeOnlyInput" value="{{ filters.active_only }}">
+
+                <div class="modal-body">
+                    <!-- Item Component Filter Section -->
+                    <div class="mb-3 p-3 bg-light rounded border">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label fw-bold mb-0">Used in Item</label>
+                            <button type="button" id="toggleActiveBtn"
+                                    class="btn btn-sm {% if filters.active_only == '1' %}btn-success{% else %}btn-outline-secondary{% endif %}">
+                                {% if filters.active_only == '1' %}
+                                    ✓ Currently Selling Only
+                                {% else %}
+                                    Show Currently Selling Only
+                                {% endif %}
+                            </button>
+                        </div>
+                        <select name="item_id" id="itemSelect" class="form-select">
+                            <option value="">-- All Items --</option>
+                            {% for item in items %}
+                                <option value="{{ item.ITEMID }}"
+                                        data-active="{{ item.CURRENT }}"
+                                        {% if filters.item_id|string == item.ITEMID|string %}selected{% endif %}>
+                                    {% if item.itmgrp %}[{{ item.itmgrp }}] {% endif %}{{ item.ITMNAME }}
+                                    {% if not item.CURRENT %} (Inactive){% endif %}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted d-block mt-1">Sorted alphabetically by Item Group (or Item Name if no variation exists).</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Search Misc Item Name or Notes</label>
+                        <input type="text" name="q" class="form-control" value="{{ filters.q }}" placeholder="Keywords...">
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Min Price ($)</label>
+                            <input type="number" step="0.01" name="min_price" class="form-control" value="{{ filters.min_price }}" placeholder="0.00">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Max Price ($)</label>
+                            <input type="number" step="0.01" name="max_price" class="form-control" value="{{ filters.max_price }}" placeholder="100.00">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-between">
+                    <a href="{{ url_for('list_glass') }}" class="btn btn-outline-secondary">Clear Filters</a>
+                    <button type="submit" class="btn btn-primary">Apply Filters</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 1. Dynamic Font Color Contrast Calculation for Badges
+    function getContrastColor(hexColor) {
+        if (!hexColor) return '#ffffff';
+        const hex = hexColor.replace('#', '');
+        if (hex.length !== 6) return '#000000';
+
+        const r = parseInt(hex.substring(0, 2), 16);
+        const g = parseInt(hex.substring(2, 4), 16);
+        const b = parseInt(hex.substring(4, 6), 16);
+
+        const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+        return luminance > 0.6 ? '#000000' : '#ffffff';
+    }
+
+    document.querySelectorAll('.color-badge').forEach(badge => {
+        const bgColor = badge.style.backgroundColor;
+        const rgbVals = bgColor.match(/\d+/g);
+        if (rgbVals && rgbVals.length >= 3) {
+            const hex = "#" + ((1 << 24) + (parseInt(rgbVals[0]) << 16) + (parseInt(rgbVals[1]) << 8) + parseInt(rgbVals[2])).toString(16).slice(1);
+            badge.style.color = getContrastColor(hex);
+        }
+    });
+
+    // 2. Active Filter Button Toggle logic
+    const toggleBtn = document.getElementById('toggleActiveBtn');
+    const activeInput = document.getElementById('activeOnlyInput');
+    const itemSelect = document.getElementById('itemSelect');
+
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', function() {
+            const isCurrentlyActive = activeInput.value === '1';
+
+            if (isCurrentlyActive) {
+                activeInput.value = '0';
+                toggleBtn.className = 'btn btn-sm btn-outline-secondary';
+                toggleBtn.textContent = 'Show Currently Selling Only';
+                Array.from(itemSelect.options).forEach(opt => opt.style.display = '');
+            } else {
+                activeInput.value = '1';
+                toggleBtn.className = 'btn btn-sm btn-success';
+                toggleBtn.textContent = '✓ Currently Selling Only';
+                Array.from(itemSelect.options).forEach(opt => {
+                    if (opt.value && opt.getAttribute('data-active') === '0') {
+                        opt.style.display = 'none';
+                        if (opt.selected) {
+                            itemSelect.value = '';
+                        }
+                    }
+                });
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

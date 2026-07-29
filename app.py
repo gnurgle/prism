@@ -2,11 +2,16 @@ import os
 import sqlite3
 import xml.etree.ElementTree as ET
 import re
+import base64
+import cv2
+import numpy as np
+from PIL import Image
 from lxml import etree
 from svgpathtools import svg2paths, wsvg
-from utils import process_and_save_image, hex_to_hsv, convert_image_to_svg, remove_svg_region_and_renumber, format_fractional_inches
-from flask import Flask, flash, redirect, render_template, request, url_for, render_template_string
+from utils import process_and_save_image, hex_to_hsv, convert_image_to_svg, remove_svg_region_and_renumber, format_fractional_inches, trace_stencil_to_single_path_svg, compute_total_path_length, trace_stencil_to_outline_svg, trace_stencil_to_filled_outline_svg
+from flask import Flask, flash, redirect, render_template, request, url_for, render_template_string, jsonify
 from datetime import date, datetime, timedelta
+
 
 app = Flask(__name__, static_folder='static')
 app.secret_key = "changethislatertoaenv"
@@ -22,6 +27,18 @@ UPLOAD_FOLDER_GLASS = 'static/images/glass'
 os.makedirs(UPLOAD_FOLDER_TEMPLATES, exist_ok=True)
 os.makedirs(UPLOAD_FOLDER_SVG, exist_ok=True)
 os.makedirs(UPLOAD_FOLDER_GLASS, exist_ok=True)
+
+app.config['UPLOAD_FOLDER'] = 'static/uploads'
+
+app.config['SVG_FOLDER'] = 'static/svgs'
+
+
+
+# Ensure directories exist
+
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+os.makedirs(app.config['SVG_FOLDER'], exist_ok=True)
 
 
 def get_db():
@@ -50,10 +67,17 @@ def init_db():
             "INSERT OR IGNORE INTO IGP (ITMGRP) VALUES ('Potions'), ('Fruit Slices'), ('Mushrooms')"
         )
         db.execute(
-            "INSERT OR IGNORE INTO COLOR (COLOR, CHEX) VALUES ('Red', 'FF0000'), ('Orange', 'FF8000'), ('Yellow', 'FFFF00'), ('Chartreuse Green', '80FF00'), ('Green', '00FF00'), ('Spring Green', '00FF80'), ('Azure', '0080FF'), ('Blue', '0000FF'), ('Violet', '8000FF'), ('Magenta', 'FF00FF'), ('Rose', 'FF0080'), ('White', '000000'), ('Black', 'FFFFFF'), ('Grey', '808080'), ('Transparent', '000000')"
+            "INSERT OR IGNORE INTO COLOR (COLOR, CHEX) VALUES ('Red', 'FF0000'), ('Orange', 'FF8000'), ('Yellow', 'FFFF00'), ('Chartreuse Green', '80FF00'), ('Green', '00FF00'), ('Spring Green', '00FF80'), ('Azure', '0080FF'), ('Blue', '0000FF'), ('Violet', '8000FF'), ('Magenta', 'FF00FF'), ('Rose', 'FF0080'), ('White', 'FFFFFF'), ('Black', '000000'), ('Grey', '808080'), ('Transparent', 'FFFFFF')"
         )
         db.execute(
-            "INSERT OR IGNORE INTO GTRNS (GTRNSN, GTRNSV) VALUES ('Transparent', 60), ('Translucent', 75), ('Opaque', 95)"        )
+            "INSERT OR IGNORE INTO GTRNS (GTRNSN, GTRNSV) VALUES ('Transparent', 60), ('Translucent', 75), ('Opaque', 95)"
+        )
+        db.execute(
+            "INSERT OR IGNORE INTO UNTS (UNTTYPE) VALUES ('inches'), ('feet'), ('yards'), ('pounds')"
+        )
+        db.execute(
+            "INSERT OR IGNORE INTO MST (MSITYPE) VALUES ('Solder'), ('Foil'), ('Came'), ('Rings'), ('Chain'), ('Consumables'), ('Decoration'), ('Other')"
+        )
 
         # Setup automated AUDIT trigger on ITM table changes
         db.executescript("""
@@ -672,13 +696,13 @@ def list_glass():
         "SELECT DISTINCT GLSMANF FROM GSI WHERE ISACTIVE = 1 AND GLSMANF IS NOT NULL AND GLSMANF != '' ORDER BY GLSMANF"
     ).fetchall()
 
-    # Fetch Item List using ITM.ISACTIVE instead of ITM.CURRENT
     item_where = "WHERE i.ISACTIVE = 1" if active_only == '1' else ""
     items_query = f"""
         SELECT 
             i.ITEMID, 
             i.ITMNAME, 
             i.ISACTIVE,
+            i.CURRENT,
             g.ITMGRP,
             COALESCE(NULLIF(g.ITMGRP, ''), i.ITMNAME) AS group_or_name
         FROM ITM i
@@ -2238,6 +2262,773 @@ def test_svg_delete():
     """
 
     return render_template_string(html_template, filename=svg_filename, message=message, paths=paths_found)
+
+
+HTML_PAGE = '''
+
+<!doctype html>
+
+<html lang="en">
+
+<head>
+
+    <title>Stencil Tracer & Measurements - /test_outline</title>
+
+    <style>
+
+        body { font-family: Arial, sans-serif; text-align: center; margin: 50px; background: #f4f4f9; }
+
+        .container { background: white; padding: 30px; border-radius: 8px; box-shadow: 0px 4px 10px rgba(0,0,0,0.1); display: inline-block; width: 100%; max-width: 600px; }
+
+        .input-group { margin: 15px 0; display: flex; justify-content: space-around; align-items: center; }
+
+        .input-group label { font-weight: bold; }
+
+        .input-group input { padding: 6px; width: 100px; }
+
+        .svg-viewer {
+
+            width: 100%;
+
+            height: auto;
+
+            aspect-ratio: 1 / 1;
+
+            border: 2px dashed #ccc;
+
+            margin-top: 20px;
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            background: #fff;
+
+            overflow: hidden;
+
+        }
+
+        .svg-viewer svg {
+
+            width: 100%;
+
+            height: 100%;
+
+            object-fit: contain;
+
+        }
+
+        .results { margin-top: 20px; background: #eef2f7; padding: 15px; border-radius: 5px; text-align: left; }
+
+    </style>
+
+</head>
+
+<body>
+
+    <div class="container">
+
+        <h2>Misc supplies measurement test page</h2>
+
+        <form method="POST" enctype="multipart/form-data">
+
+            <input type="file" name="file" accept="image/*" required>
+
+            
+
+            <div class="input-group">
+
+                <div>
+
+                    <label for="width_in">Width (in):</label>
+
+                    <input type="number" step="any" id="width_in" name="width_in" value="{{ width_in | default(10) }}" required>
+
+                </div>
+
+                <div>
+
+                    <label for="height_in">Height (in):</label>
+
+                    <input type="number" step="any" id="height_in" name="height_in" value="{{ height_in | default(10) }}" required>
+
+                </div>
+
+            </div>
+
+            
+
+            <br>
+
+            <button type="submit">Process Traces & Measurements</button>
+
+        </form>
+
+
+
+        {% if svg_content %}
+
+            <div class="results">
+
+                <h3>Calculated Measurements:</h3>
+
+                <p><strong>Solder Total Path Length:</strong> {{ total_len }} inches</p>
+
+                <p><strong>Came Total Path Length:</strong> {{ outline_len }} inches</p>
+
+                <p><strong>Foil Total Length:</strong> {{ foil_len }} inches</p>
+
+            </div>
+
+
+
+            <h3>Solder SVG Output:</h3>
+
+            <div class="svg-viewer">
+
+                {{ svg_content | safe }}
+
+            </div>
+
+
+
+            <h3>Came SVG Output:</h3>
+
+            <div class="svg-viewer">
+
+                {{ outline_content | safe }}
+
+            </div>
+
+
+
+
+            <h3>Foil SVG Output:</h3>
+
+            <div class="svg-viewer">
+
+                {{ foil_content | safe }}
+
+            </div>
+
+        {% endif %}
+
+    </div>
+
+</body>
+
+</html>
+
+'''
+
+
+
+@app.route('/test_outline', methods=['GET', 'POST'])
+
+def test_outline():
+
+    svg_content = None
+
+    outline_content = None
+
+    filled_content = None
+
+    foil_content = None
+
+    total_len = 0.0
+
+    outline_len = 0.0
+
+
+    foil_len = 0.0
+
+    width_in = 10.0
+
+    height_in = 10.0
+
+
+
+    if request.method == 'POST':
+
+        if 'file' in request.files:
+
+            file = request.files['file']
+
+            if file.filename != '':
+
+                try:
+
+                    width_in = float(request.form.get('width_in', 10.0))
+
+                    height_in = float(request.form.get('height_in', 10.0))
+
+                except ValueError:
+
+                    width_in, height_in = 10.0, 10.0
+
+
+
+                svg_content = trace_stencil_to_single_path_svg(file)
+
+                file.stream.seek(0)
+
+                outline_content = trace_stencil_to_outline_svg(file)
+
+
+                file.stream.seek(0)
+
+                foil_content = trace_stencil_to_filled_outline_svg(file)
+
+                
+
+                total_len = compute_total_path_length(svg_content, width_in, height_in)
+
+                outline_len = compute_total_path_length(outline_content, width_in, height_in)
+
+
+                foil_len = compute_total_path_length(foil_content, width_in, height_in)
+                foil_len = foil_len - outline_len
+
+
+    return render_template_string(
+
+        HTML_PAGE, 
+
+        svg_content=svg_content, 
+
+        outline_content=outline_content,
+
+        filled_content=filled_content,
+
+        foil_content=foil_content,
+
+        total_len=total_len, 
+
+        outline_len=outline_len,
+
+
+        foil_len=foil_len,
+
+        width_in=width_in, 
+
+        height_in=height_in
+
+    )
+
+# ============================================================================
+# MISC ITEMS
+# ============================================================================
+
+
+@app.route('/misc_items')
+def list_misc():
+    db = get_db()
+
+    # --- Capture Sort & Filter Parameters ---
+    sort_by = request.args.get('sort_by', 'MSIID')
+    order = request.args.get('order', 'asc').lower()
+    if order not in ['asc', 'desc']:
+        order = 'asc'
+
+    q = request.args.get('q', '').strip()
+    min_price = request.args.get('min_price', '').strip()
+    max_price = request.args.get('max_price', '').strip()
+
+    # Filter parameter for Misc active status (Defaults to showing active glass '1')
+    is_active = request.args.get('is_active', '1').strip()
+
+    item_id = request.args.get('item_id', '').strip()
+    item_name = request.args.get('item_name', '').strip()
+    active_only = request.args.get('active_only', '')  # '1' if active items only
+
+    allowed_sorts = {
+        'MSIID': 'm.MSIID',
+        'MSINAME': 'm.MSINAME',
+        'MSIPRICE': 'p.MSIPRICE'
+    }
+    sort_column = allowed_sorts.get(sort_by, 'm.MSIID')
+
+    # Build dynamic WHERE clause for MSI table
+    where_clauses = []
+    params = []
+
+    # Filter Glass by ISACTIVE integer flag
+    if is_active != 'all':
+        where_clauses.append("m.ISACTIVE = ?")
+        params.append(1 if is_active == '1' else 0)
+
+    if q:
+        where_clauses.append("(m.MSINAME LIKE ? OR m.MSINOTE LIKE ?)")
+        params.extend([f"%{q}%", f"%{q}%"])
+    if min_price:
+        where_clauses.append("p.MSIPRICE >= ?")
+        params.append(min_price)
+    if max_price:
+        where_clauses.append("p.MSIPRICE <= ?")
+        params.append(max_price)
+
+    # Filter by specific Item ID (Misc item  used in selected Item)
+    join_igc = ""
+    if item_id:
+        join_igc = "INNER JOIN MSL l ON m.MSIID = l.MSIID"
+        where_clauses.append("l.ITEMID = ?")
+        params.append(item_id)
+        
+    where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+
+# Execute main query
+    query = f"""
+        SELECT DISTINCT m.*, p.MSIPRICE 
+        FROM MSI m
+        LEFT JOIN MSP p ON m.MSIID = p.MSIID
+        {join_igc}
+        {where_sql}
+        ORDER BY {sort_column} {order.upper()}
+    """
+    misc_items = db.execute(query, params).fetchall()
+
+
+    # Resolve human-readable item name if item_id was passed
+    item_name = ""
+    if item_id:
+        for item in items:
+            if str(item['ITEMID']) == str(item_id):
+                item_name = item['ITMNAME']
+                break
+
+    return render_template(
+        'misc_list.html',
+        misc_items=misc_items,
+        current_sort=sort_by,
+        current_order=order,
+        filters={
+            'q': q, 
+            'min_price': min_price, 
+            'max_price': max_price,
+            'is_active': is_active,
+            'item_id': item_id, 
+            'item_name': item_name, 
+            'active_only': active_only
+        }
+    )
+@app.route("/misc_items/new", methods=["GET", "POST"])
+def create_misc():
+
+    db = get_db()
+    if request.method == "POST":
+
+        msiname = request.form.get('MSINAME')
+        msiimg = request.form.get('MSIIMG')
+        msistock = request.form.get('MSISTOCK')
+        msiurl = request.form.get('MSIURL')
+        msinote = request.form.get('MSINOTE')
+        msiunit = request.form.get('MSIUNIT')
+        unttype = request.form.get('UNTTYPE') or None
+        msiprice = request.form.get('MSIPRICE')
+        isactive = 1
+
+        cursor = db.execute(
+            """
+            INSERT INTO MSI (MSINAME, MSIIMG, MSISTOCK, MSIURL, 
+                MSINOTE, UNTTYPE, ISACTIVE)
+                VALUES (?,?,?,?,?,?,?)
+        """,
+            (
+                msiname, msiimg, msistock, msiurl,
+                msinote, unttype, isactive
+            ),
+        )
+
+        misc_id = cursor.lastrowid
+
+
+
+        msiimg_path = None
+        file = request.files.get("MSIIMG_FILE")
+        if file and file.filename != '':
+            pattern_name = f"{misc_id}_{msiname}"
+            glsimg_path = process_and_save_image(
+                file_obj=file,
+                upload_subfolder='images/misc',
+                custom_filename_base=pattern_name,
+                target_size=(256, 256)
+            )
+            # Update GLSIMG field in GSI table
+            db.execute("UPDATE MSI SET MSIIMG = ? WHERE MSIID = ?", (msiimg_path, misc_id))
+
+        if msiprice:
+            db.execute(
+                """
+                INSERT INTO MSP (MSIID, MSIPRICE, STDATE) VALUES (?, ?, DATE('now'))
+            """,
+                (misc_id, msiprice),
+            )
+
+        db.commit()
+        flash("Misc Item recorded successfully!", "success")
+
+        return redirect(url_for("list_misc"))
+
+
+
+    unit_types = db.execute("SELECT * FROM UNTS").fetchall()
+    return render_template(
+        "misc_form.html", unit_types=unit_types
+    )
+# --- MISC DETAIL SUMMARY PAGE ---
+@app.route('/misc_item/<int:misc_id>')
+def misc_detail(misc_id):
+    db = get_db()
+    # Fetch glass details with pricing history, supplier details, and hex color code
+    misc = db.execute('''
+        SELECT m.*, p.MSIPRICE, u.UNTTYPE
+        FROM MSI m
+        LEFT JOIN MSP p ON m.MSIID = p.MSIID
+        LEFT JOIN UNT u ON g.UNTTYPE = u.UNTTYPE
+        WHERE m.MSIID = ?
+    ''', (misc_id,)).fetchone()
+
+    if not misc:
+        flash('Misc Item record not found.', 'danger')
+        return redirect(url_for('list_misc'))
+
+    # Fetch any items that utilize this misc item
+    items = db.execute('''
+        SELECT m.*, l.MSIID, i.ITMNAME 
+        FROM MSI m
+        JOIN MSL l on m.MSIID = l.MSSID
+        JOIN ITM i ON l.ITEMID = i.ITEMID
+        WHERE m.MSIID = ?
+    ''', (misc_id,)).fetchall()
+
+    return render_template(
+        'misc_detail.html', misc=misc, items=items
+    )
+
+@app.route('/misc_items/edit/<int:misc_id>', methods=['GET', 'POST'])
+
+def edit_misc(misc_id):
+
+    db = get_db()
+
+    misc = db.execute('''
+        SELECT m.*, p.MSIPRICE 
+        FROM MSI m 
+        LEFT JOIN GPC p ON g.GLASSID = p.GLASSID 
+        LEFT JOIN COLOR c ON g.COLOR = c.COLOR 
+        LEFT JOIN GTRNS t ON g.GTRNSN = t.GTRNSN
+        WHERE g.GLASSID = ?
+
+    ''', (glass_id,)).fetchone()
+
+    if not glass:
+        flash('Glass sheet record not found.', 'danger')
+        return redirect(url_for('list_glass'))
+
+    if request.method == 'POST':
+        glsname = request.form.get('GLSNAME')
+        glsmanf = request.form.get('GLSMANF')
+        glstex = request.form.get('GLSTEX') or None
+        gtrnsn = request.form.get('GTRNSN') or None
+        color = request.form.get('COLOR') or None
+        glsource = request.form.get('GLSOURCE') or None
+        glslen = request.form.get('GLSLEN') or None
+        glswid = request.form.get('GLSWID') or None
+        glsthk = request.form.get('GLSTHK') or None
+        glsiri = 1 if request.form.get('GLSIRI') else 0
+        glsopal = 1 if request.form.get('GLSOPAL') else 0
+        gllink = request.form.get('GLLINK') or None
+        glsnote = request.form.get('GLSNOTE')
+        price = request.form.get('GLSPRICE')
+
+
+
+        # Handle File Upload or maintain manual text string entry
+        file = request.files.get('GLSIMG_FILE')
+        if file and file.filename != '':
+            pattern_name = f"{glass_id}_{glsname}"
+            glsimg = process_and_save_image(
+                file_obj=file,
+                upload_subfolder='images/glass',
+                custom_filename_base=pattern_name,
+                target_size=(256, 256)
+            )
+        else:
+            # Fall back to existing field value or manual input string
+            glsimg = request.form.get('GLSIMG') or glass['GLSIMG']
+
+        # Update GSI table
+        db.execute(
+            '''
+            UPDATE GSI 
+            SET GLSNAME = ?, GLSMANF = ?, GLSTEX = ?, GTRNSN = ?, COLOR = ?, GLSOURCE = ?, 
+                GLSLEN = ?, GLSWID = ?, GLSTHK = ?, GLSIRI = ?, 
+                GLSOPAL = ?, GLLINK = ?, GLSIMG = ?, GLSNOTE = ?
+            WHERE GLASSID = ?
+        ''',
+            (
+                glsname,
+                glsmanf,
+                glstex,
+                gtrnsn,
+                color,
+                glsource,
+                glslen,
+                glswid,
+                glsthk,
+                glsiri,
+                glsopal,
+                gllink,
+                glsimg,
+                glsnote,
+                glass_id,
+            ),
+        )
+
+        # Update or Insert pricing into GPC
+        if price:
+            existing_price = db.execute(
+                'SELECT * FROM GPC WHERE GLASSID = ?', (glass_id,)
+            ).fetchone()
+            if existing_price:
+                db.execute(
+                    '''
+                    UPDATE GPC SET GLSPRICE = ?, STDATE = DATE('now') WHERE GLASSID = ?
+                ''',
+                    (price, glass_id),
+                )
+            else:
+                db.execute(
+                    '''
+                    INSERT INTO GPC (GLASSID, GLSPRICE, STDATE) VALUES (?, ?, DATE('now'))
+                ''',
+                    (glass_id, price),
+                )
+
+        db.commit()
+        flash('Glass details updated successfully!', 'success')
+        return redirect(url_for('glass_detail', glass_id=glass_id))
+
+    textures = db.execute('SELECT * FROM GTL').fetchall()
+    transparency = db.execute('SELECT * FROM GTRNS').fetchall()
+    colors = db.execute('SELECT * FROM COLOR').fetchall()
+    sources = db.execute('SELECT * FROM GSL').fetchall()
+
+    return render_template(
+        'glass_form.html',
+        glass=glass,
+        textures=textures,
+        transparency=transparency,
+        colors=colors,
+        sources=sources,
+        action='Edit',
+
+    )
+
+@app.route('/misc_items/delete/<int:misc_id>', methods=['POST'])
+def delete_misc(misc_id):
+    db = get_db()
+    
+    # Perform a soft delete by setting ISACTIVE flag to 0
+    db.execute("UPDATE GSI SET ISACTIVE = 0 WHERE GLASSID = ?", (glass_id,))
+    db.commit()
+    
+    flash(f"Glass sheet #{glass_id} deactivated successfully.", "warning")
+    return redirect(url_for('list_glass'))
+
+@app.route('/misc_items/inventory', methods=['GET', 'POST'])
+def misc_inventory():
+
+    db = get_db()
+
+    if request.method == 'POST':
+        glass_id = request.form.get('GLASSID')
+        adjustment = request.form.get('GLSSTOCK')
+        trans_date = request.form.get('TS') or date.today().isoformat()
+
+        if glass_id and adjustment:
+            db.execute(
+                """
+                INSERT INTO GLSINV (GLASSID, GLSSTOCK, TS)
+                VALUES (?, ?, ?)
+                """,
+                (glass_id, int(adjustment), trans_date)
+            )
+            db.commit()
+            flash("Inventory level adjusted successfully!", "success")
+        else:
+            flash("Invalid input parameters for stock adjustment.", "danger")
+            
+        return redirect(url_for('glass_inventory'))
+
+    # --- Capture Sort & Filter Parameters ---
+    sort_by = request.args.get('sort_by', 'GLSNAME')
+    order = request.args.get('order', 'asc').lower()
+    if order not in ['asc', 'desc']:
+        order = 'asc'
+
+    q = request.args.get('q', '').strip()
+    manf = request.args.get('manf', '').strip()
+    tex = request.args.get('tex', '').strip()
+    color = request.args.get('color', '').strip()
+    source = request.args.get('source', '').strip()
+    min_price = request.args.get('min_price', '').strip()
+    max_price = request.args.get('max_price', '').strip()
+    stock_filter = request.args.get('stock_filter', '').strip()
+    iridescent_filter = request.args.get('iridescent')
+    opalescent_filter = request.args.get('opalescent')
+    stock_display_mode = request.args.get('stock_display', 'all')
+
+    allowed_sorts = {
+        'GLASSID': 'GLASSID',
+        'GLSNAME': 'GLSNAME',
+        'GLSMANF': 'GLSMANF',
+        'GLSTEX': 'GLSTEX',
+        'COLOR': 'COLOR',
+        'COLOR_HSV': 'COLOR_HSV',
+        'GLSIRI': 'GLSIRI',
+        'GLSOPAL': 'GLSOPAL',
+        'GLSLEN': 'GLSLEN',
+        'CURRENT_STOCK': 'CURRENT_STOCK',
+        'LAST_UPDATED': 'LAST_UPDATED'
+    }
+    
+    # If sorting by COLOR_HSV, fetch sorted by secondary or default column from SQL, then sort in Python
+    sql_sort_column = 'GLSNAME' if sort_by == 'COLOR_HSV' else allowed_sorts.get(sort_by, 'GLSNAME')
+
+    # Build dynamic WHERE clause for base query
+    where_clauses = ["g.ISACTIVE = 1"]
+    params = []
+
+    if q:
+        where_clauses.append("(g.GLSNAME LIKE ? OR g.GLSMANF LIKE ? OR g.GLSNOTE LIKE ?)")
+        params.extend([f"%{q}%", f"%{q}%", f"%{q}%"])
+    if manf:
+        where_clauses.append("g.GLSMANF = ?")
+        params.append(manf)
+    if tex:
+        where_clauses.append("g.GLSTEX = ?")
+        params.append(tex)
+    if color:
+        where_clauses.append("g.COLOR = ?")
+        params.append(color)
+    if iridescent_filter:
+        where_clauses.append("g.GLSIRI = ?")
+        params.append(iridescent_filter)
+    if opalescent_filter:
+        where_clauses.append("g.GLSOPAL = ?")
+        params.append(opalescent_filter)
+    if source:
+        where_clauses.append("g.GLSOURCE = ?")
+        params.append(source)
+    if min_price:
+        where_clauses.append("p.GLSPRICE >= ?")
+        params.append(min_price)
+    if max_price:
+        where_clauses.append("p.GLSPRICE <= ?")
+        params.append(max_price)
+
+    where_sql = f"WHERE {' AND '.join(where_clauses)}"
+
+    having_conditions = []
+    if stock_filter == 'out':
+        having_conditions.append("CURRENT_STOCK = 0")
+    elif stock_filter == 'low':
+        having_conditions.append("CURRENT_STOCK = 1")
+    elif stock_filter == 'in':
+        having_conditions.append("CURRENT_STOCK > 1")
+
+    if stock_display_mode == 'out':
+        having_conditions.append("CURRENT_STOCK <= 0")
+    elif stock_display_mode == 'hide':
+        having_conditions.append("CURRENT_STOCK > 0")
+
+    # Add GROUP BY GLASSID so the HAVING clause is valid syntax in SQLite
+    stock_having_sql = f"GROUP BY GLASSID HAVING {' AND '.join(having_conditions)}" if having_conditions else ""
+
+    query = f"""
+        SELECT GLASSID, GLSNAME, GLSMANF, GLSLEN, GLSWID, GLSTHK, GLSTEX, 
+               GLSIRI, GLSOPAL, GLSOURCE, GLLINK, GLSIMG, GLSNOTE, COLOR, 
+               ISACTIVE, CHEX, GLSPRICE, SRCWEB, CURRENT_STOCK, LAST_UPDATED
+        FROM (
+            SELECT g.GLASSID, g.GLSNAME, g.GLSMANF, g.GLSLEN, g.GLSWID, g.GLSTHK, 
+                   g.GLSTEX, g.GLSIRI, g.GLSOPAL, g.GLSOURCE, g.GLLINK, g.GLSIMG, 
+                   g.GLSNOTE, g.COLOR, g.ISACTIVE, c.CHEX, p.GLSPRICE, l.SRCWEB,
+                   COALESCE((
+                       SELECT i.GLSSTOCK 
+                       FROM GLSINV i 
+                       WHERE i.GLASSID = g.GLASSID 
+                       ORDER BY i.TS DESC, i.GLSTRNID DESC 
+                       LIMIT 1
+                   ), 0) AS CURRENT_STOCK,
+                   (
+                       SELECT i.TS 
+                       FROM GLSINV i 
+                       WHERE i.GLASSID = g.GLASSID 
+                       ORDER BY i.TS DESC, i.GLSTRNID DESC 
+                       LIMIT 1
+                   ) AS LAST_UPDATED
+            FROM GSI g
+            LEFT JOIN COLOR c ON g.COLOR = c.COLOR
+            LEFT JOIN GPC p ON g.GLASSID = p.GLASSID
+            LEFT JOIN GSL l ON g.GLSOURCE = l.GLSOURCE
+            {where_sql}
+        ) sub
+        {stock_having_sql}
+        ORDER BY {sql_sort_column} {order.upper()}
+    """
+    raw_items = db.execute(query, params).fetchall()
+
+    # Post-process items to attach HSV values and handle numeric sort cleanly if requested
+    inventory_items = []
+    for row in raw_items:
+        item = dict(row)
+        item['COLOR_HSV'] = hex_to_hsv(item.get('CHEX'))
+        inventory_items.append(item)
+
+    if sort_by == 'COLOR_HSV':
+        inventory_items.sort(
+            key=lambda x: x['COLOR_HSV'],
+            reverse=(order == 'desc')
+        )
+
+    # --- Fetch Lookups for Filter Dropdowns ---
+    textures = db.execute("SELECT DISTINCT GLSTEX FROM GSI WHERE ISACTIVE = 1 AND GLSTEX IS NOT NULL AND GLSTEX != '' ORDER BY GLSTEX").fetchall()
+    colors = db.execute("SELECT * FROM COLOR ORDER BY COLOR").fetchall()
+    sources = db.execute("SELECT DISTINCT GLSOURCE FROM GSI WHERE ISACTIVE = 1 AND GLSOURCE IS NOT NULL AND GLSOURCE != '' ORDER BY GLSOURCE").fetchall()
+    manufacturers = db.execute("SELECT DISTINCT GLSMANF FROM GSI WHERE ISACTIVE = 1 AND GLSMANF IS NOT NULL AND GLSMANF != '' ORDER BY GLSMANF").fetchall()
+    iridescent_options = db.execute("SELECT DISTINCT GLSIRI FROM GSI WHERE ISACTIVE = 1 AND GLSIRI = 1").fetchall()
+    opalescent_options = db.execute("SELECT DISTINCT GLSOPAL FROM GSI WHERE ISACTIVE = 1 AND GLSOPAL = 1").fetchall()
+
+    return render_template(
+        'glass_inventory.html',
+        inventory_items=inventory_items,
+        textures=textures,
+        colors=colors,
+        sources=sources,
+        manufacturers=manufacturers,
+        iridescent_options=iridescent_options,
+        opalescent_options=opalescent_options,
+        current_sort=sort_by,
+        current_order=order,
+        today_date=date.today().isoformat(),
+        filters={
+            'q': request.args.get('q', ''),
+            'manf': request.args.get('manf', ''),
+            'tex': request.args.get('tex', ''),
+            'color': request.args.get('color', ''),
+            'source': request.args.get('source', ''),
+            'min_price': request.args.get('min_price', ''),
+            'max_price': request.args.get('max_price', ''),
+            'stock_filter': request.args.get('stock_filter', ''),
+            'stock_display': stock_display_mode,
+            'iridescent': request.args.get('iridescent', ''),
+            'opalescent': request.args.get('opalescent', '')
+        }
+    )
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=7665, debug=True)

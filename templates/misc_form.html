@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-dark text-white">
+                <h4 class="mb-0">{{ action if action else 'Record' }} Misc Item Sheet</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <label class="form-label">Misc Item Name</label>
+                            <input type="text" name="MSINAME" class="form-control" value="{{ misc.MSINAME if misc else '' }}" required maxlength="255">
+			</div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Stock</label>
+                            <input type="text" name="MSISTOCK" class="form-control" value="{{ misc.MSISTOCK if misc else '' }}" maxlength="25">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Price</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" step="0.01" min="0.00" name="MSIPRICE" class="form-control" value="{{ misc.MSIPRICE if misc else '' }}" placeholder="0.00">
+                            </div>
+                        </div>
+		    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Unit Amount</label>
+                            <div class="input-group">
+                                <input type="number" step="1" min="0" name="MSIUNIT" class="form-control" value="{{ misc.UNIT if misc else '' }}" placeholder="0">
+                            </div>
+                        </div>
+			<div class="col-md-6">
+                            <label class="form-label">Unit Measurement</label>
+                            <select name="UNTTYPE" class="form-select">
+                                <option value="">-- Select Unit Type --</option>
+                                {% for u in unit_types %}
+                                    <option value="{{ u.UNTTYPE }}" {% if misc and misc.UNTTYPE == u.UNTTYPE %}selected{% endif %}>
+                                        {{ u.UNTTYPE }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+			</div>
+                    </div>
+
+                    <div class="row mb-3">
+			<div class="col-md-6">
+                            <label class="form-label">Upload Misc Item Image</label>
+                            <input type="file" name="MSIIMG_FILE" class="form-control" accept="image/*">
+                            
+                            <!-- Fallback / Optional manual path string input -->
+                            <input type="hidden" name="MSIIMG" value="{{ misc.MSIIMG if misc else '' }}">
+                            {% if misc and misc.MSIIMG %}
+                            <div class="form-text text-truncate mt-1">
+                                Current path: <code>{{ misc.MSIIMG }}</code>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Misc Item URL</label>
+                        <input type="text" name="MSIURL" class="form-control" value="{{ misc.MSIURL if msi else '' }}">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Notes</label>
+                        <textarea name="MSINOTE" class="form-control" rows="3">{{ misc.MSINOTE if misc else '' }}</textarea>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <a href="{{ url_for('list_misc') }}" class="btn btn-secondary">Cancel</a>
+                        
+                        <div>
+                            {% if action == 'Edit' and misc %}
+                            <button type="submit" form="delete-misc-form" class="btn btn-danger me-2" onclick="return confirm('Are you sure you want to delete this misc item?');">
+                                Delete Misc Item
+                            </button>
+                            {% endif %}
+                            <button type="submit" class="btn btn-success">Save Misc Item</button>
+                        </div>
+                    </div>
+                </form>
+
+                {% if action == 'Edit' and misc %}
+                <!-- Separate hidden form for deletion -->
+                <form id="delete-misc-form" action="{{ url_for('delete_misc', misc_id=MSI.MSIID) }}" method="POST" style="display: none;"></form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

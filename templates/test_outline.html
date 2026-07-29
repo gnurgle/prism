@@ -1,0 +1,105 @@
+<!-- templates/test_outline.html -->
+
+<!doctype html>
+
+<html>
+
+<head>
+
+    <title>Test Outline Measurement</title>
+
+    <style>
+
+        body { font-family: Arial, sans-serif; margin: 40px; }
+
+        .result { margin-top: 20px; padding: 15px; background: #f0f0f0; border-radius: 5px; }
+
+        .svg-container {
+
+            width: 100%;
+
+            max-width: 600px;
+
+            height: auto;
+
+            border: 1px solid #ccc;
+
+            background: #fff;
+
+            padding: 10px;
+
+            box-sizing: border-box;
+
+        }
+
+        .svg-container svg {
+
+            width: 100% !important;
+
+            height: auto !important;
+
+            display: block;
+
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+    <h1>SVG Outline & Path Length Calculator</h1>
+
+    <form method="POST" enctype="multipart/form-data">
+
+        <label>Black & White Image:</label><br>
+
+        <input type="file" name="image" required><br><br>
+
+        
+
+        <label>Real World Width (inches):</label><br>
+
+        <input type="number" step="any" name="real_width" required><br><br>
+
+        
+
+        <label>Real World Height (inches):</label><br>
+
+        <input type="number" step="any" name="real_height" required><br><br>
+
+        
+
+        <button type="submit">Process Image</button>
+
+    </form>
+
+
+
+    {% if result %}
+
+    <div class="result">
+
+        <h3>Results:</h3>
+
+        <p><strong>Outside Outline Length:</strong> {{ result.outline_length }} inches</p>
+
+        <p><strong>Entire Path Length:</strong> {{ result.total_length }} inches</p>
+
+        <br>
+
+        <h4>Generated SVG Preview:</h4>
+
+        <div class="svg-container">
+
+            {{ result.svg_content | safe }}
+
+        </div>
+
+    </div>
+
+    {% endif %}
+
+</body>
+
+</html>

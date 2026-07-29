@@ -592,3 +592,891 @@ def format_fractional_inches(value):
     else:
         return f'{whole} {frac_str}"'
 
+
+def compute_total_path_length(svg_string, width_inches, height_inches):
+
+    """
+
+    Parses the SVG path string natively, determines the exact bounding box of the path 
+
+    to use as true pixel dimensions, computes total length, and scales to physical inches.
+
+    """
+
+    try:
+
+        root = etree.fromstring(svg_string.encode('utf-8'))
+
+        namespaces = {'svg': 'http://www.w3.org/2000/svg'}
+
+        paths = root.findall('.//svg:path', namespaces)
+
+        if not paths:
+
+            paths = root.findall('.//path')
+
+
+
+        if not paths:
+
+            return 0.0
+
+
+
+        total_px_length = 0.0
+
+        all_x = []
+
+        all_y = []
+
+
+
+        for p in paths:
+
+            d_val = p.get('d', '')
+
+            if not d_val:
+
+                continue
+
+            
+
+            tokens = re.findall(r'[MmLlHhVvCcZz]|[-+]?[0-9]*\.?[0-9]+(?:[eE][-+]?[0-9]+)?', d_val)
+
+            
+
+            current_x, current_y = 0.0, 0.0
+
+            start_x, start_y = 0.0, 0.0
+
+            
+
+            i = 0
+
+            while i < len(tokens):
+
+                tok = tokens[i]
+
+                if tok in ('M', 'm'):
+
+                    x = float(tokens[i+1])
+
+                    y = float(tokens[i+2])
+
+                    if tok == 'm':
+
+                        current_x += x
+
+                        current_y += y
+
+                    else:
+
+                        current_x, current_y = x, y
+
+                    start_x, start_y = current_x, current_y
+
+                    all_x.append(current_x)
+
+                    all_y.append(current_y)
+
+                    i += 3
+
+                elif tok in ('L', 'l'):
+
+                    x = float(tokens[i+1])
+
+                    y = float(tokens[i+2])
+
+                    if tok == 'l':
+
+                        dx, dy = x, y
+
+                    else:
+
+                        dx, dy = x - current_x, y - current_y
+
+                    seg_len = np.hypot(dx, dy)
+
+                    total_px_length += seg_len
+
+                    current_x += dx if tok == 'l' else (x - current_x)
+
+                    current_y += dy if tok == 'l' else (y - current_y)
+
+                    all_x.append(current_x)
+
+                    all_y.append(current_y)
+
+                    i += 3
+
+                elif tok in ('H', 'h'):
+
+                    x = float(tokens[i+1])
+
+                    dx = x if tok == 'h' else (x - current_x)
+
+                    seg_len = abs(dx)
+
+                    total_px_length += seg_len
+
+                    current_x += dx
+
+                    all_x.append(current_x)
+
+                    all_y.append(current_y)
+
+                    i += 2
+
+                elif tok in ('V', 'v'):
+
+                    y = float(tokens[i+1])
+
+                    dy = y if tok == 'v' else (y - current_y)
+
+                    seg_len = abs(dy)
+
+                    total_px_length += seg_len
+
+                    current_y += dy
+
+                    all_x.append(current_x)
+
+                    all_y.append(current_y)
+
+                    i += 2
+
+                elif tok in ('C', 'c'):
+
+                    p0 = (current_x, current_y)
+
+                    is_rel = (tok == 'c')
+
+                    p1 = (float(tokens[i+1]) + (current_x if is_rel else 0), float(tokens[i+2]) + (current_y if is_rel else 0))
+
+                    p2 = (float(tokens[i+3]) + (current_x if is_rel else 0), float(tokens[i+4]) + (current_y if is_rel else 0))
+
+                    p3 = (float(tokens[i+5]) + (current_x if is_rel else 0), float(tokens[i+6]) + (current_y if is_rel else 0))
+
+                    
+
+                    curve_len = 0.0
+
+                    prev_pt = p0
+
+                    for t in np.linspace(0.1, 1.0, 10):
+
+                        bx = (1-t)**3 * p0[0] + 3*(1-t)**2 * t * p1[0] + 3*(1-t)*t**2 * p2[0] + t**3 * p3[0]
+
+                        by = (1-t)**3 * p0[1] + 3*(1-t)**2 * t * p1[1] + 3*(1-t)*t**2 * p2[1] + t**3 * p3[1]
+
+                        curve_len += np.hypot(bx - prev_pt[0], by - prev_pt[1])
+
+                        prev_pt = (bx, by)
+
+                        
+
+                    total_px_length += curve_len
+
+                    current_x, current_y = p3
+
+                    all_x.append(current_x)
+
+                    all_y.append(current_y)
+
+                    i += 7
+
+                elif tok in ('Z', 'z'):
+
+                    seg_len = np.hypot(start_x - current_x, start_y - current_y)
+
+                    total_px_length += seg_len
+
+                    current_x, current_y = start_x, start_y
+
+                    all_x.append(current_x)
+
+                    all_y.append(current_y)
+
+                    i += 1
+
+                else:
+
+                    i += 1
+
+
+
+        if not all_x or not all_y:
+
+            return 0.0
+
+
+
+        svg_px_width = max(all_x) - min(all_x)
+
+        svg_px_height = max(all_y) - min(all_y)
+
+
+
+        if svg_px_width <= 0:
+
+            svg_px_width = 1.0
+
+        if svg_px_height <= 0:
+
+            svg_px_height = 1.0
+
+
+
+        px_to_inch_x = width_inches / svg_px_width
+
+        px_to_inch_y = height_inches / svg_px_height
+
+        avg_scale = (px_to_inch_x + px_to_inch_y) / 2.0
+
+
+
+        total_inches = total_px_length * avg_scale
+
+        return round(total_inches, 2)
+
+    except Exception as e:
+
+        print("Path computation error:", e)
+
+        return 0.0
+
+
+
+
+
+
+def trace_stencil_to_single_path_svg(image_file):
+
+    img = Image.open(image_file)
+
+    rgba_img = img.convert("RGBA")
+
+    
+
+    np_img = np.array(rgba_img)
+
+    r, g, b, a = np_img[:,:,0], np_img[:,:,1], np_img[:,:,2], np_img[:,:,3]
+
+    is_content = (a > 0) & ~((r >= 245) & (g >= 245) & (b >= 245))
+
+    
+
+    coords = np.argwhere(is_content)
+
+    if coords.size > 0:
+
+        y_min, x_min = coords.min(axis=0)
+
+        y_max, x_max = coords.max(axis=0)
+
+        pad = 5
+
+        crop_box = (
+
+            max(0, x_min - pad),
+
+            max(0, y_min - pad),
+
+            min(rgba_img.width, x_max + pad),
+
+            min(rgba_img.height, y_max + pad)
+
+        )
+
+        cropped_img = rgba_img.crop(crop_box)
+
+    else:
+
+        cropped_img = rgba_img
+
+
+
+    width, height = cropped_img.size
+
+
+
+    background = Image.new("RGB", cropped_img.size, (255, 255, 255))
+
+    background.paste(cropped_img, mask=cropped_img.split()[3])
+
+    
+
+    gray_img = background.convert('L')
+
+    binary_img = gray_img.point(lambda p: 0 if p < 200 else 255, '1')
+
+    bin_arr = np.array(binary_img) == 0  
+
+
+
+    current_arr = bin_arr.copy()
+
+    skeleton_arr = np.zeros_like(current_arr, dtype=bool)
+
+    
+
+    for _ in range(max(width, height)):
+
+        if not np.any(current_arr):
+
+            break
+
+        from scipy.ndimage import binary_erosion, binary_opening
+
+        eroded = binary_erosion(current_arr)
+
+        opened = binary_opening(eroded)
+
+        subset = current_arr & ~opened
+
+        skeleton_arr |= subset
+
+        current_arr = eroded
+
+
+
+    skel_img_data = np.ones((height, width, 3), dtype=np.uint8) * 255
+
+    skel_img_data[skeleton_arr] = [0, 0, 0]
+
+    
+
+    final_prep_img = Image.fromarray(skel_img_data)
+
+    img_array = np.array(final_prep_img)
+
+    bitmap = Bitmap(img_array)
+
+    vector = bitmap.trace(centerline=True)
+
+    svg_bytes = vector.encode(VectorFormat.SVG)
+
+    
+
+    root = etree.fromstring(svg_bytes)
+
+    namespaces = {'svg': 'http://www.w3.org/2000/svg'}
+
+    paths = root.findall('.//svg:path', namespaces)
+
+    if not paths:
+
+        paths = root.findall('.//path')
+
+        
+
+    combined_d = []
+
+    for p in paths:
+
+        d_val = p.get('d')
+
+        if d_val:
+
+            if f"H {width}" in d_val or f"V {height}" in d_val or f"h {width}" in d_val or f"v {height}" in d_val:
+
+                continue
+
+            if d_val.startswith("M 0 0") or d_val.startswith("M0 0"):
+
+                continue
+
+            combined_d.append(d_val)
+
+            
+
+    new_root = ET.Element('svg', {
+
+        'xmlns': 'http://www.w3.org/2000/svg',
+
+        'viewBox': f'0 0 {width} {height}',
+
+        'width': '100%',
+
+        'height': '100%'
+
+    })
+
+    
+
+    if combined_d:
+
+        single_path_element = ET.Element('path', {
+
+            'd': ' '.join(combined_d),
+
+            'fill': 'none',
+
+            'stroke': 'black',
+
+            'stroke-width': '2',
+
+            'stroke-linecap': 'round',
+
+            'stroke-linejoin': 'round'
+
+        })
+
+        new_root.append(single_path_element)
+
+        
+
+    return ET.tostring(new_root, encoding='unicode')
+
+
+def trace_stencil_to_outline_svg(image_file):
+
+    """
+
+    Traces the standard solid outline of the uploaded image. Compares original and 
+
+    cropped dimensions; if no difference is found, processes the full image boundary.
+
+    Otherwise, filters out frame artifacts and retains only the path with the largest bounding box area.
+
+    """
+
+    img = Image.open(image_file)
+
+    rgba_img = img.convert("RGBA")
+
+    orig_width, orig_height = rgba_img.size
+
+    
+
+    np_img = np.array(rgba_img)
+
+    r, g, b, a = np_img[:,:,0], np_img[:,:,1], np_img[:,:,2], np_img[:,:,3]
+
+    is_content = (a > 0) & ~((r >= 245) & (g >= 245) & (b >= 245))
+
+    
+
+    coords = np.argwhere(is_content)
+
+    if coords.size > 0:
+
+        y_min, x_min = coords.min(axis=0)
+
+        y_max, x_max = coords.max(axis=0)
+
+        pad = 5
+
+        crop_box = (
+
+            max(0, x_min - pad),
+
+            max(0, y_min - pad),
+
+            min(orig_width, x_max + pad),
+
+            min(orig_height, y_max + pad)
+
+        )
+
+        cropped_img = rgba_img.crop(crop_box)
+
+    else:
+
+        cropped_img = rgba_img
+
+
+
+    width, height = cropped_img.size
+
+    no_difference = (width == orig_width and height == orig_height)
+
+
+
+    background = Image.new("RGB", cropped_img.size, (255, 255, 255))
+
+    background.paste(cropped_img, mask=cropped_img.split()[3])
+
+    
+
+    gray_img = background.convert('L')
+
+    binary_img = gray_img.point(lambda p: 0 if p < 200 else 255, '1')
+
+    img_array = np.array(binary_img.convert('RGB'))
+
+    
+
+    bitmap = Bitmap(img_array)
+
+    vector = bitmap.trace(centerline=False)
+
+    svg_bytes = vector.encode(VectorFormat.SVG)
+
+    
+
+    root = etree.fromstring(svg_bytes)
+
+    namespaces = {'svg': 'http://www.w3.org/2000/svg'}
+
+    paths = root.findall('.//svg:path', namespaces)
+
+    if not paths:
+
+        paths = root.findall('.//path')
+
+        
+
+    valid_paths = []
+
+    for p in paths:
+
+        d_val = p.get('d')
+
+        if not d_val:
+
+            continue
+
+            
+
+        if not no_difference:
+
+            if f"H {width}" in d_val or f"V {height}" in d_val or f"h {width}" in d_val or f"v {height}" in d_val:
+
+                continue
+
+            if d_val.startswith("M 0 0") or d_val.startswith("M0 0"):
+
+                continue
+
+            
+
+        tokens = re.findall(r'[MmLlHhVvCcZz]|[-+]?[0-9]*\.?[0-9]+(?:[eE][-+]?[0-9]+)?', d_val)
+
+        curr_x, curr_y = 0.0, 0.0
+
+        path_x = []
+
+        path_y = []
+
+        
+
+        idx = 0
+
+        while idx < len(tokens):
+
+            tok = tokens[idx]
+
+            if tok in ('M', 'm', 'L', 'l'):
+
+                if idx + 2 < len(tokens):
+
+                    try:
+
+                        x = float(tokens[idx+1])
+
+                        y = float(tokens[idx+2])
+
+                        if tok in ('m', 'l'):
+
+                            curr_x += x
+
+                            curr_y += y
+
+                        else:
+
+                            curr_x, curr_y = x, y
+
+                        path_x.append(curr_x)
+
+                        path_y.append(curr_y)
+
+                    except ValueError:
+
+                        pass
+
+                idx += 3
+
+            elif tok in ('H', 'h'):
+
+                if idx + 1 < len(tokens):
+
+                    try:
+
+                        x = float(tokens[idx+1])
+
+                        curr_x = curr_x + x if tok == 'h' else x
+
+                        path_x.append(curr_x)
+
+                        path_y.append(curr_y)
+
+                    except ValueError:
+
+                        pass
+
+                idx += 2
+
+            elif tok in ('V', 'v'):
+
+                if idx + 1 < len(tokens):
+
+                    try:
+
+                        y = float(tokens[idx+1])
+
+                        curr_y = curr_y + y if tok == 'v' else y
+
+                        path_x.append(curr_x)
+
+                        path_y.append(curr_y)
+
+                    except ValueError:
+
+                        pass
+
+                idx += 2
+
+            elif tok in ('C', 'c'):
+
+                if idx + 6 < len(tokens):
+
+                    try:
+
+                        is_rel = (tok == 'c')
+
+                        curr_x = float(tokens[idx+5]) + (curr_x if is_rel else 0)
+
+                        curr_y = float(tokens[idx+6]) + (curr_y if is_rel else 0)
+
+                        path_x.append(curr_x)
+
+                        path_y.append(curr_y)
+
+                    except ValueError:
+
+                        pass
+
+                idx += 7
+
+            else:
+
+                idx += 1
+
+                
+
+        if path_x and path_y:
+
+            box_width = max(path_x) - min(path_x)
+
+            box_height = max(path_y) - min(path_y)
+
+            box_area = box_width * box_height
+
+            valid_paths.append((box_area, d_val))
+
+
+
+    new_root = ET.Element('svg', {
+
+        'xmlns': 'http://www.w3.org/2000/svg',
+
+        'viewBox': f'0 0 {width} {height}',
+
+        'width': '100%',
+
+        'height': '100%'
+
+    })
+
+    
+
+    if valid_paths:
+
+        if no_difference:
+
+            # If no difference between original and cropped size, combine all valid path segments or take the largest
+
+            valid_paths.sort(key=lambda x: x[0], reverse=True)
+
+            largest_d = valid_paths[0][1]
+
+        else:
+
+            valid_paths.sort(key=lambda x: x[0], reverse=True)
+
+            largest_d = valid_paths[0][1]
+
+        
+
+        single_path_element = ET.Element('path', {
+
+            'd': largest_d,
+
+            'fill': 'none',
+
+            'stroke': 'black',
+
+            'stroke-width': '2',
+
+            'stroke-linecap': 'round',
+
+            'stroke-linejoin': 'round'
+
+        })
+
+        new_root.append(single_path_element)
+
+        
+
+    return ET.tostring(new_root, encoding='unicode')
+
+def trace_stencil_to_filled_outline_svg(image_file):
+
+    """
+
+    Traces the standard multi-path outline of the uploaded image without centerline thinning,
+
+    following the preprocessing workflow of trace_stencil_to_single_path_svg.
+
+    """
+
+    img = Image.open(image_file)
+
+    rgba_img = img.convert("RGBA")
+
+    
+
+    np_img = np.array(rgba_img)
+
+    r, g, b, a = np_img[:,:,0], np_img[:,:,1], np_img[:,:,2], np_img[:,:,3]
+
+    is_content = (a > 0) & ~((r >= 245) & (g >= 245) & (b >= 245))
+
+    
+
+    coords = np.argwhere(is_content)
+
+    if coords.size > 0:
+
+        y_min, x_min = coords.min(axis=0)
+
+        y_max, x_max = coords.max(axis=0)
+
+        pad = 5
+
+        crop_box = (
+
+            max(0, x_min - pad),
+
+            max(0, y_min - pad),
+
+            min(rgba_img.width, x_max + pad),
+
+            min(rgba_img.height, y_max + pad)
+
+        )
+
+        cropped_img = rgba_img.crop(crop_box)
+
+    else:
+
+        cropped_img = rgba_img
+
+
+
+    width, height = cropped_img.size
+
+
+
+    background = Image.new("RGB", cropped_img.size, (255, 255, 255))
+
+    background.paste(cropped_img, mask=cropped_img.split()[3])
+
+    
+
+    gray_img = background.convert('L')
+
+    binary_img = gray_img.point(lambda p: 0 if p < 200 else 255, '1')
+
+    img_array = np.array(binary_img.convert('RGB'))
+
+    
+
+    bitmap = Bitmap(img_array)
+
+    vector = bitmap.trace(centerline=False)
+
+    svg_bytes = vector.encode(VectorFormat.SVG)
+
+    
+
+    root = etree.fromstring(svg_bytes)
+
+    namespaces = {'svg': 'http://www.w3.org/2000/svg'}
+
+    paths = root.findall('.//svg:path', namespaces)
+
+    if not paths:
+
+        paths = root.findall('.//path')
+
+        
+
+    combined_d = []
+
+    for p in paths:
+
+        d_val = p.get('d')
+
+        if d_val:
+
+            if f"H {width}" in d_val or f"V {height}" in d_val or f"h {width}" in d_val or f"v {height}" in d_val:
+
+                continue
+
+            if d_val.startswith("M 0 0") or d_val.startswith("M0 0"):
+
+                continue
+
+            combined_d.append(d_val)
+
+            
+
+    new_root = ET.Element('svg', {
+
+        'xmlns': 'http://www.w3.org/2000/svg',
+
+        'viewBox': f'0 0 {width} {height}',
+
+        'width': '100%',
+
+        'height': '100%'
+
+    })
+
+    
+
+    if combined_d:
+
+        single_path_element = ET.Element('path', {
+
+            'd': ' '.join(combined_d),
+
+            'fill': 'none',
+
+            'stroke': 'black',
+
+            'stroke-width': '2',
+
+            'stroke-linecap': 'round',
+
+            'stroke-linejoin': 'round'
+
+        })
+
+        new_root.append(single_path_element)
+
+        
+
+    return ET.tostring(new_root, encoding='unicode')
