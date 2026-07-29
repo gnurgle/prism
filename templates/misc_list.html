@@ -29,18 +29,20 @@
         {% if filters.item_name %}
             <span class="badge bg-light text-dark border">Used In Item: {{ filters.item_name }} </span>
         {% endif %}
+        {% if filters.msi_type %}<span class="badge bg-light text-dark border">Category: ${{ filters.misc_type }}</span>{% endif %}
+
         {% if filters.active_only == '1' %}
             <span class="badge bg-success text-white">Actively Used Items Only</span>
         {% endif %}
     </div>
-    <a href="{{ url_for('list_glass') }}" class="btn btn-sm btn-link text-decoration-none p-0">Clear All</a>
+    <a href="{{ url_for('list_misc') }}" class="btn btn-sm btn-link text-decoration-none p-0">Clear All</a>
 </div>
 {% endif %}
 
 {# Helper macro to generate clickable sortable table headers #}
 {% macro sort_header(col_key, label) %}
     {% set new_order = 'desc' if current_sort == col_key and current_order == 'asc' else 'asc' %}
-    <a href="{{ url_for('list_glass', sort_by=col_key, order=new_order, **filters) }}" class="text-white text-decoration-none d-block">
+    <a href="{{ url_for('list_misc', sort_by=col_key, order=new_order, **filters) }}" class="text-white text-decoration-none d-block">
         {{ label }}
         {% if current_sort == col_key %}
             <small>{{ '▲' if current_order == 'asc' else '▼' }}</small>
@@ -57,6 +59,7 @@
                 <tr>
                     <th>{{ sort_header('MSIID', 'ID') }}</th>
                     <th>{{ sort_header('MSINAME', 'Name') }}</th>
+                    <th>{{ sort_header('MSITYPE', 'Category') }}</th>
                     <th>{{ sort_header('MSIPRICE', 'Price') }}</th>
                 </tr>
             </thead>
@@ -69,6 +72,7 @@
                             {{ m.MSINAME }}
                         </a>
                     </td>
+		    <td>{{ m.MSITYPE }}</td>
                     <td>
                         {% if m.MSIPRICE %}<strong class="text-success">${{ "%.2f"|format(m.MSIPRICE) }}</strong>{% else %}<span class="text-muted">Unpriced</span>{% endif %}
                     </td>
@@ -129,6 +133,15 @@
                         <small class="text-muted d-block mt-1">Sorted alphabetically by Item Group (or Item Name if no variation exists).</small>
                     </div>
 
+                    <div class="mb-3">
+			<label class="form-label fw-bold">Misc Item Type</label>
+                            <select name="msi_type" class="form-select">
+                                <option value="">-- All Types --</option>
+                                {% for t in misc_types %}
+                                    <option value="{{ t.MSITYPE }}" {% if filters.msi_type  == t.MSITYPE %}selected{% endif %}>{{ t.MSITYPE }}</option>
+                                {% endfor %}
+                            </select>
+                    </div>
                     <div class="mb-3">
                         <label class="form-label fw-bold">Search Misc Item Name or Notes</label>
                         <input type="text" name="q" class="form-control" value="{{ filters.q }}" placeholder="Keywords...">

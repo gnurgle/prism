@@ -10,9 +10,20 @@
             <div class="card-body">
                 <form method="POST" enctype="multipart/form-data">
                     <div class="row mb-3">
-                        <div class="col-md-12">
+                        <div class="col-md-6">
                             <label class="form-label">Misc Item Name</label>
                             <input type="text" name="MSINAME" class="form-control" value="{{ misc.MSINAME if misc else '' }}" required maxlength="255">
+			</div>
+                        <div class="col-md-6">
+                            <label class="form-label">Misc Item Name</label>
+                            <select name="MSITYPE" class="form-select">
+                                <option value="">-- Select Unit  Type --</option>
+                                {% for t in misc_types %}
+                                    <option value="{{ t.MSITYPE }}" {% if misc and misc.MSITYPE == t.MSITYPE %}selected{% endif %}>
+                                        {{ t.MSITYPE }}
+                                    </option>
+                                {% endfor %}
+                            </select>
 			</div>
                     </div>
 

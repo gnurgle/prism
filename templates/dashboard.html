@@ -1,14 +1,14 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<h2 class="mb-4">Glass Studio Overview</h2>
+<h2 class="mb-4">System Dashboard</h2>
 
 <!-- Stat Cards -->
 <div class="row mb-4">
 	<div class="col-md-3">
 	    <div class="card text-white bg-primary shadow-sm">
 	        <div class="card-body">
-	            <h6 class="card-title text-uppercase border-bottom pb-2">Active Items (`ITM`)</h6>
+	            <h6 class="card-title text-uppercase border-bottom pb-2">Active Items</h6>
 	            <h2 class="display-5 fw-bold mb-0">{{ stats['items'] }}</h2>
 	        </div>
 	    </div>
@@ -16,7 +16,7 @@
 	<div class="col-md-3">
         <div class="card text-white bg-info shadow-sm">
             <div class="card-body">
-                <h6 class="card-title text-uppercase border-bottom pb-2">Glass Sheets (`GSI`)</h6>
+                <h6 class="card-title text-uppercase border-bottom pb-2">Glass Sheets</h6>
                 <h2 class="display-5 fw-bold mb-0">{{ stats.glass }}</h2>
             </div>
         </div>
@@ -24,70 +24,125 @@
     <div class="col-md-3">
         <div class="card text-white bg-success shadow-sm">
             <div class="card-body">
-                <h6 class="card-title text-uppercase border-bottom pb-2">Recorded Sales (`ITMSALE`)</h6>
+                <h6 class="card-title text-uppercase border-bottom pb-2">Recorded Sales</h6>
                 <h2 class="display-5 fw-bold mb-0">{{ stats.sales }}</h2>
             </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card text-white bg-secondary shadow-sm">
+
+</div>
+
+<!-- Variable Endpoint Navigation Forms Row -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card shadow-sm">
+            <div class="card-header bg-secondary text-white">Quick Endpoint Navigation with Variables</div>
             <div class="card-body">
-                <h6 class="card-title text-uppercase border-bottom pb-2">Venues (`VENUE`)</h6>
-                <h2 class="display-5 fw-bold mb-0">{{ stats.venues }}</h2>
+                <div class="row g-3">
+                    <!-- Item Detail -->
+                    <div class="col-md-4">
+                        <form action="" method="GET" class="input-group" onsubmit="this.action = '/item/' + this.id_val.value; return true;">
+                            <input type="number" name="id_val" class="form-control" placeholder="Item ID" required>
+                            <button class="btn btn-outline-primary" type="submit">View Item Detail</button>
+                        </form>
+                    </div>
+                    <!-- Item Edit -->
+                    <div class="col-md-4">
+                        <form action="" method="GET" class="input-group" onsubmit="this.action = '/item/' + this.id_val.value + '/edit'; return true;">
+                            <input type="number" name="id_val" class="form-control" placeholder="Item ID" required>
+                            <button class="btn btn-outline-primary" type="submit">Edit Item</button>
+                        </form>
+                    </div>
+                    <!-- Price History -->
+                    <div class="col-md-4">
+                        <form action="" method="GET" class="input-group" onsubmit="this.action = '/item/' + this.id_val.value + '/history'; return true;">
+                            <input type="number" name="id_val" class="form-control" placeholder="Item ID" required>
+                            <button class="btn btn-outline-primary" type="submit">Price History</button>
+                        </form>
+                    </div>
+                    <!-- Edit Prices -->
+                    <div class="col-md-4">
+                        <form action="" method="GET" class="input-group" onsubmit="this.action = '/prices/' + this.id_val.value + '/edit'; return true;">
+                            <input type="number" name="id_val" class="form-control" placeholder="Item ID" required>
+                            <button class="btn btn-outline-secondary" type="submit">Manage Prices</button>
+                        </form>
+                    </div>
+                    <!-- Glass Detail -->
+                    <div class="col-md-4">
+                        <form action="" method="GET" class="input-group" onsubmit="this.action = '/glass/' + this.id_val.value; return true;">
+                            <input type="number" name="id_val" class="form-control" placeholder="Glass ID" required>
+                            <button class="btn btn-outline-info" type="submit">Glass Detail</button>
+                        </form>
+                    </div>
+                    <!-- Edit Glass -->
+                    <div class="col-md-4">
+                        <form action="" method="GET" class="input-group" onsubmit="this.action = '/glass/edit/' + this.id_val.value; return true;">
+                            <input type="number" name="id_val" class="form-control" placeholder="Glass ID" required>
+                            <button class="btn btn-outline-info" type="submit">Edit Glass</button>
+                        </form>
+                    </div>
+                    <!-- View Template Whitespaces -->
+                    <div class="col-md-4">
+                        <form action="" method="GET" class="input-group" onsubmit="this.action = '/template/whitespaces/' + this.id_val.value; return true;">
+                            <input type="number" name="id_val" class="form-control" placeholder="Item ID" required>
+                            <button class="btn btn-outline-dark" type="submit">Whitespaces</button>
+                        </form>
+                    </div>
+                    <!-- Edit Template -->
+                    <div class="col-md-4">
+                        <form action="" method="GET" class="input-group" onsubmit="this.action = '/template/' + this.id_val.value + '/edit'; return true;">
+                            <input type="number" name="id_val" class="form-control" placeholder="Item ID" required>
+                            <button class="btn btn-outline-dark" type="submit">Edit Template</button>
+                        </form>
+                    </div>
+                    <!-- Edit Components -->
+                    <div class="col-md-4">
+                        <form action="" method="GET" class="input-group" onsubmit="this.action = '/edit_components/' + this.id_val.value; return true;">
+                            <input type="number" name="id_val" class="form-control" placeholder="Item ID" required>
+                            <button class="btn btn-outline-dark" type="submit">Edit Components</button>
+                        </form>
+                    </div>
+                    <!-- Edit Components B -->
+                    <div class="col-md-4">
+                        <form action="" method="GET" class="input-group" onsubmit="this.action = '/edit_componentsb/' + this.id_val.value; return true;">
+                            <input type="number" name="id_val" class="form-control" placeholder="Item ID" required>
+                            <button class="btn btn-outline-dark" type="submit">Edit Components B</button>
+                        </form>
+                    </div>
+                    <!-- Misc Item Detail -->
+                    <div class="col-md-4">
+                        <form action="" method="GET" class="input-group" onsubmit="this.action = '/misc_item/' + this.id_val.value; return true;">
+                            <input type="number" name="id_val" class="form-control" placeholder="Misc ID" required>
+                            <button class="btn btn-outline-success" type="submit">Misc Detail</button>
+                        </form>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Navigation Links & System Audit Trail -->
+<!-- Full Width Static System Endpoints -->
 <div class="row">
-    <div class="col-md-4 mb-4">
+    <div class="col-md-12 mb-4">
         <div class="card shadow-sm">
-            <div class="card-header bg-dark text-white">System Modules</div>
-            <div class="list-group list-group-flush">
-                <a href="{{ url_for('index') }}" class="list-group-item list-group-item-action">📦 Items Directory (`ITM`, `IVR`, `IPC`)</a>
-                <a href="{{ url_for('list_glass') }}" class="list-group-item list-group-item-action">🖼️ Glass Stock (`GSI`, `GTL`, `GSL`, `GPC`)</a>
-                <a href="{{ url_for('inventory_status') }}" class="list-group-item list-group-item-action">🛠️ WIP Inventory Status (`ICC`, `ITR`)</a>
-                <a href="{{ url_for('list_sales') }}" class="list-group-item list-group-item-action">📈 Sales & Event Logs (`ITMSALE`, `VENUE`)</a>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-8">
-        <div class="card shadow-sm">
-            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-                <span>Recent System Audit Log (`AUDIT`)</span>
-                <span class="badge bg-light text-dark">Automated Triggers</span>
-            </div>
-            <div class="card-body p-0">
-                <table class="table table-sm table-hover mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>ID</th>
-                            <th>Operation</th>
-                            <th>Table</th>
-                            <th>Target / Details</th>
-                            <th>Timestamp</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for log in recent_audits %}
-                        <tr>
-                            <td>#{{ log.TRANSID }}</td>
-                            <td>
-                                {% if log.TRNOP == 'INSERT' %}<span class="badge bg-success">INSERT</span>
-                                {% elif log.TRNOP == 'UPDATE' %}<span class="badge bg-warning text-dark">UPDATE</span>
-                                {% else %}<span class="badge bg-danger">DELETE</span>{% endif %}
-                            </td>
-                            <td><code>{{ log.TRNTBL }}</code></td>
-                            <td>{{ log.TRNNEW or log.TRNOLD or '—' }}</td>
-                            <td class="small text-muted">{{ log.TRNTS }}</td>
-                        </tr>
-                        {% else %}
-                        <tr><td colspan="5" class="text-center py-3 text-muted">No audit operations recorded yet.</td></tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+            <div class="card-header bg-dark text-white">All Static System Endpoints</div>
+            <div class="list-group list-group-flush" style="max-height: 500px; overflow-y: auto;">
+                <a href="{{ url_for('index') }}" class="list-group-item list-group-item-action">Home / Dashboard (`/`)</a>
+                <a href="{{ url_for('create_item') }}" class="list-group-item list-group-item-action">Create Item (`/item/create`)</a>
+                <a href="{{ url_for('list_glass') }}" class="list-group-item list-group-item-action">Glass Stock Directory (`/glass`)</a>
+                <a href="{{ url_for('create_glass') }}" class="list-group-item list-group-item-action">Create Glass Record (`/glass/new`)</a>
+                <a href="{{ url_for('glass_inventory') }}" class="list-group-item list-group-item-action">Glass Sheet Inventory (`/glass/inventory`)</a>
+                <a href="{{ url_for('upload_template') }}" class="list-group-item list-group-item-action">Upload Template (`/template/upload`)</a>
+                <a href="{{ url_for('build_components') }}" class="list-group-item list-group-item-action">Build Components (`/build_components`)</a>
+                <a href="{{ url_for('inventory_status') }}" class="list-group-item list-group-item-action">WIP Inventory Status (`/inventory`)</a>
+                <a href="{{ url_for('list_sales') }}" class="list-group-item list-group-item-action">Sales List (`/sales`)</a>
+                <a href="{{ url_for('record_sale') }}" class="list-group-item list-group-item-action">Record New Sale (`/sales/new`)</a>
+                <a href="{{ url_for('test_svg_delete') }}" class="list-group-item list-group-item-action">Test SVG Delete (`/test-svg-delete`)</a>
+                <a href="{{ url_for('test_outline') }}" class="list-group-item list-group-item-action">Test Outline Stencil (`/test_outline`)</a>
+                <a href="{{ url_for('list_misc') }}" class="list-group-item list-group-item-action">Misc Items List (`/misc_items`)</a>
+                <a href="{{ url_for('create_misc') }}" class="list-group-item list-group-item-action">Create Misc Item (`/misc_items/new`)</a>
+                <a href="{{ url_for('misc_inventory') }}" class="list-group-item list-group-item-action">Misc Inventory (`/misc_items/inventory`)</a>
             </div>
         </div>
     </div>

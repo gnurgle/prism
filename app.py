@@ -2541,12 +2541,14 @@ def list_misc():
 
     item_id = request.args.get('item_id', '').strip()
     item_name = request.args.get('item_name', '').strip()
+    msi_type = request.args.get('msi_type', '').strip()
     active_only = request.args.get('active_only', '')  # '1' if active items only
 
     allowed_sorts = {
         'MSIID': 'm.MSIID',
         'MSINAME': 'm.MSINAME',
-        'MSIPRICE': 'p.MSIPRICE'
+        'MSIPRICE': 'p.MSIPRICE',
+        'MSITYPE': 'm.MSITYPE'
     }
     sort_column = allowed_sorts.get(sort_by, 'm.MSIID')
 
@@ -2568,6 +2570,9 @@ def list_misc():
     if max_price:
         where_clauses.append("p.MSIPRICE <= ?")
         params.append(max_price)
+    if msi_type:
+        where_clauses.append("m.MSITYPE = ?")
+        params.append(msi_type)
 
     # Filter by specific Item ID (Misc item  used in selected Item)
     join_igc = ""
@@ -2575,7 +2580,8 @@ def list_misc():
         join_igc = "INNER JOIN MSL l ON m.MSIID = l.MSIID"
         where_clauses.append("l.ITEMID = ?")
         params.append(item_id)
-        
+       
+
     where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
 
 # Execute main query
@@ -2598,18 +2604,23 @@ def list_misc():
                 item_name = item['ITMNAME']
                 break
 
+    misc_types = db.execute('SELECT * FROM MST').fetchall()
+
+
     return render_template(
         'misc_list.html',
         misc_items=misc_items,
         current_sort=sort_by,
         current_order=order,
+        misc_types=misc_types,
         filters={
             'q': q, 
             'min_price': min_price, 
             'max_price': max_price,
             'is_active': is_active,
             'item_id': item_id, 
-            'item_name': item_name, 
+            'item_name': item_name,
+            'msi_type': msi_type, 
             'active_only': active_only
         }
     )
@@ -2626,18 +2637,19 @@ def create_misc():
         msinote = request.form.get('MSINOTE')
         msiunit = request.form.get('MSIUNIT')
         unttype = request.form.get('UNTTYPE') or None
+        msitype = request.form.get('MSITYPE') or None
         msiprice = request.form.get('MSIPRICE')
         isactive = 1
 
         cursor = db.execute(
             """
             INSERT INTO MSI (MSINAME, MSIIMG, MSISTOCK, MSIURL, 
-                MSINOTE, UNTTYPE, ISACTIVE)
-                VALUES (?,?,?,?,?,?,?)
+                MSINOTE, UNTTYPE, MSITYPE, ISACTIVE)
+                VALUES (?,?,?,?,?,?,?,?)
         """,
             (
                 msiname, msiimg, msistock, msiurl,
-                msinote, unttype, isactive
+                msinote, unttype, msitype, isactive
             ),
         )
 
@@ -2674,8 +2686,10 @@ def create_misc():
 
 
     unit_types = db.execute("SELECT * FROM UNTS").fetchall()
+    misc_types = db.execute("SELECT * FROM MST").fetchall()
+
     return render_template(
-        "misc_form.html", unit_types=unit_types
+        "misc_form.html", unit_types=unit_types, misc_types=misc_types
     )
 # --- MISC DETAIL SUMMARY PAGE ---
 @app.route('/misc_item/<int:misc_id>')
@@ -2698,7 +2712,7 @@ def misc_detail(misc_id):
     items = db.execute('''
         SELECT m.*, l.MSIID, i.ITMNAME 
         FROM MSI m
-        JOIN MSL l on m.MSIID = l.MSSID
+        JOIN MSL l on m.MSIID = l.MSIID
         JOIN ITM i ON l.ITEMID = i.ITEMID
         WHERE m.MSIID = ?
     ''', (misc_id,)).fetchall()
