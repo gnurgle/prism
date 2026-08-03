@@ -11,18 +11,18 @@
                 <form method="POST" enctype="multipart/form-data">
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label class="form-label">Glass Name (GLSNAME)</label>
+                            <label class="form-label">Glass Name</label>
                             <input type="text" name="GLSNAME" class="form-control" value="{{ glass.GLSNAME if glass else '' }}" required maxlength="25">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Manufacturer (GLSMANF)</label>
+                            <label class="form-label">Manufacturer</label>
                             <input type="text" name="GLSMANF" class="form-control" value="{{ glass.GLSMANF if glass else '' }}" maxlength="25">
                         </div>
                     </div>
 
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label class="form-label">Glass Texture (GLSTEX)</label>
+                            <label class="form-label">Glass Texture</label>
                             <select name="GLSTEX" class="form-select">
                                 <option value="">-- Select Texture --</option>
                                 {% for t in textures %}
@@ -44,7 +44,7 @@
 				</select>
 			</div>
                         <div class="col-md-6">
-                            <label class="form-label">Glass Color (COLOR)</label>
+                            <label class="form-label">Glass Color</label>
                             
                             <!-- Hidden input to hold the submitted value for Flask -->
                             <input type="hidden" name="COLOR" id="selected-color-input" value="{{ glass.COLOR if glass else '' }}">
@@ -96,7 +96,7 @@
                         </div>
 
                         <div class="col-md-6 mt-3 mt-md-0">
-                            <label class="form-label">Supplier Source (GLSOURCE)</label>
+                            <label class="form-label">Supplier Source</label>
                             <select name="GLSOURCE" class="form-select">
                                 <option value="">-- Select Source --</option>
                                 {% for s in sources %}
@@ -110,25 +110,25 @@
 
                     <div class="row mb-3">
                         <div class="col-md-4">
-                            <label class="form-label">Length (GLSLEN)</label>
+                            <label class="form-label">Length</label>
                             <input type="number" name="GLSLEN" class="form-control" value="{{ glass.GLSLEN if glass else '' }}" placeholder="inches">
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label">Width (GLSWID)</label>
+                            <label class="form-label">Width</label>
                             <input type="number" name="GLSWID" class="form-control" value="{{ glass.GLSWID if glass else '' }}" placeholder="inches">
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label">Thickness (GLSTHK)</label>
+                            <label class="form-label">Thickness</label>
                             <input type="number" name="GLSTHK" class="form-control" value="{{ glass.GLSTHK if glass else '' }}" placeholder="mm">
                         </div>
                     </div>
 
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label class="form-label">Sheet Pricing (GPC Entry)</label>
+                            <label class="form-label">Sheet Pricing</label>
                             <div class="input-group">
                                 <span class="input-group-text">$</span>
-                                <input type="number" step="1.00" min="0" name="GLSPRICE" class="form-control" value="{{ glass.GLSPRICE if glass else '' }}" placeholder="0.00">
+                                <input type="number" step="0.01" min="0" name="GLSPRICE" class="form-control" value="{{ glass.GLSPRICE if glass else '' }}" placeholder="0.00">
                             </div>
                         </div>
 			<div class="col-md-6">
@@ -146,7 +146,7 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label">Purchase URL (GLLINK)</label>
+                        <label class="form-label">Purchase URL</label>
                         <input type="text" name="GLLINK" class="form-control" value="{{ glass.GLLINK if glass else '' }}">
                     </div>
 
@@ -154,16 +154,16 @@
                         <label class="form-label">Visual Properties</label>
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" name="GLSIRI" id="GLSIRI" {% if glass and glass.GLSIRI %}checked{% endif %}>
-                            <label class="form-check-label" for="GLSIRI">Iridescent (GLSIRI)</label>
+                            <label class="form-check-label" for="GLSIRI">Iridescent</label>
                         </div>
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" name="GLSOPAL" id="GLSOPAL" {% if glass and glass.GLSOPAL %}checked{% endif %}>
-                            <label class="form-check-label" for="GLSOPAL">Opalescent (GLSOPAL)</label>
+                            <label class="form-check-label" for="GLSOPAL">Opalescent</label>
                         </div>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label">Notes (GLSNOTE)</label>
+                        <label class="form-label">Notes</label>
                         <textarea name="GLSNOTE" class="form-control" rows="3">{{ glass.GLSNOTE if glass else '' }}</textarea>
                     </div>
 
