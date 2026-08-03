@@ -45,7 +45,7 @@
                         </tr>
                         <tr>
                             <th>Notes:</th>
-                            <td>{{ glass.GLSNOTE or 'No notes provided.' }}</td>
+                            <td>{{ misc.MSINOTE or 'No notes provided.' }}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -60,18 +60,16 @@
                     <thead>
                         <tr>
                             <th>Item Name</th>
-                            <th>Component #</th>
-                            <th>Bounding Box (L×W)</th>
-                            <th>Component Notes</th>
+                            <th>Amount Used</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for comp in components %}
+                        {% for i in items %}
+
                         <tr>
-                            <td><strong>{{ comp.ITMNAME }}</strong></td>
-                            <td>#{{ comp.COMPNUM }}</td>
-                            <td>{{ comp.COMPLEN or '—' }}" × {{ comp.COMPWID or '—' }}"</td>
-                            <td>{{ comp.COMPNOTE or '' }}</td>
+                            <td><strong>{{ i.ITMNAME }}</strong></td>
+                            <td>#{{ i.IMIAMT }}</td>
+
                         </tr>
                         {% else %}
                         <tr>
@@ -81,62 +79,53 @@
                     </tbody>
                 </table>
             </div>
-        </div>
-    </div>
-
-    <!-- Pricing & Visual Sidebar -->
+         <div>
+     </div>
+</div>
+</div>
+    <!-- Right Column: Pricing and SVG Pattern -->
 <div class="col-md-4">
-        <div class="card shadow-sm mb-4">
-            <div class="card-header bg-success text-white">Current Pricing</div>
-            <div class="card-body text-center">
-                {% if glass.GLSPRICE %}
-                    <h1 class="display-5 text-success fw-bold">${{ "%.2f"|format(glass.GLSPRICE) }}</h1>
-                    <p class="text-muted small mb-0">Active Sheet Rate</p>
-
-                    {% if glass.GLSLEN and glass.GLSWID and glass.GLSLEN > 0 and glass.GLSWID > 0 %}
-                        {% set total_sqin = glass.GLSLEN * glass.GLSWID %}
-                        {% set price_per_sqin = glass.GLSPRICE / total_sqin %}
-                        {% set price_per_sqft = price_per_sqin * 144 %}
-
-                        <!-- Connected unit price row -->
-                        <div class="border-top mt-3 pt-3">
-                            <div class="row g-0 rounded bg-light border text-center overflow-hidden">
-                                <div class="col-6 py-2 border-end">
-                                    <div class="fw-bold text-dark">${{ "%.2f"|format(price_per_sqft) }}</div>
-                                    <small class="text-muted" style="font-size: 0.75rem;">per sq ft</small>
-                                </div>
-                                <div class="col-6 py-2">
-                                    <div class="fw-bold text-dark">${{ "%.4f"|format(price_per_sqin) }}</div>
-                                    <small class="text-muted" style="font-size: 0.75rem;">per sq in</small>
-                                </div>
-                            </div>
+        <!-- Pricing Summary Box -->
+        <div class="card shadow-sm mb-4 text-center">
+            <div class="card-header bg-dark text-white">Pricing Summary</div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <span class="text-muted small d-block">CURRENT PRICE</span>
+                    <h2 class="display-5 fw-bold text-success mb-0">
+                        ${% if current_price %}{{ "%.2f"|format(current_price.PRICE) }}{% else %}0.00{% endif %}
+                    </h2>
+                </div>
+                <div class="row border-top pt-2 text-muted small">
+                    <div class="col-6 border-end">
+                        <span class="d-block fw-bold text-dark">Lowest</span>
+                        <span>${% if lowest_price %}{{ "%.2f"|format(lowest_price.PRICE) }}{% else %}0.00{% endif %}</span>
+                        <div class="text-xs text-secondary">
+                            {% if lowest_price %}{{ lowest_price.START_DATE }} {% if lowest_price.END_DATE %}to {{ lowest_price.END_DATE }}{% endif %}{% else %}N/A{% endif %}
                         </div>
-                    {% else %}
-                        <div class="border-top mt-3 pt-2">
-                            <small class="text-muted">Enter dimensions (L × W) to calculate unit prices.</small>
+                    </div>
+                    <div class="col-6">
+                        <span class="d-block fw-bold text-dark">Highest</span>
+                        <span>${% if highest_price %}{{ "%.2f"|format(highest_price.PRICE) }}{% else %}0.00{% endif %}</span>
+                        <div class="text-xs text-secondary">
+                            {% if highest_price %}{{ highest_price.START_DATE }} {% if highest_price.END_DATE %}to {{ highest_price.END_DATE }}{% endif %}{% else %}N/A{% endif %}
                         </div>
-                    {% endif %}
-                {% else %}
-                    <p class="text-muted mb-0">No active price set for this sheet.</p>
-                {% endif %}
-            </div>
-        </div>
-
-{% if glass.GLSIMG %}
+                    </div>
+                </div>
+</div>
+	{% if misc.MSIIMG %}
         <div class="card shadow-sm">
-            <div class="card-header bg-dark text-white">Glass Image Sample</div>
+            <div class="card-header bg-dark text-white">Misc Item Image </div>
             <div class="card-body text-center">
-                {% if glass.GLSIMG.startswith('http://') or glass.GLSIMG.startswith('https://') %}
-                    <img src="{{ glass.GLSIMG }}" alt="{{ glass.GLSNAME }}" class="img-fluid rounded border" style="max-height: 250px;">
+                {% if mist.MSIIMG.startswith('http://') or misc.MSIIMG.startswith('https://') %}
+                    <img src="{{ misc.MSIIMG }}" alt="{{ misc.MSINAME }}" class="img-fluid rounded border" style="max-height: 250px;">
                 {% else %}
-                    <img src="{{ url_for('static', filename=glass.GLSIMG.lstrip('/')) }}" alt="{{ glass.GLSNAME }}" class="img-fluid rounded border" style="max-height: 250px;">
+                    <img src="{{ url_for('static', filename=misc.MSIIMG.lstrip('/')) }}" alt="{{ misc.MSINAME }}" class="img-fluid rounded border" style="max-height: 250px;">
                 {% endif %}
             </div>
         </div>
         {% endif %}
     </div>
 </div>
-
 <script>
 
 document.addEventListener('DOMContentLoaded', function() {

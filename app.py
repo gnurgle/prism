@@ -73,7 +73,7 @@ def init_db():
             "INSERT OR IGNORE INTO GTRNS (GTRNSN, GTRNSV) VALUES ('Transparent', 60), ('Translucent', 75), ('Opaque', 95)"
         )
         db.execute(
-            "INSERT OR IGNORE INTO UNTS (UNTTYPE) VALUES ('inches'), ('feet'), ('yards'), ('pounds')"
+            "INSERT OR IGNORE INTO UNTS (UNTTYPE, CFACTOR) VALUES ('inches', 1), ('feet', 12), ('yards', 36), ('pounds', 454)"
         )
         db.execute(
             "INSERT OR IGNORE INTO MST (MSITYPE) VALUES ('Solder'), ('Foil'), ('Came'), ('Rings'), ('Chain'), ('Consumables'), ('Decoration'), ('Other')"
@@ -2667,7 +2667,6 @@ def create_misc():
                 custom_filename_base=pattern_name,
                 target_size=(256, 256)
             )
-            # Update GLSIMG field in GSI table
             db.execute("UPDATE MSI SET MSIIMG = ? WHERE MSIID = ?", (msiimg_path, misc_id))
 
         if msiprice:
@@ -2695,12 +2694,11 @@ def create_misc():
 @app.route('/misc_item/<int:misc_id>')
 def misc_detail(misc_id):
     db = get_db()
-    # Fetch glass details with pricing history, supplier details, and hex color code
+
     misc = db.execute('''
-        SELECT m.*, p.MSIPRICE, u.UNTTYPE
+        SELECT m.*, u.UNTTYPE, u.CFACTOR
         FROM MSI m
-        LEFT JOIN MSP p ON m.MSIID = p.MSIID
-        LEFT JOIN UNT u ON g.UNTTYPE = u.UNTTYPE
+        JOIN UNTS u ON m.UNTTYPE = u.UNTTYPE
         WHERE m.MSIID = ?
     ''', (misc_id,)).fetchone()
 
@@ -2710,15 +2708,46 @@ def misc_detail(misc_id):
 
     # Fetch any items that utilize this misc item
     items = db.execute('''
-        SELECT m.*, l.MSIID, i.ITMNAME 
+        SELECT m.*, i.IMIAMT, t.ITMNAME
         FROM MSI m
-        JOIN MSL l on m.MSIID = l.MSIID
-        JOIN ITM i ON l.ITEMID = i.ITEMID
+        LEFT JOIN UNTS u ON m.UNTTYPE = u.UNTTYPE
+        LEFT JOIN IMI i on m.MSIID = i.MSIID
+        LEFT JOIN ITM t ON i.ITEMID = t.ITEMID
+
         WHERE m.MSIID = ?
     ''', (misc_id,)).fetchall()
 
+    # Fetch Pricing Metrics from IPC table using correct columns (ITMPRICE, STDATE, ENDDATE)
+    current_price = db.execute(
+        """
+          SELECT MSIPRICE AS PRICE FROM MSP 
+          WHERE MSIID = ? AND (ENDDATE IS NULL OR ENDDATE >= DATE('now'))
+          ORDER BY STDATE DESC LIMIT 1
+        """,
+        (misc_id,),
+    ).fetchone()
+  
+    lowest_price = db.execute(
+        """
+          SELECT MSIPRICE AS PRICE, STDATE AS START_DATE, ENDDATE AS END_DATE FROM MSP 
+          WHERE MSIID = ? 
+          ORDER BY MSIPRICE ASC LIMIT 1
+        """,
+        (misc_id,),
+    ).fetchone()
+  
+    highest_price = db.execute(
+        """
+          SELECT MSIPRICE AS PRICE, STDATE AS START_DATE, ENDDATE AS END_DATE FROM MSP 
+          WHERE MSIID = ?
+          ORDER BY MSIPRICE DESC LIMIT 1
+        """,
+        (misc_id,),
+    ).fetchone()
+  
     return render_template(
-        'misc_detail.html', misc=misc, items=items
+        'misc_detail.html', misc=misc, items=items, current_price=current_price, lowest_price=lowest_price,
+        highest_price=highest_price
     )
 
 @app.route('/misc_items/edit/<int:misc_id>', methods=['GET', 'POST'])
@@ -3042,6 +3071,210 @@ def misc_inventory():
             'opalescent': request.args.get('opalescent', '')
         }
     )
+
+@app.route('/misc/<int:misc_id>/history')
+def price_history_misc(misc_id):
+  """Display historical price list in descending order with calculated price changes and durations."""
+  db = get_db()
+  item = db.execute(
+      'SELECT * FROM MSI WHERE MSIID = ?', (misc_id,)
+  ).fetchone()
+
+  if not item:
+    flash('Item record not found.', 'danger')
+    return redirect(url_for('index'))
+
+  # Fetch all prices ordered chronologically ascending to compute deltas and durations easily
+  rows = db.execute(
+      """
+        SELECT rowid, MSIPRICE, STDATE, ENDDATE FROM MSI 
+        WHERE MSIID = ? 
+        ORDER BY STDATE ASC
+    """,
+      (misc_id,),
+  ).fetchall()
+
+  history_processed = []
+  prev_price = None
+
+  for row in rows:
+    price = row['MSIPRICE']
+    change = price - prev_price if prev_price is not None else None
+    prev_price = price
+
+    # Calculate duration
+    start_dt = (
+        datetime.strptime(row['STDATE'], '%Y-%m-%d')
+        if row['STDATE']
+        else None
+    )
+    end_dt = (
+        datetime.strptime(row['ENDDATE'], '%Y-%m-%d')
+        if row['ENDDATE']
+        else datetime.today()
+    )
+
+    duration_str = 'N/A'
+    if start_dt:
+      delta = end_dt - start_dt
+      days = delta.days
+      years = days // 365
+      rem_days = days % 365
+      if years > 0:
+        duration_str = f'{years} yr{"" if years == 1 else "s"} {rem_days} day{"" if rem_days == 1 else "s"}'
+      else:
+        duration_str = f'{days} day{"" if days == 1 else ""}'
+
+    history_processed.append({
+        'MSIPRICE': price,
+        'change': change,
+        'STDATE': row['STDATE'],
+        'ENDDATE': row['ENDDATE'],
+        'duration_str': duration_str,
+    })
+
+  # Reverse to have descending order starting from present
+  history_processed.reverse()
+
+  return render_template(
+      'misc_price_history.html', misc=misc, history=history_processed
+  )
+
+
+@app.route('/prices/misc/<int:misc_id>/edit', methods=['GET', 'POST'])
+def edit_misc_prices(misc_id):
+  """Manage and insert prices with automated date shuffling and interval overlap adjustments."""
+  db = get_db()
+  item = db.execute(
+      'SELECT * FROM MSI WHERE MSIID = ?', (misc_id,)
+  ).fetchone()
+
+  if not item:
+    flash('Item record not found.', 'danger')
+    return redirect(url_for('index'))
+
+  if request.method == 'POST':
+    try:
+      new_price = float(request.form.get('MSIPRICE'))
+    except (TypeError, ValueError):
+      flash('Invalid price value provided.', 'danger')
+      return redirect(url_for('edit_misc_prices', misc_id=misc_id))
+
+    new_st_str = request.form.get('STDATE')
+    is_current = 1 if request.form.get('is_current') else 0
+    new_end_str = None if is_current else request.form.get('ENDDATE')
+
+    new_st = datetime.strptime(new_st_str, '%Y-%m-%d').date()
+    new_end = (
+        datetime.strptime(new_end_str, '%Y-%m-%d').date()
+        if new_end_str
+        else None
+    )
+
+    if new_end and new_st > new_end:
+      flash('Start date cannot be after the end date.', 'danger')
+      return redirect(url_for('edit_misc_prices', misc_id=misc_id))
+
+    cursor = db.cursor()
+
+    # Fetch existing price intervals for this item
+    existing_prices = cursor.execute(
+        """
+        SELECT rowid, MSIPRICE, STDATE, ENDDATE FROM MSP 
+        WHERE MSIID = ?
+    """,
+        (item_id,),
+    ).fetchall()
+
+    # Process and adjust overlapping intervals
+    for row in existing_prices:
+      row_id = row['rowid']
+      ex_st_str = row['STDATE']
+      ex_end_str = row['ENDDATE']
+
+      ex_st = datetime.strptime(ex_st_str, '%Y-%m-%d').date() if ex_st_str else None
+      ex_end = datetime.strptime(ex_end_str, '%Y-%m-%d').date() if ex_end_str else None
+
+      # Case A: Existing range is completely inside the new range -> Delete it
+      if ex_st and new_st <= ex_st and (new_end is None or (ex_end and new_end >= ex_end)):
+        cursor.execute('DELETE FROM MSP WHERE rowid = ?', (row_id,))
+        continue
+
+      # Case B: New range is completely inside an existing range -> Split the existing range into two
+      if ex_st and ex_end and new_st > ex_st and new_end and new_end < ex_end:
+        # Update existing record to end right before new range starts (or day before)
+        split_end_date = (new_st - timedelta(days=1)).strftime('%Y-%m-%d')
+        cursor.execute(
+            'UPDATE MSP SET ENDDATE = ? WHERE rowid = ?',
+            (split_end_date, row_id)
+        )
+
+        # Insert the remaining tail piece of the old range
+        tail_start_date = (new_end + timedelta(days=1)).strftime('%Y-%m-%d')
+
+        cursor.execute(
+            'INSERT INTO MSP (MSIID, MSIPRICE, STDATE, ENDDATE) VALUES (?, ?, ?, ?)',
+            (item_id, row['MSIPRICE'], tail_start_date, ex_end_str)
+        )
+        continue
+
+      # Case C: Overlap on the tail end of existing range (New start cuts into old range)
+      if ex_st and new_st > ex_st and (ex_end is None or new_st <= ex_end):
+        new_ex_end = (new_st - timedelta(days=1)).strftime('%Y-%m-%d')
+        cursor.execute(
+            'UPDATE MSP SET ENDDATE = ? WHERE rowid = ?',
+            (new_ex_end, row_id)
+        )
+
+      # Case D: Overlap on the front end of existing range (New end cuts into old range)
+      if new_end and ex_end and new_end >= ex_st and new_end < ex_end:
+        new_ex_st = (new_end + timedelta(days=1)).strftime('%Y-%m-%d')
+        cursor.execute(
+            'UPDATE MSP SET STDATE = ? WHERE rowid = ?',
+            (new_ex_st, row_id)
+        )
+
+      # Case E: If new range is ongoing (current), truncate any old ranges that overlap forward
+      if is_current and ex_st and ex_st >= new_st:
+        cursor.execute('DELETE FROM MSP WHERE rowid = ?', (row_id,))
+
+    # Insert the new price record cleanly
+    cursor.execute(
+        """
+        INSERT INTO MSP (MSIID, MSIPRICE, STDATE, ENDDATE)
+        VALUES (?, ?, ?, ?)
+    """,
+        (misc_id, new_price, new_st_str, new_end_str),
+    )
+
+    db.commit()
+    flash('Price range successfully saved and overlapping intervals adjusted.', 'success')
+    return redirect(url_for('edit_misc_prices', misc_id=misc_id))
+
+  # GET Request: fetch all price rows ordered by start date descending
+  prices = db.execute(
+      """
+        SELECT rowid, MSIPRICE, STDATE, ENDDATE FROM IPC 
+        WHERE MSIID = ? 
+        ORDER BY STDATE DESC
+    """,
+      (item_id,),
+  ).fetchall()
+
+  return render_template(
+      'misc_edit_prices.html', misc=misc, prices=prices
+  )
+
+
+
+@app.route('/prices/misc/<int:misc_id>/delete/<int:price_id>', methods=['POST'])
+def delete_misc_price(misc_id, price_id):
+  """Delete a specific price entry row."""
+  db = get_db()
+  db.execute('DELETE FROM MSP WHERE rowid = ? AND MSIID = ?', (price_id, misc_id))
+  db.commit()
+  flash('Price tier removed.', 'success')
+  return redirect(url_for('edit_misc_prices', misc_id=misc_id))
 
 
 if __name__ == "__main__":

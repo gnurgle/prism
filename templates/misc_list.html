@@ -29,7 +29,7 @@
         {% if filters.item_name %}
             <span class="badge bg-light text-dark border">Used In Item: {{ filters.item_name }} </span>
         {% endif %}
-        {% if filters.msi_type %}<span class="badge bg-light text-dark border">Category: ${{ filters.misc_type }}</span>{% endif %}
+        {% if filters.msi_type %}<span class="badge bg-light text-dark border">Category: ${{ filters.msi_type }}</span>{% endif %}
 
         {% if filters.active_only == '1' %}
             <span class="badge bg-success text-white">Actively Used Items Only</span>
@@ -159,7 +159,7 @@
                     </div>
                 </div>
                 <div class="modal-footer justify-content-between">
-                    <a href="{{ url_for('list_glass') }}" class="btn btn-outline-secondary">Clear Filters</a>
+                    <a href="{{ url_for('list_misc') }}" class="btn btn-outline-secondary">Clear Filters</a>
                     <button type="submit" class="btn btn-primary">Apply Filters</button>
                 </div>
             </form>
