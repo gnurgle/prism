@@ -1,199 +1,303 @@
 {% extends 'base.html' %}
 
+
+
 {% block content %}
+
 <!-- Reference the separate stylesheet for 25% transparency and effects -->
+
 <link rel="stylesheet" href="{{ url_for('static', filename='css/svg_effects.css') }}">
 
+
+
 <div class="row vh-80">
+
     <!-- Sidebar: Component Information & Edit Form -->
+
     <div class="col-md-4 bg-white border-end p-4 shadow-sm" style="height: 80vh; overflow-y: auto;">
+
         <div class="d-flex justify-content-between align-items-center mb-3">
+
             <h4 class="mb-0">Component Details</h4>
+
             <a href="{{ url_for('item_detail', item_id=item.ITEMID) }}" class="btn btn-outline-secondary btn-sm">Back</a>
+
         </div>
+
         <hr>
+
         
-        <div id="no-selection-msg" class="text-muted text-center py-5">
-            <p>Click any region in the SVG viewer to view and edit component properties.</p>
-        </div>
 
-<form id="components-batch-form" onsubmit="event.preventDefault(); saveAllComponents();">
+        <form id="components-batch-form" onsubmit="event.preventDefault(); saveAllComponents();">
 
-    <div id="no-selection-msg" class="text-muted text-center py-5">
+            <div id="no-selection-msg" class="text-muted text-center py-5">
 
-        <p>Click any region in the SVG viewer to view and edit component properties.</p>
-
-    </div>
-
-
-
-    <div id="component-editor-fields" style="display: none;">
-
-        <input type="hidden" id="active_comp_id">
-
-        <input type="hidden" id="active_region_id">
-
-
-
-<div class="mb-3">
-
-    <label for="comp_num" class="form-label fw-bold">Component Number (COMPNUM)</label>
-
-    <input type="number" class="form-control" id="comp_num" oninput="stageComponentChanges()">
-
-</div>
-
-
-        <div class="mb-3">
-
-            <label for="comp_name" class="form-label fw-bold">Component Name (COMPNAME)</label>
-
-            <input type="text" class="form-control" id="comp_name" oninput="stageComponentChanges()">
-
-        </div>
-
-
-
-        <div class="row">
-
-            <div class="col-6 mb-3">
-
-                <label for="comp_len" class="form-label fw-bold">Length (COMPLEN)</label>
-
-                <input type="number" step="any" class="form-control" id="comp_len" oninput="stageComponentChanges()">
+                <p>Click any region in the SVG viewer to view and edit component properties.</p>
 
             </div>
 
-            <div class="col-6 mb-3">
 
-                <label for="comp_wid" class="form-label fw-bold">Width (COMPWID)</label>
 
-                <input type="number" step="any" class="form-control" id="comp_wid" oninput="stageComponentChanges()">
+            <div id="component-editor-fields" style="display: none;">
+
+                <input type="hidden" id="active_comp_id">
+
+                <input type="hidden" id="active_region_id">
+
+
+
+                <div class="mb-3">
+
+                    <label for="comp_num" class="form-label fw-bold">Component Number (COMPNUM)</label>
+
+                    <input type="number" class="form-control" id="comp_num" oninput="stageComponentChanges()">
+
+                </div>
+
+
+
+                <div class="mb-3">
+
+                    <label for="comp_name" class="form-label fw-bold">Component Name (COMPNAME)</label>
+
+                    <input type="text" class="form-control" id="comp_name" oninput="stageComponentChanges()">
+
+                </div>
+
+
+
+                <div class="row">
+
+                    <div class="col-6 mb-3">
+
+                        <label for="comp_len" class="form-label fw-bold">Length (COMPLEN)</label>
+
+                        <input type="number" step="any" class="form-control" id="comp_len" oninput="stageComponentChanges()">
+
+                    </div>
+
+                    <div class="col-6 mb-3">
+
+                        <label for="comp_wid" class="form-label fw-bold">Width (COMPWID)</label>
+
+                        <input type="number" step="any" class="form-control" id="comp_wid" oninput="stageComponentChanges()">
+
+                    </div>
+
+                </div>
+
+
+
+                <div class="mb-3">
+
+                    <label for="glass_id" class="form-label fw-bold">Component Glass (GSI)</label>
+
+                    <select class="form-select" id="glass_id" onchange="handleGlassChange();">
+
+                        <option value="">-- Select Glass --</option>
+
+                        {% for glass in glass_options %}
+
+                            <option value="{{ glass.GLASSID }}" 
+
+                                    data-hex="{{ glass.CHEX | default('cccccc') }}"
+
+                                    data-tex="{{ glass.GLSTEX | default('') }}"
+
+                                    data-img="{{ glass.GLSIMG | default('') }}"
+
+                                    data-trns="{{ glass.GTRNSV | default(75) }}">
+
+                                {{ glass.GLSNAME }} (ID: {{ glass.GLASSID }})
+
+                            </option>
+
+                        {% endfor %}
+
+                    </select>
+
+                </div>
+
+
+
+                <div class="mb-3 form-check">
+
+                    <input type="checkbox" class="form-check-input" id="isscrap" onchange="stageComponentChanges()">
+
+                    <label class="form-check-label" for="isscrap">Is Scrap (ISSCRAP)</label>
+
+                </div>
+
+
+
+                <div class="mb-3 form-check">
+
+                    <input type="checkbox" class="form-check-input" id="isgrain" onchange="stageComponentChanges()">
+
+                    <label class="form-check-label" for="isgrain">Grain Specific (ISGRAIN)</label>
+
+                </div>
 
             </div>
 
-        </div>
+            <!-- Submit button removed from bottom of sidebar form -->
 
-
-
-        <div class="mb-3">
-
-            <label for="glass_id" class="form-label fw-bold">Component Glass (GSI)</label>
-
-
-<select class="form-select" id="glass_id" onchange="handleGlassChange();">
-
-    <option value="">-- Select Glass --</option>
-
-    {% for glass in glass_options %}
-
-        <option value="{{ glass.GLASSID }}" 
-
-                data-hex="{{ glass.CHEX | default('cccccc') }}"
-
-                data-tex="{{ glass.GLSTEX | default('') }}"
-
-                data-img="{{ glass.GLSIMG | default('') }}"
-
-                data-trns="{{ glass.GTRNSV | default(75) }}">
-
-            {{ glass.GLSNAME }} (ID: {{ glass.GLASSID }})
-
-        </option>
-
-    {% endfor %}
-
-</select>
-
-        </div>
-
-
-
-        <div class="mb-3 form-check">
-
-            <input type="checkbox" class="form-check-input" id="isscrap" onchange="stageComponentChanges()">
-
-            <label class="form-check-label" for="isscrap">Is Scrap (ISSCRAP)</label>
-
-        </div>
-
-
-
-        <div class="mb-3 form-check">
-
-            <input type="checkbox" class="form-check-input" id="isgrain" onchange="stageComponentChanges()">
-
-            <label class="form-check-label" for="isgrain">Grain Specific (ISGRAIN)</label>
-
-        </div>
-
-    </div>
-
-
-
-    <button type="submit" class="btn btn-success w-100 mt-3 shadow-sm">Save All Changes</button>
-
-</>
         </form>
+
     </div>
+
+
 
     <!-- Main Focus: Interactive SVG Canvas -->
+
     <div class="col-md-8 d-flex flex-column align-items-center justify-content-center bg-light p-3" style="height: 80vh;">
-        <h5 class="text-secondary mb-2">{{ item.ITMNAME }} - Interactive Layout</h5>
+
+        <!-- Header row with Title and Save Button on the right -->
+
+        <div class="d-flex justify-content-between align-items-center w-100 mb-2 px-2">
+
+            <h5 class="text-secondary mb-0">{{ item.ITMNAME }} - Interactive Layout</h5>
+
+            <button type="button" class="btn btn-success btn-sm shadow-sm" onclick="saveAllComponents()">Save All Changes</button>
+
+        </div>
+
         
+
         <!-- SVG Container with relative positioning for absolute toggle buttons in top-right -->
+
         <div id="svg-wrapper" class="svg-container border rounded bg-white p-2 shadow-sm w-100 h-100 d-flex justify-content-center align-items-center overflow-hidden position-relative" style="background-color: #ffffff; transition: background 0.3s ease;">
+
             
+
             <!-- Top-left overlay buttons for appearance mode -->
+
             <div style="position: absolute; top: 10px; left: 10px; z-index: 10; display: flex; gap: 5px;">
+
                 <button id="mode-chex-btn" type="button" class="btn btn-sm btn-secondary active" title="Color by Palette (CHEX)" onclick="setAppearanceMode('chex')">🎨</button>
+
                 <button id="mode-img-btn" type="button" class="btn btn-sm btn-light" title="Fill with Image (GLSIMG)" onclick="setAppearanceMode('image')">🖼️</button>
+
             </div>
+
+
 
             <!-- Background Toggle Buttons (Top-Right) -->
+
             <div class="position-absolute top-0 end-0 m-3 z-3 btn-group shadow-sm" role="group" aria-label="Background Switcher">
+
                 <button type="button" class="btn btn-light btn-sm border bg-white" id="bg-white-btn" title="White Background" onclick="setSvgBackground('white')">
+
                     <span style="display:inline-block; width:14px; height:14px; background:#ffffff; border:1px solid #ccc; vertical-align:middle;"></span>
+
                 </button>
+
                 <button type="button" class="btn btn-light btn-sm border" id="bg-outside-btn" title="Outside Background" onclick="setSvgBackground('outside')">
+
                     ☀️
+
                 </button>
+
                 <button type="button" class="btn btn-light btn-sm border" id="bg-transparent-btn" title="Transparent Background" onclick="setSvgBackground('transparent')">
+
                     <span style="display:inline-block; width:14px; height:14px; background:repeating-conic-gradient(#ccc 0% 25%, #fff 0% 50%) 0 0/10px 10px; border:1px solid #222; vertical-align:middle;"></span>
+
                 </button>
+
             </div>
 
+
+
             <!-- Reactive Joystick (Bottom-Left) -->
+
             <div id="bg-joystick" class="position-absolute bottom-0 start-0 m-3 z-3 bg-dark bg-opacity-50 border border-secondary rounded-circle shadow-lg d-flex align-items-center justify-content-center" style="display: none; width: 100px; height: 100px; touch-action: none; cursor: grab;">
+
                 <div id="joystick-knob" class="bg-white bg-opacity-75 rounded-circle shadow-sm position-absolute" style="width: 44px; height: 44px; transition: transform 0.05s linear; pointer-events: none;"></div>
+
             </div>
+
+
 
             <object data="{{ svg_url }}" type="image/svg+xml" id="svg-object" style="width: 100%; height: 100%; object-fit: contain;"></object>
 
-            <!-- Bottom-right overlay buttons for stroke-width adjustment -->
-            <div style="position: absolute; bottom: 10px; right: 10px; z-index: 10; display: flex; gap: 5px;">
-                <button id="stroke-thin-btn" type="button" class="btn btn-sm btn-secondary active text-white font-weight-bold shadow-sm" title="Thin Line" onclick="setStrokeWidth(2)">🔽</button>
-                <button id="stroke-thick-btn" type="button" class="btn btn-sm btn-light text-dark font-weight-bold shadow-sm" title="Thick Line" onclick="setStrokeWidth(22)">🔼</button>
+
+
+<!-- Bottom-right overlay buttons for stroke color and width adjustment -->
+
+            <div style="position: absolute; bottom: 10px; right: 10px; z-index: 10; display: flex; flex-direction: column; gap: 5px; align-items: flex-end;">
+
+                <!-- Stroke Color Buttons -->
+
+                <div class="btn-group shadow-sm" role="group" aria-label="Stroke Color">
+
+                    <button id="stroke-silver-btn" type="button" class="btn btn-sm btn-light active border" title="Silver Stroke" onclick="setStrokeColor('#C0C0C0')">
+
+                        <span style="display:inline-block; width:12px; height:12px; background:#C0C0C0; border:1px solid #888; vertical-align:middle;"></span>
+
+                    </button>
+
+                    <button id="stroke-copper-btn" type="button" class="btn btn-sm btn-light border" title="Copper Stroke" onclick="setStrokeColor('#B87333')">
+
+                        <span style="display:inline-block; width:12px; height:12px; background:#B87333; border:1px solid #888; vertical-align:middle;"></span>
+
+                    </button>
+
+                    <button id="stroke-black-btn" type="button" class="btn btn-sm btn-light border" title="Black Stroke" onclick="setStrokeColor('#000000')">
+
+                        <span style="display:inline-block; width:12px; height:12px; background:#000000; border:1px solid #888; vertical-align:middle;"></span>
+
+                    </button>
+
+                </div>
+
+
+
+                <!-- Stroke Width Buttons -->
+
+                <div class="btn-group shadow-sm" role="group" aria-label="Stroke Width">
+
+                    <button id="stroke-thin-btn" type="button" class="btn btn-sm btn-secondary active text-white font-weight-bold" title="Thin Line" onclick="setStrokeWidth(2)">🔽</button>
+
+                    <button id="stroke-thick-btn" type="button" class="btn btn-sm btn-light text-dark font-weight-bold" title="Thick Line" onclick="setStrokeWidth(22)">🔼</button>
+
+                </div>
+
             </div>
         </div>
+
     </div>
+
 </div>
 
+
+
 <!-- Global Configurations for JS files -->
+
 <script>
+
     let componentsData = {{ components_json | tojson }};
+
     const outsideBgUrl = "{{ url_for('static', filename='images/backgrounds/outside.jpg') }}";
+
     const glassImgBaseUrl = "{{ url_for('static', filename='/') }}";
+
     const effectImgBaseUrl = "{{ url_for('static', filename='images/effects/') }}";
+
 </script>
 
+
+
 <!-- Referenced JS Modules -->
+
 <script src="{{ url_for('static', filename='js/joystick_background.js') }}"></script>
+
 <script src="{{ url_for('static', filename='js/component_sidebar.js') }}"></script>
+
 <script src="{{ url_for('static', filename='js/svg_renderer.js') }}"></script>
 
+
+
 <script>
-// Keep track of active components dataset locally
 
 let localComponentsData = JSON.parse(JSON.stringify(componentsData));
 
@@ -234,33 +338,50 @@ function populateSidebar(regionId) {
 }
 
 
+
 function stageComponentChanges() {
+
     const regionId = document.getElementById('active_region_id').value;
+
     if (!regionId) return;
 
+
+
     let comp = Object.values(localComponentsData).find(c => String(c.SVGREG) === String(regionId));
+
     if (!comp) return;
 
-    // Update local values dynamically
+
+
     comp.COMPNUM = document.getElementById('comp_num').value;
+
     comp.COMPNAME = document.getElementById('comp_name').value;
+
     comp.COMPLEN = document.getElementById('comp_len').value;
+
     comp.COMPWID = document.getElementById('comp_wid').value;
+
     comp.GLASSID = document.getElementById('glass_id').value;
+
     comp.ISSCRAP = document.getElementById('isscrap').checked ? 1 : 0;
+
     comp.ISGRAIN = document.getElementById('isgrain').checked ? 1 : 0;
 
-    // Sync back to global reference variable used by renderer
+
+
     componentsData = localComponentsData; 
 
-    // Re-render SVG visual elements instantly
+
+
     if (typeof renderSvgContent === 'function') {
+
         renderSvgContent();
+
     }
+
 }
 
 
-// Send all modified elements to the backend database at once
 
 function saveAllComponents() {
 
@@ -314,6 +435,8 @@ function saveAllComponents() {
 
 }
 
+
+
 function handleGlassChange() {
 
     const regionId = document.getElementById('active_region_id').value;
@@ -334,15 +457,9 @@ function handleGlassChange() {
 
 
 
-    // Update basic Glass ID
-
     comp.GLASSID = glassSelect.value;
 
-
-
     if (selectedOption && selectedOption.value) {
-
-        // Pull and update all visual properties from data attributes
 
         comp.CHEX = selectedOption.dataset.hex || 'cccccc';
 
@@ -353,8 +470,6 @@ function handleGlassChange() {
         comp.GTRNSV = selectedOption.dataset.trns !== undefined ? selectedOption.dataset.trns : 75;
 
     } else {
-
-        // Clear them out if "-- Select Glass --" is chosen
 
         comp.CHEX = 'cccccc';
 
@@ -368,13 +483,9 @@ function handleGlassChange() {
 
 
 
-    // Sync global variable used by svg_renderer.js
-
     componentsData = localComponentsData;
 
 
-
-    // Immediately re-render SVG visuals (textures, patterns, colors, images)
 
     if (typeof renderSvgContent === 'function') {
 
@@ -385,42 +496,53 @@ function handleGlassChange() {
 }
 
 
+// Default stroke color set to Silver
 
-// Ensure the SVG element gets updated visually
+let currentStrokeColor = '#C0C0C0';
 
-function updateSvgVisualElement(regionId, comp) {
 
-    // Target the specific SVG path/shape using your region identifier convention
 
-    const svgElement = document.getElementById(`reg-${regionId}`) || document.querySelector(`[data-region="${regionId}"]`);
+function setStrokeColor(colorHex) {
 
-    
+    currentStrokeColor = colorHex;
 
-    if (svgElement) {
 
-        // Apply the new glass hex color instantly if available
 
-        if (comp.CHEX) {
+    // Update active states on color buttons
 
-            svgElement.style.fill = comp.CHEX;
+    document.getElementById('stroke-silver-btn').classList.toggle('active', colorHex === '#C0C0C0');
 
-        }
+    document.getElementById('stroke-silver-btn').classList.toggle('btn-secondary', colorHex === '#C0C0C0');
 
-        svgElement.classList.add('component-modified');
+    document.getElementById('stroke-silver-btn').classList.toggle('btn-light', colorHex !== '#C0C0C0');
 
-    } else if (typeof renderSvgContent === 'function') {
 
-        // Fallback: full SVG redraw loop if individual node IDs aren't directly matched
+
+    document.getElementById('stroke-copper-btn').classList.toggle('active', colorHex === '#B87333');
+
+    document.getElementById('stroke-copper-btn').classList.toggle('btn-secondary', colorHex === '#B87333');
+
+    document.getElementById('stroke-copper-btn').classList.toggle('btn-light', colorHex !== '#B87333');
+
+
+
+    document.getElementById('stroke-black-btn').classList.toggle('active', colorHex === '#000000');
+
+    document.getElementById('stroke-black-btn').classList.toggle('btn-secondary', colorHex === '#000000');
+
+    document.getElementById('stroke-black-btn').classList.toggle('btn-light', colorHex !== '#000000');
+
+
+
+    // Trigger SVG re-render to apply stroke color change
+
+    if (typeof renderSvgContent === 'function') {
 
         renderSvgContent();
 
     }
 
 }
-
-
-
 </script>
-
 
 {% endblock %}

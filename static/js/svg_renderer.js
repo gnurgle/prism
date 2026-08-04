@@ -169,12 +169,12 @@ function renderSvgContent() {
             path.style.filter = 'none';
         }
 
-        path.removeAttribute('opacity');
-        path.setAttribute('stroke', '#222222');      
+	path.removeAttribute('opacity');
+        const activeStrokeColor = typeof currentStrokeColor !== 'undefined' ? currentStrokeColor : '#C0C0C0';
+        path.setAttribute('stroke', activeStrokeColor);      
         path.setAttribute('stroke-width', currentStrokeWidth);    
         path.setAttribute('stroke-linejoin', 'round'); 
         path.style.cursor = 'pointer';
-
         const newPath = path.cloneNode(true);
         path.parentNode.replaceChild(newPath, path);
 
