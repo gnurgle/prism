@@ -1589,8 +1589,13 @@ def edit_components(item_id):
     svg_url = url_for('static', filename=svg_filename) if svg_filename else ''
 
     # Fetch all glass options for the dropdown (GSI table)
-    glass_options = db.execute('SELECT GLASSID, GLSNAME FROM GSI WHERE ISACTIVE = 1').fetchall()
-
+    glass_options = db.execute('''
+        SELECT g.GLASSID, g.GLSNAME, g.GLSTEX, g.GLSIMG, c.CHEX, t.GTRNSV 
+        FROM GSI g
+        LEFT JOIN COLOR c ON g.COLOR = c.COLOR
+        LEFT JOIN GTRNS t ON g.GTRNSN = t.GTRNSN
+        WHERE g.ISACTIVE = 1
+    ''').fetchall()
     # Fetch components joined with glass and color info to map svg regions to color hexes and textures
     # IGC -> GSI -> COLOR
 

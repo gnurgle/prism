@@ -87,7 +87,15 @@
 
     {% for glass in glass_options %}
 
-        <option value="{{ glass.GLASSID }}" data-hex="{{ glass.CHEX | default('cccccc') }}">
+        <option value="{{ glass.GLASSID }}" 
+
+                data-hex="{{ glass.CHEX | default('cccccc') }}"
+
+                data-tex="{{ glass.GLSTEX | default('') }}"
+
+                data-img="{{ glass.GLSIMG | default('') }}"
+
+                data-trns="{{ glass.GTRNSV | default(75) }}">
 
             {{ glass.GLSNAME }} (ID: {{ glass.GLASSID }})
 
@@ -326,27 +334,57 @@ function handleGlassChange() {
 
 
 
+    // Update basic Glass ID
+
     comp.GLASSID = glassSelect.value;
 
-    if (selectedOption && selectedOption.dataset.hex) {
 
-        comp.CHEX = selectedOption.dataset.hex;
+
+    if (selectedOption && selectedOption.value) {
+
+        // Pull and update all visual properties from data attributes
+
+        comp.CHEX = selectedOption.dataset.hex || 'cccccc';
+
+        comp.GLSTEX = selectedOption.dataset.tex || '';
+
+        comp.GLSIMG = selectedOption.dataset.img || '';
+
+        comp.GTRNSV = selectedOption.dataset.trns !== undefined ? selectedOption.dataset.trns : 75;
+
+    } else {
+
+        // Clear them out if "-- Select Glass --" is chosen
+
+        comp.CHEX = 'cccccc';
+
+        comp.GLSTEX = '';
+
+        comp.GLSIMG = '';
+
+        comp.GTRNSV = 75;
 
     }
 
 
 
-    // Sync global variable
+    // Sync global variable used by svg_renderer.js
 
     componentsData = localComponentsData;
 
 
 
-    // Immediately update SVG visuals
+    // Immediately re-render SVG visuals (textures, patterns, colors, images)
 
-    renderSvgContent();
+    if (typeof renderSvgContent === 'function') {
+
+        renderSvgContent();
+
+    }
 
 }
+
+
 
 // Ensure the SVG element gets updated visually
 
