@@ -35,14 +35,13 @@
 
 
 
-        <div class="mb-3">
+<div class="mb-3">
 
-            <label for="comp_num" class="form-label fw-bold">Component Number (COMPNUM)</label>
+    <label for="comp_num" class="form-label fw-bold">Component Number (COMPNUM)</label>
 
-            <input type="number" class="form-control" id="comp_num" oninput="stageComponentChanges()">
+    <input type="number" class="form-control" id="comp_num" oninput="stageComponentChanges()">
 
-        </div>
-
+</div>
 
 
         <div class="mb-3">
@@ -174,7 +173,7 @@
 
 <!-- Global Configurations for JS files -->
 <script>
-    const componentsData = {{ components_json | tojson }};
+    let componentsData = {{ components_json | tojson }};
     const outsideBgUrl = "{{ url_for('static', filename='images/backgrounds/outside.jpg') }}";
     const glassImgBaseUrl = "{{ url_for('static', filename='/') }}";
     const effectImgBaseUrl = "{{ url_for('static', filename='images/effects/') }}";
@@ -227,57 +226,30 @@ function populateSidebar(regionId) {
 }
 
 
-
-// Stages modifications locally and triggers instant SVG visual re-render without page reload
-
 function stageComponentChanges() {
-
     const regionId = document.getElementById('active_region_id').value;
-
     if (!regionId) return;
 
-
-
     let comp = Object.values(localComponentsData).find(c => String(c.SVGREG) === String(regionId));
-
     if (!comp) return;
 
-
-
+    // Update local values dynamically
     comp.COMPNUM = document.getElementById('comp_num').value;
-
     comp.COMPNAME = document.getElementById('comp_name').value;
-
     comp.COMPLEN = document.getElementById('comp_len').value;
-
     comp.COMPWID = document.getElementById('comp_wid').value;
-
     comp.GLASSID = document.getElementById('glass_id').value;
-
     comp.ISSCRAP = document.getElementById('isscrap').checked ? 1 : 0;
-
     comp.ISGRAIN = document.getElementById('isgrain').checked ? 1 : 0;
 
-
-
-    // Fetch glass details (like color CHEX, texture, image) dynamically if updated
-
-    // For immediate color/texture updates, update the global reference dictionary used by renderSvgContent()
-
+    // Sync back to global reference variable used by renderer
     componentsData = localComponentsData; 
 
-
-
     // Re-render SVG visual elements instantly
-
     if (typeof renderSvgContent === 'function') {
-
         renderSvgContent();
-
     }
-
 }
-
 
 
 // Send all modified elements to the backend database at once

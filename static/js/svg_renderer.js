@@ -41,10 +41,9 @@ function renderSvgContent() {
     const paths = svgDoc.querySelectorAll('path');
 
     paths.forEach((path, index) => {
-        const regionId = path.getAttribute('data-region-id') || path.getAttribute('data-number') || (index + 1);
-        const comp = componentsData[regionId];
+        let regionId = path.getAttribute('data-region-id') || path.getAttribute('data-number') || (index + 1);
+        let comp = componentsData[regionId];
         
-        const labelText = (comp && comp.COMPNUM !== undefined && comp.COMPNUM !== null && comp.COMPNUM !== '') ? comp.COMPNUM : regionId;
         let baseColor = (comp && comp.CHEX) ? '#' + comp.CHEX : '#cccccc';
 
         let trsValue = 75;
@@ -61,10 +60,10 @@ function renderSvgContent() {
             imageUrl = glassImgBaseUrl + comp.GLSIMG.trim();
         }
 
-        const hasTexture = !useImageFill && comp && comp.GLSTEX && comp.GLSTEX.trim() !== '';
+        let hasTexture = !useImageFill && comp && comp.GLSTEX && comp.GLSTEX.trim() !== '';
 
         if (hasTexture || useImageFill) {
-            const patternId = `texture-pattern-${regionId}-${currentAppearanceMode}-${comp ? (useImageFill ? comp.GLSIMG : comp.GLSTEX) : 'none'}`;
+            let patternId = `texture-pattern-${regionId}-${currentAppearanceMode}-${comp ? (useImageFill ? comp.GLSIMG : comp.GLSTEX) : 'none'}`;
             
             const pattern = svgDoc.createElementNS("http://www.w3.org/2000/svg", "pattern");
             pattern.setAttribute("id", patternId);
@@ -184,36 +183,74 @@ function renderSvgContent() {
             populateSidebar(regionId);
         });
 
-        const existingText = svgElement.querySelector(`text[data-region-label="${regionId}"]`);
+const existingText = svgElement.querySelector(`text[data-region-label="${regionId}"]`);
 
-        if (!existingText) {
+        const labelText = (comp && comp.COMPNUM !== undefined && comp.COMPNUM !== null && comp.COMPNUM !== '') ? comp.COMPNUM : regionId;
+
+
+
+        if (existingText) {
+
+
+            existingText.textContent = labelText;
+
+        } else {
+
             try {
+
                 const bbox = newPath.getBBox();
+
                 if (bbox && bbox.width > 0 && bbox.height > 0) {
+
                     const cx = bbox.x + bbox.width / 2;
+
                     const cy = bbox.y + bbox.height / 2;
 
+
+
                     const textEl = svgDoc.createElementNS("http://www.w3.org/2000/svg", "text");
+
                     textEl.setAttribute("data-region-label", regionId);
+
                     textEl.setAttribute("x", cx);
+
                     textEl.setAttribute("y", cy);
+
                     textEl.setAttribute("fill", "#000000");
+
                     textEl.setAttribute("stroke", "#ffffff");
+
                     textEl.setAttribute("stroke-width", "3px");
+
                     textEl.setAttribute("stroke-linejoin", "round");
+
                     textEl.setAttribute("paint-order", "stroke fill");
+
                     textEl.setAttribute("font-weight", "bold");
+
                     textEl.setAttribute("font-size", fontSize + "px");
+
                     textEl.setAttribute("text-anchor", "middle");
+
                     textEl.setAttribute("dominant-baseline", "central");
+
                     textEl.setAttribute("style", "pointer-events: none; user-select: none;");
+
                     textEl.textContent = labelText;
 
+
+
                     svgElement.appendChild(textEl);
+
                 }
+
             } catch (err) {
+
                 console.warn("Could not calculate bounding box for path element", err);
+
             }
+
         }
+
     });
 }
