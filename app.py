@@ -3031,6 +3031,96 @@ def delete_misc_price(misc_id, price_id):
   flash('Price tier removed.', 'success')
   return redirect(url_for('edit_misc_prices', misc_id=misc_id))
 
+@app.route('/update_components_batch', methods=['POST'])
 
+def update_components_batch():
+
+    db = get_db()
+
+    data = request.get_json()
+
+    item_id = data.get('item_id')
+
+    components = data.get('components', [])
+
+
+
+    try:
+
+        for comp in components:
+
+            comp_id = comp.get('COMPID') if comp.get('COMPID') is not None else comp.get('comp_id')
+
+            if not comp_id:
+
+                continue
+
+            
+
+            comp_num = comp.get('COMPNUM') if comp.get('COMPNUM') is not None else comp.get('comp_num')
+
+            comp_name = comp.get('COMPNAME') if comp.get('COMPNAME') is not None else comp.get('comp_name')
+
+            comp_len = comp.get('COMPLEN') if comp.get('COMPLEN') is not None else comp.get('comp_len')
+
+            comp_wid = comp.get('COMPWID') if comp.get('COMPWID') is not None else comp.get('comp_wid')
+
+            glass_id = comp.get('GLASSID') if comp.get('GLASSID') is not None else comp.get('glass_id')
+
+            
+
+            isscrap_val = comp.get('ISSCRAP') if comp.get('ISSCRAP') is not None else comp.get('isscrap')
+
+            isscrap = 1 if isscrap_val == 1 or isscrap_val is True or isscrap_val == 'true' else 0
+
+            
+
+            isgrain_val = comp.get('ISGRAIN') if comp.get('ISGRAIN') is not None else comp.get('isgrain')
+
+            isgrain = 1 if isgrain_val == 1 or isgrain_val is True or isgrain_val == 'true' else 0
+
+
+
+            db.execute('''
+
+                UPDATE IGC 
+
+                SET COMPNUM = ?, COMPNAME = ?, COMPLEN = ?, COMPWID = ?, GLASSID = ?, ISSCRAP = ?, ISGRAIN = ?
+
+                WHERE COMPID = ? AND ITEMID = ?
+
+            ''', (
+
+                comp_num or None, 
+
+                comp_name or None, 
+
+                float(comp_len) if comp_len else None, 
+
+                float(comp_wid) if comp_wid else None, 
+
+                int(glass_id) if glass_id else None, 
+
+                isscrap, 
+
+                isgrain, 
+
+                int(comp_id), 
+
+                int(item_id)
+
+            ))
+
+        
+
+        db.commit()
+
+        return jsonify({'success': True, 'message': 'All components updated successfully!'})
+
+    except Exception as e:
+
+        db.rollback()
+
+        return jsonify({'success': False, 'message': str(e)}), 400
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=7665, debug=True)

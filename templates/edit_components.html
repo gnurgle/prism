@@ -17,52 +17,116 @@
             <p>Click any region in the SVG viewer to view and edit component properties.</p>
         </div>
 
-        <form id="component-form" method="POST" action="{{ url_for('update_component') }}" style="display: none;">
-            <input type="hidden" name="item_id" value="{{ item.ITEMID }}">
-            <input type="hidden" id="comp_id" name="comp_id">
+<form id="components-batch-form" onsubmit="event.preventDefault(); saveAllComponents();">
 
-            <div class="mb-3">
-                <label for="comp_num" class="form-label fw-bold">Component Number (COMPNUM)</label>
-                <input type="number" class="form-control" id="comp_num" name="comp_num">
+    <div id="no-selection-msg" class="text-muted text-center py-5">
+
+        <p>Click any region in the SVG viewer to view and edit component properties.</p>
+
+    </div>
+
+
+
+    <div id="component-editor-fields" style="display: none;">
+
+        <input type="hidden" id="active_comp_id">
+
+        <input type="hidden" id="active_region_id">
+
+
+
+        <div class="mb-3">
+
+            <label for="comp_num" class="form-label fw-bold">Component Number (COMPNUM)</label>
+
+            <input type="number" class="form-control" id="comp_num" oninput="stageComponentChanges()">
+
+        </div>
+
+
+
+        <div class="mb-3">
+
+            <label for="comp_name" class="form-label fw-bold">Component Name (COMPNAME)</label>
+
+            <input type="text" class="form-control" id="comp_name" oninput="stageComponentChanges()">
+
+        </div>
+
+
+
+        <div class="row">
+
+            <div class="col-6 mb-3">
+
+                <label for="comp_len" class="form-label fw-bold">Length (COMPLEN)</label>
+
+                <input type="number" step="any" class="form-control" id="comp_len" oninput="stageComponentChanges()">
+
             </div>
 
-            <div class="mb-3">
-                <label for="comp_name" class="form-label fw-bold">Component Name (COMPNAME)</label>
-                <input type="text" class="form-control" id="comp_name" name="comp_name">
+            <div class="col-6 mb-3">
+
+                <label for="comp_wid" class="form-label fw-bold">Width (COMPWID)</label>
+
+                <input type="number" step="any" class="form-control" id="comp_wid" oninput="stageComponentChanges()">
+
             </div>
 
-            <div class="row">
-                <div class="col-6 mb-3">
-                    <label for="comp_len" class="form-label fw-bold">Length (COMPLEN)</label>
-                    <input type="number" step="any" class="form-control" id="comp_len" name="comp_len">
-                </div>
-                <div class="col-6 mb-3">
-                    <label for="comp_wid" class="form-label fw-bold">Width (COMPWID)</label>
-                    <input type="number" step="any" class="form-control" id="comp_wid" name="comp_wid">
-                </div>
-            </div>
+        </div>
 
-            <div class="mb-3">
-                <label for="glass_id" class="form-label fw-bold">Component Glass (GSI)</label>
-                <select class="form-select" id="glass_id" name="glass_id">
-                    <option value="">-- Select Glass --</option>
-                    {% for glass in glass_options %}
-                        <option value="{{ glass.GLASSID }}">{{ glass.GLSNAME }} (ID: {{ glass.GLASSID }})</option>
-                    {% endfor %}
-                </select>
-            </div>
 
-            <div class="mb-3 form-check">
-                <input type="checkbox" class="form-check-input" id="isscrap" name="isscrap" value="1">
-                <label class="form-check-label" for="isscrap">Is Scrap (ISSCRAP)</label>
-            </div>
 
-            <div class="mb-3 form-check">
-                <input type="checkbox" class="form-check-input" id="isgrain" name="isgrain" value="1">
-                <label class="form-check-label" for="isgrain">Grain Specific (ISGRAIN)</label>
-            </div>
+        <div class="mb-3">
 
-            <button type="submit" class="btn btn-primary w-100 mt-3">Save Changes</button>
+            <label for="glass_id" class="form-label fw-bold">Component Glass (GSI)</label>
+
+
+<select class="form-select" id="glass_id" onchange="handleGlassChange();">
+
+    <option value="">-- Select Glass --</option>
+
+    {% for glass in glass_options %}
+
+        <option value="{{ glass.GLASSID }}" data-hex="{{ glass.CHEX | default('cccccc') }}">
+
+            {{ glass.GLSNAME }} (ID: {{ glass.GLASSID }})
+
+        </option>
+
+    {% endfor %}
+
+</select>
+
+        </div>
+
+
+
+        <div class="mb-3 form-check">
+
+            <input type="checkbox" class="form-check-input" id="isscrap" onchange="stageComponentChanges()">
+
+            <label class="form-check-label" for="isscrap">Is Scrap (ISSCRAP)</label>
+
+        </div>
+
+
+
+        <div class="mb-3 form-check">
+
+            <input type="checkbox" class="form-check-input" id="isgrain" onchange="stageComponentChanges()">
+
+            <label class="form-check-label" for="isgrain">Grain Specific (ISGRAIN)</label>
+
+        </div>
+
+    </div>
+
+
+
+    <button type="submit" class="btn btn-success w-100 mt-3 shadow-sm">Save All Changes</button>
+
+</>
         </form>
     </div>
 
@@ -120,5 +184,233 @@
 <script src="{{ url_for('static', filename='js/joystick_background.js') }}"></script>
 <script src="{{ url_for('static', filename='js/component_sidebar.js') }}"></script>
 <script src="{{ url_for('static', filename='js/svg_renderer.js') }}"></script>
+
+<script>
+// Keep track of active components dataset locally
+
+let localComponentsData = JSON.parse(JSON.stringify(componentsData));
+
+
+
+function populateSidebar(regionId) {
+
+    document.getElementById('no-selection-msg').style.display = 'none';
+
+    document.getElementById('component-editor-fields').style.display = 'block';
+
+
+
+    const comp = Object.values(localComponentsData).find(c => String(c.SVGREG) === String(regionId));
+
+    if (!comp) return;
+
+
+
+    document.getElementById('active_comp_id').value = comp.COMPID;
+
+    document.getElementById('active_region_id').value = regionId;
+
+    document.getElementById('comp_num').value = comp.COMPNUM !== undefined ? comp.COMPNUM : '';
+
+    document.getElementById('comp_name').value = comp.COMPNAME || '';
+
+    document.getElementById('comp_len').value = comp.COMPLEN || '';
+
+    document.getElementById('comp_wid').value = comp.COMPWID || '';
+
+    document.getElementById('glass_id').value = comp.GLASSID || '';
+
+    document.getElementById('isscrap').checked = comp.ISSCRAP === 1;
+
+    document.getElementById('isgrain').checked = comp.ISGRAIN === 1;
+
+}
+
+
+
+// Stages modifications locally and triggers instant SVG visual re-render without page reload
+
+function stageComponentChanges() {
+
+    const regionId = document.getElementById('active_region_id').value;
+
+    if (!regionId) return;
+
+
+
+    let comp = Object.values(localComponentsData).find(c => String(c.SVGREG) === String(regionId));
+
+    if (!comp) return;
+
+
+
+    comp.COMPNUM = document.getElementById('comp_num').value;
+
+    comp.COMPNAME = document.getElementById('comp_name').value;
+
+    comp.COMPLEN = document.getElementById('comp_len').value;
+
+    comp.COMPWID = document.getElementById('comp_wid').value;
+
+    comp.GLASSID = document.getElementById('glass_id').value;
+
+    comp.ISSCRAP = document.getElementById('isscrap').checked ? 1 : 0;
+
+    comp.ISGRAIN = document.getElementById('isgrain').checked ? 1 : 0;
+
+
+
+    // Fetch glass details (like color CHEX, texture, image) dynamically if updated
+
+    // For immediate color/texture updates, update the global reference dictionary used by renderSvgContent()
+
+    componentsData = localComponentsData; 
+
+
+
+    // Re-render SVG visual elements instantly
+
+    if (typeof renderSvgContent === 'function') {
+
+        renderSvgContent();
+
+    }
+
+}
+
+
+
+// Send all modified elements to the backend database at once
+
+function saveAllComponents() {
+
+    const payload = {
+
+        item_id: "{{ item.ITEMID }}",
+
+        components: Object.values(localComponentsData)
+
+    };
+
+
+
+    fetch("{{ url_for('update_components_batch') }}", {
+
+        method: 'POST',
+
+        headers: {
+
+            'Content-Type': 'application/json'
+
+        },
+
+        body: JSON.stringify(payload)
+
+    })
+
+    .then(response => response.json())
+
+    .then(data => {
+
+        if (data.success) {
+
+            alert('All component changes saved to the database successfully!');
+
+        } else {
+
+            alert('Error saving changes: ' + data.message);
+
+        }
+
+    })
+
+    .catch(error => {
+
+        console.error('Error:', error);
+
+        alert('An unexpected error occurred while saving.');
+
+    });
+
+}
+
+function handleGlassChange() {
+
+    const regionId = document.getElementById('active_region_id').value;
+
+    if (!regionId) return;
+
+
+
+    let comp = Object.values(localComponentsData).find(c => String(c.SVGREG) === String(regionId));
+
+    if (!comp) return;
+
+
+
+    const glassSelect = document.getElementById('glass_id');
+
+    const selectedOption = glassSelect.options[glassSelect.selectedIndex];
+
+
+
+    comp.GLASSID = glassSelect.value;
+
+    if (selectedOption && selectedOption.dataset.hex) {
+
+        comp.CHEX = selectedOption.dataset.hex;
+
+    }
+
+
+
+    // Sync global variable
+
+    componentsData = localComponentsData;
+
+
+
+    // Immediately update SVG visuals
+
+    renderSvgContent();
+
+}
+
+// Ensure the SVG element gets updated visually
+
+function updateSvgVisualElement(regionId, comp) {
+
+    // Target the specific SVG path/shape using your region identifier convention
+
+    const svgElement = document.getElementById(`reg-${regionId}`) || document.querySelector(`[data-region="${regionId}"]`);
+
+    
+
+    if (svgElement) {
+
+        // Apply the new glass hex color instantly if available
+
+        if (comp.CHEX) {
+
+            svgElement.style.fill = comp.CHEX;
+
+        }
+
+        svgElement.classList.add('component-modified');
+
+    } else if (typeof renderSvgContent === 'function') {
+
+        // Fallback: full SVG redraw loop if individual node IDs aren't directly matched
+
+        renderSvgContent();
+
+    }
+
+}
+
+
+
+</script>
+
 
 {% endblock %}
