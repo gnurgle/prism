@@ -1480,3 +1480,10 @@ def trace_stencil_to_filled_outline_svg(image_file):
         
 
     return ET.tostring(new_root, encoding='unicode')
+
+def round_to_eighth(val):
+
+    return round(round(val * 8) / 8, 3)
+
+
+

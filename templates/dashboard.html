@@ -181,10 +181,12 @@
                     <h6 class="text-muted border-bottom pb-1 small fw-bold">Needs Input</h6>
                     <div class="d-flex flex-column gap-2 mt-2">
                         <!-- File/Test Input queries -->
-                        <form action="{{ url_for('test_svg_delete') }}" method="GET" class="input-group input-group-sm">
+<!---
+                        <form action="{{ url_for('trace_outline') }}" method="GET" class="input-group input-group-sm">
                             <input type="text" name="file" class="form-control" placeholder="SVG Filename" required>
                             <button class="btn btn-outline-secondary" type="submit">Test SVG</button>
                         </form>
+--->
                     </div>
                 </div>
 
@@ -197,7 +199,7 @@
                         <a href="{{ url_for('inventory_status') }}" class="btn btn-sm btn-light border text-start">Inventory Status</a>
                         <a href="{{ url_for('list_sales') }}" class="btn btn-sm btn-light border text-start">List Sales</a>
                         <a href="{{ url_for('record_sale') }}" class="btn btn-sm btn-light border text-start">Record Sale</a>
-                        <a href="{{ url_for('test_svg_delete') }}" class="btn btn-sm btn-light border text-start">Test SVG Delete</a>
+                        <a href="{{ url_for('trace_outline') }}" class="btn btn-sm btn-light border text-start">Trace Outline</a>
                         <a href="{{ url_for('test_outline') }}" class="btn btn-sm btn-light border text-start">Test Outline</a>
                     </div>
                 </div>

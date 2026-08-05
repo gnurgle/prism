@@ -1,97 +1,351 @@
 {% extends 'base.html' %}
 
+
+
 {% block content %}
+
 <div class="d-flex justify-content-between align-items-center mb-3">
+
     <div>
+
         <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Dashboard</a>
+
         <h2>{{ action }} Item</h2>
+
     </div>
+
 </div>
 
+
+
 <form method="POST" enctype="multipart/form-data" class="row g-3">
+
     <div class="col-md-8">
+
         <div class="card shadow-sm mb-4">
+
             <div class="card-header bg-dark text-white">Item Information</div>
+
             <div class="card-body">
-                <div class="mb-3">
-                    <label for="ITMNAME" class="form-label">Item Name</label>
-                    <input type="text" class="form-control" id="ITMNAME" name="ITMNAME" value="{{ item.ITMNAME if item else '' }}" required>
-                </div>
 
                 <div class="mb-3">
-                    <label for="ITMGRP" class="form-label">Item Group</label>
-                    <select class="form-select" id="ITMGRP" name="ITMGRP">
-                        <option value="">-- Select or Add Group --</option>
-                        {% for group in groups %}
-                            <option value="{{ group.ITMGRP }}" {% if item and item.ITMGRP == group.ITMGRP %}selected{% endif %}>{{ group.ITMGRP }}</option>
-                        {% endfor %}
-                    </select>
-                    <input type="text" class="form-control mt-2" id="NEW_ITMGRP" name="NEW_ITMGRP" placeholder="Or type a new group name...">
+
+                    <label for="ITMNAME" class="form-label">Item Name</label>
+
+                    <input type="text" class="form-control" id="ITMNAME" name="ITMNAME" value="{{ item.ITMNAME if item else '' }}" required>
+
                 </div>
+
+
+
+                <div class="mb-3">
+
+                    <label for="ITMGRP" class="form-label">Item Group</label>
+
+                    <select class="form-select" id="ITMGRP" name="ITMGRP">
+
+                        <option value="">-- Select or Add Group --</option>
+
+                        {% for group in groups %}
+
+                            <option value="{{ group.ITMGRP }}" {% if item and item.ITMGRP == group.ITMGRP %}selected{% endif %}>{{ group.ITMGRP }}</option>
+
+                        {% endfor %}
+
+                    </select>
+
+                    <input type="text" class="form-control mt-2" id="NEW_ITMGRP" name="NEW_ITMGRP" placeholder="Or type a new group name...">
+
+                </div>
+
+
 
                 <!-- Added Item Length and Width Inputs -->
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <label for="ITMLEN" class="form-label">Item Length (inches)</label>
-                        <input type="number" step="0.01" class="form-control" id="ITMLEN" name="ITMLEN" value="{{ item.ITMLEN if item and item.ITMLEN is not none else '' }}">
-                    </div>
-                    <div class="col-md-6">
-                        <label for="ITMWID" class="form-label">Item Width (inches)</label>
-                        <input type="number" step="0.01" class="form-control" id="ITMWID" name="ITMWID" value="{{ item.ITMWID if item and item.ITMWID is not none else '' }}">
-                    </div>
-                </div>
 
                 <div class="row mb-3">
+
                     <div class="col-md-6">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="ONEOFF" name="ONEOFF" value="1" {% if item and item.ONEOFF %}checked{% endif %}>
-                            <label class="form-check-label" for="ONEOFF">One-Off Item</label>
-                        </div>
+
+                        <label for="ITMLEN" class="form-label">Item Length (inches)</label>
+
+                        <input type="number" step="0.01" class="form-control" id="ITMLEN" name="ITMLEN" value="{{ item.ITMLEN if item and item.ITMLEN is not none else '' }}">
+
                     </div>
+
                     <div class="col-md-6">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="CURRENT" name="CURRENT" value="1" {% if not item or item.CURRENT %}checked{% endif %}>
-                            <label class="form-check-label" for="CURRENT">Currently Being Sold</label>
-                        </div>
+
+                        <label for="ITMWID" class="form-label">Item Width (inches)</label>
+
+                        <input type="number" step="0.01" class="form-control" id="ITMWID" name="ITMWID" value="{{ item.ITMWID if item and item.ITMWID is not none else '' }}">
+
                     </div>
+
                 </div>
+
+
+
+                {% if item %}
+
+                <!-- Horizontal Dimensions & Supplies Matrix (Edit Mode Only) -->
 
                 <div class="mb-3">
-                    <label for="ITMNOTE" class="form-label">Notes</label>
-                    <textarea class="form-control" id="ITMNOTE" name="ITMNOTE" rows="3">{{ item.ITMNOTE if item else '' }}</textarea>
+
+                    <label class="form-label fw-bold">Dimensions & Material Quantities</label>
+
+                    <div class="table-responsive">
+
+                        <table class="table table-bordered text-center align-middle mb-0">
+
+                            <thead class="table-light">
+
+                                <tr>
+
+                                    <th>Solder</th>
+
+                                    <th>Foil</th>
+
+                                    <th>Came</th>
+
+                                    <th>Chain</th>
+
+                                    <th>Jump Ring</th>
+
+                                    <th>Wire</th>
+
+                                </tr>
+
+                            </thead>
+
+                            <tbody>
+
+                                <tr>
+
+                                    <td>
+
+                                        <input type="number" step="any" class="form-control form-control-sm mb-1 text-center" name="ITMSLDR" value="{{ item.ITMSLDR or '' }}" placeholder="Qty">
+
+                                        <select class="form-select form-select-sm" name="IMISLDR">
+
+                                            <option value="">-- Select MSI --</option>
+
+                                            {% for m in msi_solder %}
+
+                                                <option value="{{ m.MSIID }}" {% if item.IMISLDR == m.MSIID %}selected{% endif %}>{{ m.MSINAME }}</option>
+
+                                            {% endfor %}
+
+                                        </select>
+
+                                    </td>
+
+                                    <td>
+
+                                        <input type="number" step="any" class="form-control form-control-sm mb-1 text-center" name="ITMFOIL" value="{{ item.ITMFOIL or '' }}" placeholder="Qty">
+
+                                        <select class="form-select form-select-sm" name="IMIFOIL">
+
+                                            <option value="">-- Select MSI --</option>
+
+                                            {% for m in msi_foil %}
+
+                                                <option value="{{ m.MSIID }}" {% if item.IMIFOIL == m.MSIID %}selected{% endif %}>{{ m.MSINAME }}</option>
+
+                                            {% endfor %}
+
+                                        </select>
+
+                                    </td>
+
+                                    <td>
+
+                                        <input type="number" step="any" class="form-control form-control-sm mb-1 text-center" name="ITMCAME" value="{{ item.ITMCAME or '' }}" placeholder="Qty">
+
+                                        <select class="form-select form-select-sm" name="IMICAME">
+
+                                            <option value="">-- Select MSI --</option>
+
+                                            {% for m in msi_came %}
+
+                                                <option value="{{ m.MSIID }}" {% if item.IMICAME == m.MSIID %}selected{% endif %}>{{ m.MSINAME }}</option>
+
+                                            {% endfor %}
+
+                                        </select>
+
+                                    </td>
+
+                                    <td>
+
+                                        <input type="number" step="any" class="form-control form-control-sm mb-1 text-center" name="ITMCHAIN" value="{{ item.ITMCHAIN or '' }}" placeholder="Qty">
+
+                                        <select class="form-select form-select-sm" name="IMICHAIN">
+
+                                            <option value="">-- Select MSI --</option>
+
+                                            {% for m in msi_chain %}
+
+                                                <option value="{{ m.MSIID }}" {% if item.IMICHAIN == m.MSIID %}selected{% endif %}>{{ m.MSINAME }}</option>
+
+                                            {% endfor %}
+
+                                        </select>
+
+                                    </td>
+
+                                    <td>
+
+                                        <input type="number" step="any" class="form-control form-control-sm mb-1 text-center" name="ITMRING" value="{{ item.ITMRING or '' }}" placeholder="Qty">
+
+                                        <select class="form-select form-select-sm" name="IMIRING">
+
+                                            <option value="">-- Select MSI --</option>
+
+                                            {% for m in msi_rings %}
+
+                                                <option value="{{ m.MSIID }}" {% if item.IMIRING == m.MSIID %}selected{% endif %}>{{ m.MSINAME }}</option>
+
+                                            {% endfor %}
+
+                                        </select>
+
+                                    </td>
+
+                                    <td>
+
+                                        <input type="number" step="any" class="form-control form-control-sm mb-1 text-center" name="ITMWIRE" value="{{ item.ITMWIRE or '' }}" placeholder="Qty">
+
+                                        <select class="form-select form-select-sm" name="IMIWIRE">
+
+                                            <option value="">-- Select MSI --</option>
+
+                                            {% for m in msi_wire %}
+
+                                                <option value="{{ m.MSIID }}" {% if item.IMIWIRE == m.MSIID %}selected{% endif %}>{{ m.MSINAME }}</option>
+
+                                            {% endfor %}
+
+                                        </select>
+
+                                    </td>
+
+                                </tr>
+
+                            </tbody>
+
+                        </table>
+
+                    </div>
+
                 </div>
+
+                {% endif %}
+
+
+
+                <div class="row mb-3">
+
+                    <div class="col-md-6">
+
+                        <div class="form-check">
+
+                            <input class="form-check-input" type="checkbox" id="ONEOFF" name="ONEOFF" value="1" {% if item and item.ONEOFF %}checked{% endif %}>
+
+                            <label class="form-check-label" for="ONEOFF">One-Off Item</label>
+
+                        </div>
+
+                    </div>
+
+                    <div class="col-md-6">
+
+                        <div class="form-check">
+
+                            <input class="form-check-input" type="checkbox" id="CURRENT" name="CURRENT" value="1" {% if not item or item.CURRENT %}checked{% endif %}>
+
+                            <label class="form-check-label" for="CURRENT">Currently Being Sold</label>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+
+                <div class="mb-3">
+
+                    <label for="ITMNOTE" class="form-label">Notes</label>
+
+                    <textarea class="form-control" id="ITMNOTE" name="ITMNOTE" rows="3">{{ item.ITMNOTE if item else '' }}</textarea>
+
+                </div>
+
             </div>
+
         </div>
+
+
 
         {% if item %}
+
         <div class="card shadow-sm mb-4">
+
             <div class="card-header bg-secondary text-white">Template & SVG Workflow</div>
+
             <div class="card-body">
+
                 <p class="text-muted">Manage the pattern template image and interactive component mapping for this item.</p>
+
                 <div class="d-flex gap-2">
+
                     <a href="{{ url_for('upload_template') }}" class="btn btn-outline-primary btn-sm">Upload/Replace Template Image</a>
+
                     {% if item.ITMSVG %}
+
                         <a href="{{ url_for('edit_template', item_id=item.ITEMID) }}" class="btn btn-outline-dark btn-sm">Edit SVG Template Regions</a>
+
                     {% endif %}
+
                 </div>
+
             </div>
+
         </div>
+
         {% endif %}
 
+
+
         <button type="submit" class="btn btn-success">Save Item</button>
+
     </div>
 
+
+
     <div class="col-md-4">
+
         <div class="card shadow-sm">
+
             <div class="card-header bg-dark text-white">Item Image</div>
+
             <div class="card-body text-center">
+
                 {% if item and item.ITMIMG %}
+
                     <img src="{{ url_for('static', filename=item.ITMIMG.lstrip('/')) }}" alt="{{ item.ITMNAME }}" class="img-fluid rounded border mb-3" style="max-height: 200px;">
+
                 {% endif %}
+
                 <label for="ITMIMG_FILE" class="form-label">Upload New Image</label>
+
                 <input class="form-control" type="file" id="ITMIMG_FILE" name="ITMIMG_FILE">
+
             </div>
+
         </div>
+
     </div>
+
 </form>
+
 {% endblock %}

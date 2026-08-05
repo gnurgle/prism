@@ -19,7 +19,7 @@
             <div class="card-body">
                 <div class="row align-items-center">
                     <!-- General Info Details -->
-                    <div class="{% if item.ITMIMG %}col-md-7{% else %}col-md-12{% endif %}">
+                    <div class="col-md-12">
                         <table class="table table-borderless mb-0">
                             <tbody>
                                 <tr>
@@ -35,6 +35,150 @@
                                     <th>Dimensions (L×W):</th>
                                     <td>{{ item.ITMLEN or '—' | inch_format }}" × {{ item.ITMWID or '—' | inch_format}}"</td>
                                 </tr>
+<!-- Added Dimensions -->
+
+                                <tr>
+
+                                    <table class="table table-bordered table-sm text-center align-middle">
+
+                                        <thead class="table-light">
+
+                                            <tr>
+
+
+                                                <th>Solder</th>
+
+                                                <th>Foil</th>
+
+                                                <th>Came</th>
+
+                                                <th>Chain</th>
+
+                                                <th>Jump Ring</th>
+
+                                                <th>Wire</th>
+
+                                            </tr>
+
+                                        </thead>
+
+                                        <tbody>
+
+                                            <tr>
+
+                                                <td>
+
+                                                    {% if item.ITMSLDR is not none and item.ITMSLDR != '' %}
+
+                                                        {{ "%.2f" | format(itm_supplies.ITMSLDR) }} g
+
+                                                    {% else %}
+
+                                                        —
+
+                                                    {% endif %}
+
+                                                </td>
+
+                                                <td>
+
+                                                    {% if item.ITMFOIL is not none and item.ITMFOIL != '' %}
+
+                                                        {{ "%.2f" | format(itm_supplies.ITMFOIL) }} in
+
+                                                    {% else %}
+
+                                                        —
+
+                                                    {% endif %}
+
+                                                </td>
+
+                                                <td>
+
+                                                    {% if item.ITMCAME is not none and item.ITMCAME != '' %}
+
+                                                        {{ "%.2f" | format(itm_supplies.ITMCAME) }} in
+
+                                                    {% else %}
+
+                                                        —
+
+                                                    {% endif %}
+
+                                                </td>
+
+                                                <td>
+
+                                                    {% if item.ITMCHAIN is not none and item.ITMCHAIN != '' %}
+
+                                                        {{ "%.2f" | format(itm_supplies.ITMCHAIN) }} in
+
+                                                    {% else %}
+
+                                                        —
+
+                                                    {% endif %}
+
+                                                </td>
+
+                                                <td>
+
+                                                    {% if item.ITMRING is not none and item.ITMRING != '' %}
+
+                                                        {{ "%.2f" | format(itm_supplies.ITMRING) }} ring(s)
+
+                                                    {% else %}
+
+                                                        —
+
+                                                    {% endif %}
+
+                                                </td>
+
+                                                <td>
+
+                                                    {% if item.ITMWIRE is not none and item.ITMWIRE != '' %}
+
+                                                        {{ "%.2f" | format(itm_supplies.ITMWIRE) }} in
+
+                                                    {% else %}
+
+                                                        —
+
+                                                    {% endif %}
+
+                                                </td>
+
+                                            </tr>
+
+                                            <!-- Second row for linked MSI names -->
+
+                                            <tr class="text-muted small">
+
+
+                                                <td>{{ item.MSLDR_NAME if item.MSLDR_NAME else '' }}</td>
+
+                                                <td>{{ item.MFOIL_NAME if item.MFOIL_NAME else '' }}</td>
+
+                                                <td>{{ item.MCAME_NAME if item.MCAME_NAME else '' }}</td>
+
+                                                <td>{{ item.MCHAIN_NAME if item.MCHAIN_NAME else '' }}</td>
+
+                                                <td>{{ item.MRING_NAME if item.MRING_NAME else '' }}</td>
+
+                                                <td>{{ item.MWIRE_NAME if item.MWIRE_NAME else '' }}</td>
+
+                                            </tr>
+
+                                        </tbody>
+
+                                    </table>
+
+
+				</tr>
+                        <table class="table table-borderless mb-0">
+			<tbody>
                                 <tr>
                                     <th>One-Off Status:</th>
                                     <td>
@@ -63,34 +207,6 @@
                         </table>
                     </div>
 
-                    <!-- Item Image on the Right Side of General Info -->
-                    {% if item.ITMIMG %}
-                    <div class="col-md-5 text-center d-flex flex-column justify-content-center align-items-center border-start ps-3">
-                        <img src="{{ url_for('static', filename=item.ITMIMG.lstrip('/')) }}"
-                             alt="{{ item.ITMNAME }}"
-                             class="img-fluid rounded border mb-2 shadow-sm w-100"
-                             style="object-fit: contain; cursor: pointer;"
-                             data-bs-toggle="modal"
-                             data-bs-target="#imageModal"
-                             title="Click for full-size view">
-                        <div class="text-muted small">Click image for full view</div>
-
-                        <!-- Modal for Full-Size Image Preview -->
-                        <div class="modal fade" id="imageModal" tabindex="-1" aria-labelledby="imageModalLabel" aria-hidden="true">
-                            <div class="modal-dialog modal-dialog-centered modal-lg">
-                                <div class="modal-content">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title" id="imageModalLabel">{{ item.ITMNAME }} - Full View</h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                    </div>
-                                    <div class="modal-body text-center bg-light">
-                                        <img src="{{ url_for('static', filename=item.ITMIMG.lstrip('/')) }}" alt="{{ item.ITMNAME }}" class="img-fluid rounded">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    {% endif %}
                 </div>
 
                 <!-- Sub-list of other items in the group (hidden if one-off is active) -->
@@ -145,65 +261,170 @@
         </div>
     </div>
 
-    <!-- Right Column: Pricing and SVG Pattern -->
+ <!-- Right Column: Pricing and SVG Pattern -->
+
     <div class="col-md-4">
+
         <!-- Pricing Summary Box -->
+
         <div class="card shadow-sm mb-4 text-center">
+
             <div class="card-header bg-dark text-white">Pricing Summary</div>
+
             <div class="card-body">
+
                 <div class="mb-3">
+
                     <span class="text-muted small d-block">CURRENT PRICE</span>
+
                     <h2 class="display-5 fw-bold text-success mb-0">
+
                         ${% if current_price %}{{ "%.2f"|format(current_price.PRICE) }}{% else %}0.00{% endif %}
+
                     </h2>
+
                 </div>
+
                 <div class="row border-top pt-2 text-muted small">
+
                     <div class="col-6 border-end">
+
                         <span class="d-block fw-bold text-dark">Lowest</span>
+
                         <span>${% if lowest_price %}{{ "%.2f"|format(lowest_price.PRICE) }}{% else %}0.00{% endif %}</span>
+
                         <div class="text-xs text-secondary">
+
                             {% if lowest_price %}{{ lowest_price.START_DATE }} {% if lowest_price.END_DATE %}to {{ lowest_price.END_DATE }}{% endif %}{% else %}N/A{% endif %}
+
                         </div>
+
                     </div>
+
                     <div class="col-6">
+
                         <span class="d-block fw-bold text-dark">Highest</span>
+
                         <span>${% if highest_price %}{{ "%.2f"|format(highest_price.PRICE) }}{% else %}0.00{% endif %}</span>
+
                         <div class="text-xs text-secondary">
+
                             {% if highest_price %}{{ highest_price.START_DATE }} {% if highest_price.END_DATE %}to {{ highest_price.END_DATE }}{% endif %}{% else %}N/A{% endif %}
+
                         </div>
+
                     </div>
+
                 </div>
+
 <!-- Added Materials Cost Row -->
+
         <div class="border-top mt-3 pt-2 text-center">
+
             <span class="text-muted small d-block">ESTIMATED MATERIALS COST</span>
+
             <span class="h5 fw-bold text-dark">${% if materials_cost %}{{ "%.2f"|format(materials_cost) }}{% else %}0.00{% endif %}</span>
+
         </div>
+        <div class="border-top mt-3 pt-2 text-center">
+                        <span class="text-muted small d-block">Estimated Supplies Cost:</span>
+
+                        <span class="h5 fw-bold text-dark">${{ "%.2f"|format(estimated_supplies_cost) }}</span>
+
+                    </div>
+
+        <div class="border-top mt-3 pt-2 text-center">
+                        <span class="text-muted small d-block">Total Cost:</span>
+
+                        <strong class="h5 fw-bold text-dark">${{ "%.2f"|format(total_cost) }}</strong>
+
+                    </div>
+
                 <div class="mt-3">
+
                     <a href="{{ url_for('edit_prices', item_id=item.ITEMID) }}" class="btn btn-outline-dark btn-sm w-100">Edit Prices</a>
+
                 </div>
+
             </div>
+
+
+
         </div>
 
-        <!-- SVG Pattern Preview Box -->
-        <div class="card shadow-sm">
-            <div class="card-header bg-dark text-white">Pattern Preview</div>
+
+
+
+
+
+
+        <!-- Item Image Card -->
+
+        <div class="card shadow-sm mb-4">
+
+            <div class="card-header bg-dark text-white">Item Image</div>
+
             <div class="card-body text-center">
-                {% if item.ITMSVG %}
-                    <div class="border p-2 bg-white rounded mb-2 d-flex justify-content-center align-items-center" style="min-height: 200px; overflow: hidden;">
-                        <object id="svg-object" data="{{ url_for('static', filename=item.ITMSVG) }}" type="image/svg+xml" class="img-fluid border bg-white" style="max-height: 600px; width: 100%;">
-                            Your browser does not support SVG objects.
-                        </object>
-                    </div>
-                    <div class="d-flex gap-2">
-                        <a href="{{ url_for('edit_components', item_id=item.ITEMID) }}" class="btn btn-outline-dark btn-sm w-100">Launch Component Editor</a>
-                    </div>
+
+                {% if item.ITMIMG %}
+
+                    <img src="{{ url_for('static', filename=item.ITMIMG.lstrip('/')) }}" alt="{{ item.ITMNAME }}" class="img-fluid rounded border" style="max-height: 300px;">
+
                 {% else %}
+
+                    <p class="text-muted mb-0">No item image uploaded.</p>
+
+                {% endif %}
+
+            </div>
+
+        </div>
+
+
+
+        <!-- Pattern Display Box (Reference Layout) -->
+
+        {% if item.ITMSVG %}
+
+        <div class="card shadow-sm mb-4">
+
+            <div class="card-header bg-dark text-white">Pattern Template</div>
+
+            <div class="card-body text-center">
+
+		{% if item.ITMSVG %}
+
+                    <div class="border p-2 bg-white rounded mb-2 d-flex justify-content-center align-items-center" style="min-height: 200px; overflow: hidden;">
+
+                        <object id="svg-object" data="{{ url_for('static', filename=item.ITMSVG) }}" type="image/svg+xml" class="img-fluid border bg-white" style="max-height: 600px; width: 100%;">
+
+                            Your browser does not support SVG objects.
+
+                        </object>
+
+                    </div>
+
+                    <div class="d-flex gap-2">
+
+                        <a href="{{ url_for('edit_components', item_id=item.ITEMID) }}" class="btn btn-outline-dark btn-sm w-100">Launch Component Editor</a>
+
+                    </div>
+
+                {% else %}
+
                     <p class="text-muted mb-3">No pattern template uploaded.</p>
+
                     <a href="{{ url_for('edit_item', item_id=item.ITEMID) }}" class="btn btn-outline-primary btn-sm w-100">Upload Template</a>
+
                 {% endif %}
             </div>
+
         </div>
+
+        {% endif %}
+
     </div>
+
 </div>
 
 <script src="{{ url_for('static', filename='js/template_svg.js') }}"></script>

@@ -8,7 +8,7 @@ import numpy as np
 from PIL import Image
 from lxml import etree
 from svgpathtools import svg2paths, wsvg
-from utils import process_and_save_image, hex_to_hsv, convert_image_to_svg, remove_svg_region_and_renumber, format_fractional_inches, trace_stencil_to_single_path_svg, compute_total_path_length, trace_stencil_to_outline_svg, trace_stencil_to_filled_outline_svg
+from utils import process_and_save_image, hex_to_hsv, convert_image_to_svg, remove_svg_region_and_renumber, format_fractional_inches, trace_stencil_to_single_path_svg, compute_total_path_length, trace_stencil_to_outline_svg, trace_stencil_to_filled_outline_svg, round_to_eighth
 from flask import Flask, flash, redirect, render_template, request, url_for, render_template_string, jsonify
 from datetime import date, datetime, timedelta
 
@@ -117,107 +117,404 @@ def index():
         "dashboard.html", stats=stats, recent_audits=recent_audits
     )
 
-
 @app.route('/item/<int:item_id>')
+
 def item_detail(item_id):
+
   """Display full details, pricing metrics, components, and group siblings."""
+
   db = get_db()
 
-  # Fetch core item record
+
+
+  # Conversion Constants
+
+  SOLDER_CONVERSION = 0.3776
+
+  CAME_CONVERSION = 0.1652
+
+
+
+  # Fetch core item record with joined MSI info for linked supplies
+
   item = db.execute(
-      'SELECT * FROM ITM WHERE ITEMID = ?', (item_id,)
+
+      """
+
+        SELECT i.*, 
+
+               s_sldr.MSINAME AS MSLDR_NAME, s_sldr.UNTTYPE AS MSLDR_UNIT,
+
+               s_foil.MSINAME AS MFOIL_NAME, s_foil.UNTTYPE AS MFOIL_UNIT,
+
+               s_came.MSINAME AS MCAME_NAME, s_came.UNTTYPE AS MCAME_UNIT,
+
+               s_chain.MSINAME AS MCHAIN_NAME, s_chain.UNTTYPE AS MCHAIN_UNIT,
+
+               s_ring.MSINAME AS MRING_NAME, s_ring.UNTTYPE AS MRING_UNIT,
+
+               s_wire.MSINAME AS MWIRE_NAME, s_wire.UNTTYPE AS MWIRE_UNIT
+
+        FROM ITM i
+
+        LEFT JOIN MSI s_sldr ON i.IMISLDR = s_sldr.MSIID
+
+        LEFT JOIN MSI s_foil ON i.IMIFOIL = s_foil.MSIID
+
+        LEFT JOIN MSI s_came ON i.IMICAME = s_came.MSIID
+
+        LEFT JOIN MSI s_chain ON i.IMICHAIN = s_chain.MSIID
+
+        LEFT JOIN MSI s_ring ON i.IMIRING = s_ring.MSIID
+
+        LEFT JOIN MSI s_wire ON i.IMIWIRE = s_wire.MSIID
+
+        WHERE i.ITEMID = ?
+
+      """,
+
+      (item_id,),
+
   ).fetchone()
+
+
 
   if not item:
+
     flash('Item record not found.', 'danger')
+
     return redirect(url_for('index'))
 
+
+
   # Fetch associated components (IGC) with joined glass info
+
   components = db.execute(
+
       """
+
         SELECT c.*, g.GLSNAME 
+
         FROM IGC c
+
         LEFT JOIN GSI g ON c.GLASSID = g.GLASSID
+
         WHERE c.ITEMID = ?
+
         ORDER BY c.COMPNUM ASC
+
     """,
+
       (item_id,),
+
   ).fetchall()
 
+
+
   # Fetch Pricing Metrics from IPC table using correct columns (ITMPRICE, STDATE, ENDDATE)
+
   current_price = db.execute(
+
       """
+
         SELECT ITMPRICE AS PRICE FROM IPC 
+
         WHERE ITEMID = ? AND (ENDDATE IS NULL OR ENDDATE >= DATE('now'))
+
         ORDER BY STDATE DESC LIMIT 1
+
     """,
+
       (item_id,),
+
   ).fetchone()
+
+
 
   lowest_price = db.execute(
+
       """
+
         SELECT ITMPRICE AS PRICE, STDATE AS START_DATE, ENDDATE AS END_DATE FROM IPC 
+
         WHERE ITEMID = ? 
+
         ORDER BY ITMPRICE ASC LIMIT 1
+
     """,
+
       (item_id,),
+
   ).fetchone()
+
+
 
   highest_price = db.execute(
+
       """
+
         SELECT ITMPRICE AS PRICE, STDATE AS START_DATE, ENDDATE AS END_DATE FROM IPC 
+
         WHERE ITEMID = ? 
+
         ORDER BY ITMPRICE DESC LIMIT 1
+
     """,
+
       (item_id,),
+
   ).fetchone()
 
+
+
   # Fetch group siblings if item is not a one-off and has a group assigned
+
   group_siblings = []
+
   if not item['ONEOFF'] and item['ITMGRP']:
+
     group_siblings = db.execute(
+
         """
+
             SELECT ITEMID, ITMNAME FROM ITM 
+
             WHERE ITMGRP = ? AND ONEOFF = 0
+
             ORDER BY ITMNAME ASC
+
         """,
+
         (item['ITMGRP'],),
+
     ).fetchall()
+
+
 
   components_with_cost = db.execute(
+
         """
+
             SELECT c.COMPLEN, c.COMPWID, g.GLSLEN, g.GLSWID, 
+
                    (SELECT gp.GLSPRICE FROM GPC gp 
+
                     WHERE gp.GLASSID = g.GLASSID AND (gp.ENDDATE IS NULL OR gp.ENDDATE >= DATE('now'))
+
                     ORDER BY gp.STDATE DESC LIMIT 1) AS LATEST_GLSPRICE
+
             FROM IGC c
+
             JOIN GSI g ON c.GLASSID = g.GLASSID
+
             WHERE c.ITEMID = ? AND c.COMPLEN IS NOT NULL AND c.COMPWID IS NOT NULL
+
                   AND g.GLSLEN IS NOT NULL AND g.GLSWID IS NOT NULL AND g.GLSLEN > 0 AND g.GLSWID > 0
+
         """,
+
         (item_id,),
+
     ).fetchall()
 
+
+
   materials_cost = 0.0
+
   for comp in components_with_cost:
+
       comp_sqin = (comp['COMPLEN'] or 0) * (comp['COMPWID'] or 0)
+
       glass_sheet_area = (comp['GLSLEN'] or 1) * (comp['GLSWID'] or 1)
+
       glass_sheet_price = comp['LATEST_GLSPRICE'] or 0.0
+
         
+
       if glass_sheet_area > 0:
+
           cost_per_sqin = glass_sheet_price / glass_sheet_area
+
           materials_cost += comp_sqin * cost_per_sqin
 
+
+
+
+
+
+  # Calculate metrics directly from ITM fields, applying SOLDER_CONVERSION and CAME_CONVERSION
+
+  raw_sldr = float(item['ITMSLDR'] or 0.0)
+
+  raw_came = float(item['ITMCAME'] or 0.0)
+  
+
+  itm_supplies = {
+
+      'ITMSLDR': (raw_sldr * SOLDER_CONVERSION * 2) + (raw_came * CAME_CONVERSION * 2),
+
+      'ITMCAME': float(item['ITMCAME'] or 0.0),
+
+      'ITMFOIL': float(item['ITMFOIL'] or 0.0),
+
+      'ITMCHAIN': float(item['ITMCHAIN'] or 0.0),
+
+      'ITMRING': float(item['ITMRING'] or 0),
+
+      'ITMWIRE': float(item['ITMWIRE'] or 0.0)
+
+  }
+
+# Fetch associated MSIIDs, CFACTORs, and MSIUNITs by joining MSI and UNTS tables
+
+  supply_links = db.execute(
+
+      """
+
+        SELECT 
+
+            i.IMISLDR AS sldr_id, u_sldr.CFACTOR as sldr_cfactor, m_sldr.MSIUNIT as sldr_msiunit,
+
+            i.IMIFOIL AS foil_id, u_foil.CFACTOR as foil_cfactor, m_foil.MSIUNIT as foil_msiunit,
+
+            i.IMICAME AS came_id, u_came.CFACTOR as came_cfactor, m_came.MSIUNIT as came_msiunit,
+
+            i.IMICHAIN AS chain_id, u_chain.CFACTOR as chain_cfactor, m_chain.MSIUNIT as chain_msiunit,
+
+            i.IMIRING AS ring_id, u_ring.CFACTOR as ring_cfactor, m_ring.MSIUNIT as ring_msiunit,
+
+            i.IMIWIRE AS wire_id, u_wire.CFACTOR as wire_cfactor, m_wire.MSIUNIT as wire_msiunit
+
+        FROM ITM i
+
+        LEFT JOIN MSI m_sldr ON i.IMISLDR = m_sldr.MSIID
+
+        LEFT JOIN UNTS u_sldr ON m_sldr.UNTTYPE = u_sldr.UNTTYPE
+
+        LEFT JOIN MSI m_foil ON i.IMIFOIL = m_foil.MSIID
+
+        LEFT JOIN UNTS u_foil ON m_foil.UNTTYPE = u_foil.UNTTYPE
+
+        LEFT JOIN MSI m_came ON i.IMICAME = m_came.MSIID
+
+        LEFT JOIN UNTS u_came ON m_came.UNTTYPE = u_came.UNTTYPE
+
+        LEFT JOIN MSI m_chain ON i.IMICHAIN = m_chain.MSIID
+
+        LEFT JOIN UNTS u_chain ON m_chain.UNTTYPE = u_chain.UNTTYPE
+
+        LEFT JOIN MSI m_ring ON i.IMIRING = m_ring.MSIID
+
+        LEFT JOIN UNTS u_ring ON m_ring.UNTTYPE = u_ring.UNTTYPE
+
+        LEFT JOIN MSI m_wire ON i.IMIWIRE = m_wire.MSIID
+
+        LEFT JOIN UNTS u_wire ON m_wire.UNTTYPE = u_wire.UNTTYPE
+
+        WHERE i.ITEMID = ?
+
+      """,
+
+      (item_id,),
+
+  ).fetchone()
+
+
+
+  estimated_supplies_core_cost = 0.0
+
+
+
+  if supply_links:
+
+      supplies_to_calc = [
+
+          (itm_supplies['ITMSLDR'], supply_links['sldr_id'], supply_links['sldr_cfactor'], supply_links['sldr_msiunit']),
+
+          (itm_supplies['ITMFOIL'], supply_links['foil_id'], supply_links['foil_cfactor'], supply_links['foil_msiunit']),
+
+          (itm_supplies['ITMCAME'], supply_links['came_id'], supply_links['came_cfactor'], supply_links['came_msiunit']),
+
+          (itm_supplies['ITMCHAIN'], supply_links['chain_id'], supply_links['chain_cfactor'], supply_links['chain_msiunit']),
+
+          (itm_supplies['ITMRING'], supply_links['ring_id'], supply_links['ring_cfactor'], supply_links['ring_msiunit']),
+
+          (itm_supplies['ITMWIRE'], supply_links['wire_id'], supply_links['wire_cfactor'], supply_links['wire_msiunit'])
+
+      ]
+
+
+
+      for qty, misc_id, cfactor, msiunit in supplies_to_calc:
+
+          if qty and qty > 0 and misc_id:
+
+              price_row = db.execute(
+
+                  """
+
+                    SELECT MSIPRICE AS PRICE FROM MSP 
+
+                    WHERE MSIID = ? AND (ENDDATE IS NULL OR ENDDATE >= DATE('now'))
+
+                    ORDER BY STDATE DESC LIMIT 1
+
+                  """,
+
+                  (misc_id,),
+
+              ).fetchone()
+
+
+
+              if price_row and price_row['PRICE']:
+
+                  unit_price = float(price_row['PRICE'])
+
+                  valid_cfactor = float(cfactor) if cfactor and float(cfactor) > 0 else 1.0
+
+                  valid_msiunit = float(msiunit) if msiunit and float(msiunit) > 0 else 1.0
+
+                  
+
+                  divisor = valid_cfactor * valid_msiunit
+
+                  if divisor > 0 and unit_price > 0:
+
+                      estimated_supplies_core_cost += qty * (unit_price / divisor)
+
+
+
+  estimated_supplies_cost = estimated_supplies_core_cost
+
+  total_cost = materials_cost + estimated_supplies_cost
+
   return render_template(
+
       'item_detail.html',
+
       item=item,
+
       components=components,
+
       current_price=current_price,
+
       lowest_price=lowest_price,
+
       highest_price=highest_price,
+
       materials_cost=materials_cost,
+
+      estimated_supplies_cost=estimated_supplies_cost,
+
+      total_cost=total_cost,
+
       group_siblings=group_siblings,
+
+      itm_supplies=itm_supplies,
+
   )
+
 # -----------------------------------------------------------------------------
 # CREATE ITEM ROUTE
 # -----------------------------------------------------------------------------
@@ -296,96 +593,298 @@ def create_item():
 
 
 @app.route('/item/<int:item_id>/edit', methods=['GET', 'POST'])
+
 def edit_item(item_id):
+
     """Edit an existing Item record, matching glass image upload handling."""
+
     db = get_db()
 
+
+
     item = db.execute(
+
         'SELECT * FROM ITM WHERE ITEMID = ?', (item_id,)
+
     ).fetchone()
 
+
+
     if not item:
+
         flash('Item record not found.', 'danger')
+
         return redirect(url_for('index'))
 
+
+
     if request.method == 'POST':
+
         itm_name = request.form.get('ITMNAME', '').strip()
+
         itm_grp = request.form.get('ITMGRP', '').strip()
+
         new_grp = request.form.get('NEW_ITMGRP', '').strip()
+
         
+
         # Parse dimensions securely
+
         itm_len_val = request.form.get('ITMLEN')
+
         itm_wid_val = request.form.get('ITMWID')
+
         itm_len = float(itm_len_val) if itm_len_val else None
+
         itm_wid = float(itm_wid_val) if itm_wid_val else None
 
+
+
+        # Parse supply metrics and selected linked MSI IDs
+
+        itm_sldr = float(request.form.get('ITMSLDR')) if request.form.get('ITMSLDR') else None
+
+        itm_foil = float(request.form.get('ITMFOIL')) if request.form.get('ITMFOIL') else None
+
+        itm_came = float(request.form.get('ITMCAME')) if request.form.get('ITMCAME') else None
+
+        itm_chain = int(request.form.get('ITMCHAIN')) if request.form.get('ITMCHAIN') else None
+
+        itm_ring = int(request.form.get('ITMRING')) if request.form.get('ITMRING') else None
+
+        itm_wire = int(request.form.get('ITMWIRE')) if request.form.get('ITMWIRE') else None
+
+
+
+        imi_sldr = int(request.form.get('IMISLDR')) if request.form.get('IMISLDR') else None
+
+        imi_foil = int(request.form.get('IMIFOIL')) if request.form.get('IMIFOIL') else None
+
+        imi_came = int(request.form.get('IMICAME')) if request.form.get('IMICAME') else None
+
+        imi_chain = int(request.form.get('IMICHAIN')) if request.form.get('IMICHAIN') else None
+
+        imi_ring = int(request.form.get('IMIRING')) if request.form.get('IMIRING') else None
+
+        imi_wire = int(request.form.get('IMIWIRE')) if request.form.get('IMIWIRE') else None
+
+
+
         oneoff = 1 if request.form.get('ONEOFF') else 0
+
         current = 1 if request.form.get('CURRENT') else 0
+
         itm_note = request.form.get('ITMNOTE', '').strip()
 
+
+
         selected_group = None
+
         if new_grp:
+
             selected_group = new_grp
+
             existing_grp = db.execute(
+
                 'SELECT 1 FROM IGP WHERE ITMGRP = ?', (new_grp,)
+
             ).fetchone()
+
             if not existing_grp:
+
                 db.execute(
+
                     'INSERT INTO IGP (ITMGRP, ISACTIVE) VALUES (?, 1)', (new_grp,)
+
                 )
+
         elif itm_grp:
+
             selected_group = itm_grp
 
+
+
         # Keep existing image unless a new file is uploaded
+
         image_path = item['ITMIMG']
+
         if 'ITMIMG_FILE' in request.files:
+
             file = request.files['ITMIMG_FILE']
+
             if file and file.filename != '':
+
                 image_path = process_and_save_image(
+
                     file,
+
                     upload_subfolder='images/items',
+
                     custom_filename_base=f'{item_id}_{itm_name}',
+
                     target_size=(1024, 1024),
+
                 )
 
+
+
         db.execute(
+
             """
+
                 UPDATE ITM 
+
                 SET ITMNAME = ?, 
+
                     ITMGRP = ?, 
+
                     ITMLEN = ?,
+
                     ITMWID = ?,
+
+                    ITMSLDR = ?,
+
+                    ITMFOIL = ?,
+
+                    ITMCAME = ?,
+
+                    ITMCHAIN = ?,
+
+                    ITMRING = ?,
+
+                    ITMWIRE = ?,
+
+                    IMISLDR = ?,
+
+                    IMIFOIL = ?,
+
+                    IMICAME = ?,
+
+                    IMICHAIN = ?,
+
+                    IMIRING = ?,
+
+                    IMIWIRE = ?,
+
                     ONEOFF = ?, 
+
                     CURRENT = ?, 
+
                     ITMNOTE = ?, 
+
                     ITMIMG = ?
+
                 WHERE ITEMID = ?
+
             """,
+
             (
+
                 itm_name,
+
                 selected_group,
+
                 itm_len,
+
                 itm_wid,
+
+                itm_sldr,
+
+                itm_foil,
+
+                itm_came,
+
+                itm_chain,
+
+                itm_ring,
+
+                itm_wire,
+
+                imi_sldr,
+
+                imi_foil,
+
+                imi_came,
+
+                imi_chain,
+
+                imi_ring,
+
+                imi_wire,
+
                 oneoff,
+
                 current,
+
                 itm_note,
+
                 image_path,
+
                 item_id,
+
             ),
+
         )
+
         db.commit()
 
+
+
         flash(f'Item "{itm_name}" updated successfully.', 'success')
+
         return redirect(url_for('item_detail', item_id=item_id))
 
-    groups = db.execute(
-        'SELECT DISTINCT ITMGRP FROM ITM WHERE ITMGRP IS NOT NULL AND ITMGRP !='
-        " '' ORDER BY ITMGRP"
-    ).fetchall()
-    return render_template(
-        'item_form.html', action='Edit', item=item, groups=groups
-    )
 
+
+    groups = db.execute(
+
+        'SELECT DISTINCT ITMGRP FROM ITM WHERE ITMGRP IS NOT NULL AND ITMGRP !='
+
+        " '' ORDER BY ITMGRP"
+
+    ).fetchall()
+
+
+
+    # Fetch type-matched MSI lists for the edit dropdown cells
+
+    msi_solder = db.execute("SELECT MSIID, MSINAME FROM MSI WHERE MSITYPE = 'Solder' AND ISACTIVE = 1").fetchall()
+
+    msi_foil = db.execute("SELECT MSIID, MSINAME FROM MSI WHERE MSITYPE = 'Foil' AND ISACTIVE = 1").fetchall()
+
+    msi_came = db.execute("SELECT MSIID, MSINAME FROM MSI WHERE MSITYPE = 'Came' AND ISACTIVE = 1").fetchall()
+
+    msi_chain = db.execute("SELECT MSIID, MSINAME FROM MSI WHERE MSITYPE = 'Chain' AND ISACTIVE = 1").fetchall()
+
+    msi_rings = db.execute("SELECT MSIID, MSINAME FROM MSI WHERE MSITYPE = 'Rings' AND ISACTIVE = 1").fetchall()
+
+    msi_wire = db.execute("SELECT MSIID, MSINAME FROM MSI WHERE MSITYPE = 'Wire' AND ISACTIVE = 1").fetchall()
+
+
+
+    return render_template(
+
+        'item_form.html', 
+
+        action='Edit', 
+
+        item=item, 
+
+        groups=groups,
+
+        msi_solder=msi_solder,
+
+        msi_foil=msi_foil,
+
+        msi_came=msi_came,
+
+        msi_chain=msi_chain,
+
+        msi_rings=msi_rings,
+
+        msi_wire=msi_wire
+
+    )
 @app.route('/item/<int:item_id>/history')
 def price_history(item_id):
   """Display historical price list in descending order with calculated price changes and durations."""
@@ -1649,102 +2148,6 @@ def edit_components(item_id):
 
 
 
-@app.route('/edit_componentsb/<int:item_id>', methods=['GET'])
-
-def edit_componentsb(item_id):
-
-    db = get_db()
-    
-    # Fetch item details
-    item = db.execute('SELECT * FROM ITM WHERE ITEMID = ?', (item_id,)).fetchone()
-    if not item:
-        flash('Item not found.', 'danger')
-        return redirect(url_for('index'))
-    
-    # Fetch available glass options for the dropdown
-    glass_options = db.execute('SELECT GLASSID, GLSNAME FROM GSI ORDER BY GLSNAME').fetchall()
-    
-    # Fetch components joined with glass inventory (GSI/GLS) and color data, including GLTRS and GLSTEX
-    query = '''
-        SELECT 
-            c.COMPID,
-            c.COMPNUM,
-            c.COMPNAME,
-            c.COMPLEN,
-            c.COMPWID,
-            c.GLASSID,
-            c.ISSCRAP,
-            c.ISGRAIN,
-            g.GLSNAME,
-            g.GLSTEX,
-            g.GLTRS,
-            clr.CHEX
-        FROM IGC c
-        LEFT JOIN GSI gsi ON c.GLASSID = gsi.GLASSID
-
-        LEFT JOIN COLOR clr ON gsi.COLORID = clr.COLORID
-        WHERE c.ITEMID = ?
-     '''
-    components = db.execute(query, (item_id,)).fetchall()
-    
-    # Map components by COMPNUM (or region identifier) for easy JS lookup
-    components_json = {}
-    for comp in components:
-        # Using COMPNUM as the key to match region IDs in the SVG canvas
-        region_key = str(comp['COMPNUM'])
-        components_json[region_key] = {
-            'COMPID': comp['COMPID'],
-            'COMPNUM': comp['COMPNUM'],
-            'COMPNAME': comp['COMPNAME'] or '',
-            'COMPLEN': comp['COMPLEN'] or 0,
-            'COMPWID': comp['COMPWID'] or 0,
-            'GLASSID': comp['GLASSID'] or '',
-            'GLSNAME': comp['GLSNAME'] or '',
-            'GLSTEX': comp['GLSTEX'] or '',
-            'GLTRS': comp['GLTRS'] if comp['GLTRS'] is not None else 75, # Fallback to 75 if null
-            'CHEX': comp['CHEX'] or 'cccccc',
-            'ISSCRAP': comp['ISSCRAP'] or 0,
-            'ISGRAIN': comp['ISGRAIN'] or 0
-        }
-        
-    # URL for the SVG file stored in static/svgs/ or similar path based on your app structure
-    svg_url = url_for('static', filename=f'svgs/{item["ITMSVG"]}') if 'ITMSVG' in item and item['ITMSVG'] else url_for('static', filename='svgs/default.svg')
-
-    return render_template(
-        'edit_components.html',
-        item=item,
-        glass_options=glass_options,
-        components_json=components_json,
-        svg_url=svg_url
-    )
-@app.route('/update_component', methods=['POST'])
-def update_component():
-    db = get_db()
-    comp_id = request.form.get('comp_id')
-    item_id = request.form.get('item_id')
-    comp_num = request.form.get('comp_num')
-    comp_name = request.form.get('comp_name')
-    comp_len = request.form.get('comp_len')
-    comp_wid = request.form.get('comp_wid')
-    glass_id = request.form.get('glass_id') or None
-    isscrap = 1 if request.form.get('isscrap') else 0
-    isgrain = 1 if request.form.get('isgrain') else 0
-
-    if not comp_id:
-        flash('Invalid component selection.', 'danger')
-        return redirect(url_for('edit_components', item_id=item_id))
-
-    db.execute('''
-        UPDATE IGC 
-        SET COMPNUM = ?, COMPNAME = ?, COMPLEN = ?, COMPWID = ?, GLASSID = ?, ISSCRAP = ?, ISGRAIN = ?
-        WHERE COMPID = ?
-    ''', (comp_num, comp_name, comp_len, comp_wid, glass_id, isscrap, isgrain, comp_id))
-    db.commit()
-
-    flash('Component updated successfully!', 'success')
-    return redirect(url_for('edit_components', item_id=item_id))
-
-
 # ============================================================================
 # 3. INVENTORY & WORK-IN-PROGRESS TRACKING (ICC, ITR)
 # ============================================================================
@@ -1840,531 +2243,55 @@ def record_sale():
     return render_template("sale_form.html", items=items, venues=venues)
 
 
-@app.route('/test-svg-delete', methods=['GET', 'POST'])
-
-def test_svg_delete():
-
-    """
-
-    Dedicated test page to isolate and verify lxml-based SVG path deletion 
-
-    and sequential renumbering without any database dependencies.
-
-    """
-
-    # Target a specific test file inside your static directory (e.g., 'static/test.svg')
-
-    # Change 'test.svg' to any existing SVG filename in your static folder to test.
-
-    svg_filename = request.args.get('file', 'test.svg')
-
-    svg_path = os.path.join(app.root_path, 'static', svg_filename)
-
-
-
-    message = None
-
-    paths_found = []
-
-
-
-    if request.method == 'POST':
-
-        target_region_num = request.form.get('region_id')
-
-        print(f"TEST PAGE CONSOLE WRITE ---> Target File: '{svg_path}' | Region to Delete: '{target_region_num}'")
-
-
-
-        if not os.path.exists(svg_path):
-
-            message = f"Error: File does not exist at absolute path: {svg_path}"
-
-        else:
-
-            try:
-
-                # 1. Parse using robust XML parser settings
-
-                parser = etree.XMLParser(remove_blank_text=True, recover=True)
-
-                tree = etree.parse(svg_path, parser)
-
-                
-
-                # 2. Use local-name() wildcard to bypass strict or missing namespace prefix issues
-
-                path_elements = tree.xpath('//*[local-name()="path"]')
-
-
-
-                removed = False
-
-                for elem in path_elements:
-
-                    region_val = elem.get('data-region-id')
-
-                    elem_id = elem.get('id', '')
-
-
-
-                    # Match by data-region-id or ID string format (e.g., 'region-2' or '2')
-
-                    if (region_val and str(region_val).strip() == str(target_region_num)) or (elem_id in [f"region-{target_region_num}", str(target_region_num)]):
-                        
-
-                        parent = elem.getparent()
-
-                        if parent is not None:
-
-                            parent.remove(elem)
-
-                            removed = True
-
-                            print(f"TEST SUCCESS: Removed element ID '{elem_id}', data-region-id '{region_val}'")
-
-                        break
-
-
-
-                if removed:
-
-                    # 3. Re-fetch remaining paths and re-index attributes sequentially
-
-                    remaining_paths = tree.xpath('//*[local-name()="path"]')
-
-                    for new_idx, elem in enumerate(remaining_paths, start=1):
-
-                        elem.set('id', f'region-{new_idx}')
-
-                        elem.set('data-region-id', str(new_idx))
-
-                        if elem.get('data-number') is not None:
-
-                            elem.set('data-number', str(new_idx))
-
-
-
-                    # 4. Explicitly write back out to disk using binary mode
-
-                    root = tree.getroot()
-
-                    xml_bytes = etree.tostring(root, pretty_print=True, xml_declaration=True, encoding='utf-8')
-
-                    with open(svg_path, 'wb') as f:
-
-                        f.write(xml_bytes)
-
-
-
-                    message = f"Success! Region {target_region_num} deleted and file updated on disk."
-
-                else:
-
-                    message = f"Warning: Could not find any path matching region ID '{target_region_num}' in {svg_filename}."
-
-            except Exception as e:
-
-                message = f"Exception occurred during processing: {str(e)}"
-
-                print(f"TEST EXCEPTION: {e}")
-
-
-
-    # Read current state of paths for display on the test interface
-
-    if os.path.exists(svg_path):
-
-        try:
-
-            parser = etree.XMLParser(remove_blank_text=True, recover=True)
-
-            tree = etree.parse(svg_path, parser)
-
-            path_elements = tree.xpath('//*[local-name()="path"]')
-
-            for idx, elem in enumerate(path_elements):
-
-                paths_found.append({
-
-                    'index': idx,
-
-                    'id': elem.get('id', 'N/A'),
-
-                    'data_region_id': elem.get('data-region-id', 'N/A')
-
-                })
-
-        except Exception as e:
-
-            print(f"Error reading paths for test view: {e}")
-
-
-
-    # Inline HTML template for quick standalone testing
-
-    html_template = """
-
-    <!doctype html>
-
-    <html lang="en">
-
-    <head>
-
-        <title>SVG Deletion Test Harness</title>
-
-        <style>
-
-            body { font-family: Arial, sans-serif; margin: 40px; background: #f4f4f9; color: #333; }
-
-            .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
-
-            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-
-            th { background-color: #007bff; color: white; }
-
-            .btn { background: #dc3545; color: white; border: none; padding: 6px 12px; cursor: pointer; border-radius: 4px; }
-
-            .btn:hover { background: #c82333; }
-
-            .alert { padding: 10px; background: #e2e3e5; border-left: 5px solid #6c757d; margin-bottom: 15px; }
-
-        </style>
-
-    </head>
-
-    <body>
-
-        <div class="card">
-
-            <h2>SVG Deletion Diagnostic Harness</h2>
-
-            <p>Target File Path: <code>static/{{ filename }}</code></p>
-
-            {% if message %}
-
-                <div class="alert"><strong>Status:</strong> {{ message }}</div>
-
-            {% endif %}
-
-            
-
-            <h3>Paths Currently Inside File:</h3>
-
-            {% if paths %}
-
-                <table>
-
-                    <tr>
-
-                        <th>DOM Index</th>
-
-                        <th>ID Attribute</th>
-
-                        <th>data-region-id</th>
-
-                        <th>Action</th>
-
-                    </tr>
-
-                    {% for p in paths %}
-
-                    <tr>
-
-                        <td>{{ p.index }}</td>
-
-                        <td><code>{{ p.id }}</code></td>
-
-                        <td><code>{{ p.data_region_id }}</code></td>
-
-                        <td>
-
-                            <form method="POST" style="margin: 0;">
-
-                                <input type="hidden" name="region_id" value="{{ p.data_region_id if p.data_region_id != 'N/A' else loop.index }}">
-
-                                <button type="submit" class="btn">Delete This Path</button>
-
-                            </form>
-
-                        </td>
-
-                    </tr>
-
-                    {% endfor %}
-
-                </table>
-
-            {% else %}
-
-                <p style="color: red;">No &lt;path&gt; elements found or file does not exist!</p>
-
-            {% endif %}
-
-        </div>
-
-    </body>
-
-    </html>
-
-    """
-
-    return render_template_string(html_template, filename=svg_filename, message=message, paths=paths_found)
-
-
-HTML_PAGE = '''
-
-<!doctype html>
-
-<html lang="en">
-
-<head>
-
-    <title>Stencil Tracer & Measurements - /test_outline</title>
-
-    <style>
-
-        body { font-family: Arial, sans-serif; text-align: center; margin: 50px; background: #f4f4f9; }
-
-        .container { background: white; padding: 30px; border-radius: 8px; box-shadow: 0px 4px 10px rgba(0,0,0,0.1); display: inline-block; width: 100%; max-width: 600px; }
-
-        .input-group { margin: 15px 0; display: flex; justify-content: space-around; align-items: center; }
-
-        .input-group label { font-weight: bold; }
-
-        .input-group input { padding: 6px; width: 100px; }
-
-        .svg-viewer {
-
-            width: 100%;
-
-            height: auto;
-
-            aspect-ratio: 1 / 1;
-
-            border: 2px dashed #ccc;
-
-            margin-top: 20px;
-
-            display: flex;
-
-            align-items: center;
-
-            justify-content: center;
-
-            background: #fff;
-
-            overflow: hidden;
-
-        }
-
-        .svg-viewer svg {
-
-            width: 100%;
-
-            height: 100%;
-
-            object-fit: contain;
-
-        }
-
-        .results { margin-top: 20px; background: #eef2f7; padding: 15px; border-radius: 5px; text-align: left; }
-
-    </style>
-
-</head>
-
-<body>
-
-    <div class="container">
-
-        <h2>Misc supplies measurement test page</h2>
-
-        <form method="POST" enctype="multipart/form-data">
-
-            <input type="file" name="file" accept="image/*" required>
-
-            
-
-            <div class="input-group">
-
-                <div>
-
-                    <label for="width_in">Width (in):</label>
-
-                    <input type="number" step="any" id="width_in" name="width_in" value="{{ width_in | default(10) }}" required>
-
-                </div>
-
-                <div>
-
-                    <label for="height_in">Height (in):</label>
-
-                    <input type="number" step="any" id="height_in" name="height_in" value="{{ height_in | default(10) }}" required>
-
-                </div>
-
-            </div>
-
-            
-
-            <br>
-
-            <button type="submit">Process Traces & Measurements</button>
-
-        </form>
-
-
-
-        {% if svg_content %}
-
-            <div class="results">
-
-                <h3>Calculated Measurements:</h3>
-
-                <p><strong>Solder Total Path Length:</strong> {{ total_len }} inches</p>
-
-                <p><strong>Came Total Path Length:</strong> {{ outline_len }} inches</p>
-
-                <p><strong>Foil Total Length:</strong> {{ foil_len }} inches</p>
-
-            </div>
-
-
-
-            <h3>Solder SVG Output:</h3>
-
-            <div class="svg-viewer">
-
-                {{ svg_content | safe }}
-
-            </div>
-
-
-
-            <h3>Came SVG Output:</h3>
-
-            <div class="svg-viewer">
-
-                {{ outline_content | safe }}
-
-            </div>
-
-
-
-
-            <h3>Foil SVG Output:</h3>
-
-            <div class="svg-viewer">
-
-                {{ foil_content | safe }}
-
-            </div>
-
-        {% endif %}
-
-    </div>
-
-</body>
-
-</html>
-
-'''
-
-
-
 @app.route('/test_outline', methods=['GET', 'POST'])
 
 def test_outline():
-
     svg_content = None
-
     outline_content = None
-
     filled_content = None
-
     foil_content = None
-
     total_len = 0.0
-
     outline_len = 0.0
 
-
     foil_len = 0.0
-
     width_in = 10.0
-
     height_in = 10.0
 
-
-
     if request.method == 'POST':
-
         if 'file' in request.files:
-
             file = request.files['file']
-
             if file.filename != '':
-
                 try:
-
                     width_in = float(request.form.get('width_in', 10.0))
-
                     height_in = float(request.form.get('height_in', 10.0))
-
                 except ValueError:
-
                     width_in, height_in = 10.0, 10.0
 
-
-
                 svg_content = trace_stencil_to_single_path_svg(file)
-
                 file.stream.seek(0)
-
                 outline_content = trace_stencil_to_outline_svg(file)
 
-
                 file.stream.seek(0)
-
-                foil_content = trace_stencil_to_filled_outline_svg(file)
-
-                
-
+                foil_content = trace_stencil_to_filled_outline_svg(file)                
                 total_len = compute_total_path_length(svg_content, width_in, height_in)
-
                 outline_len = compute_total_path_length(outline_content, width_in, height_in)
-
 
                 foil_len = compute_total_path_length(foil_content, width_in, height_in)
                 foil_len = foil_len - outline_len
 
 
     return render_template_string(
-
         HTML_PAGE, 
-
         svg_content=svg_content, 
-
         outline_content=outline_content,
-
         filled_content=filled_content,
-
         foil_content=foil_content,
-
         total_len=total_len, 
-
         outline_len=outline_len,
 
-
         foil_len=foil_len,
-
         width_in=width_in, 
-
         height_in=height_in
-
     )
 
 # ============================================================================
@@ -3127,5 +3054,169 @@ def update_components_batch():
         db.rollback()
 
         return jsonify({'success': False, 'message': str(e)}), 400
+
+
+@app.route('/trace_outline', methods=['GET', 'POST'])
+
+def trace_outline():
+
+    db = get_db()
+
+    svg_content = None
+
+    outline_content = None
+
+    filled_content = None
+
+    foil_content = None
+
+    total_len = 0.0
+
+    outline_len = 0.0
+
+    foil_len = 0.0
+
+    width_in = 10.0
+
+    height_in = 10.0
+
+    selected_item_id = None
+
+
+
+    if request.method == 'POST':
+
+        selected_item_id = request.form.get('item_id')
+
+        
+
+        if selected_item_id:
+
+            item = db.execute('SELECT * FROM ITM WHERE ITEMID = ?', (selected_item_id,)).fetchone()
+
+            if item and item['ITMPTRN']:
+
+                try:
+
+                    width_in = float(item['ITMLEN']) if item['ITMLEN'] else 10.0
+
+                    height_in = float(item['ITMWID']) if item['ITMWID'] else 10.0
+
+                except (ValueError, TypeError):
+
+                    width_in, height_in = 10.0, 10.0
+
+
+
+                img_path = os.path.join(app.root_path, 'static', item['ITMPTRN'])
+
+                if os.path.exists(img_path):
+
+                    with open(img_path, 'rb') as f:
+
+                        file_bytes = f.read()
+
+                    
+
+                    # Wrap bytes in a BytesIO stream for processing functions
+
+                    from io import BytesIO
+
+                    
+
+                    stream1 = BytesIO(file_bytes)
+
+                    svg_content = trace_stencil_to_single_path_svg(stream1)
+
+
+
+                    stream2 = BytesIO(file_bytes)
+
+                    outline_content = trace_stencil_to_outline_svg(stream2)
+
+
+
+                    stream3 = BytesIO(file_bytes)
+
+                    foil_content = trace_stencil_to_filled_outline_svg(stream3)
+
+
+
+                    total_len = compute_total_path_length(svg_content, width_in, height_in)
+
+                    outline_len = compute_total_path_length(outline_content, width_in, height_in)
+
+                    foil_len = compute_total_path_length(foil_content, width_in, height_in) - outline_len
+
+                    total_len = round_to_eighth(total_len)
+                    outline_len = round_to_eighth(outline_len)
+                    foil_len = round_to_eighth(foil_len)
+                    # Write the results to the DB
+
+                    db.execute('''
+
+                        UPDATE ITM 
+
+                        SET ITMSLDR = ?, ITMCAME = ?, ITMFOIL = ?
+
+                        WHERE ITEMID = ?
+
+                    ''', (total_len, outline_len, foil_len, selected_item_id))
+
+                    db.commit()
+
+                    flash('Outline trace measurements successfully updated!', 'success')
+
+
+
+    # Fetch active items where ISACTIVE = 1 and ITMPTRN is not null/empty for the dropdown
+
+    items = db.execute('''
+
+        SELECT ITEMID, ITMNAME, ITMLEN, ITMWID, ITMPTRN 
+
+        FROM ITM 
+
+        WHERE ISACTIVE = 1 AND ITMPTRN IS NOT NULL AND ITMPTRN != ''
+
+        ORDER BY ITMNAME ASC
+
+    ''').fetchall()
+
+
+
+    return render_template(
+
+        'trace_outline.html',
+
+        items=items,
+
+        selected_item_id=selected_item_id,
+
+        svg_content=svg_content, 
+
+        outline_content=outline_content,
+
+        filled_content=filled_content,
+
+        foil_content=foil_content,
+
+        total_len=total_len, 
+
+        outline_len=outline_len,
+
+        foil_len=foil_len,
+
+        width_in=width_in, 
+
+        height_in=height_in
+
+    )
+
+
+
+
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=7665, debug=True)

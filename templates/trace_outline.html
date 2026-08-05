@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+
+
+{% block content %}
+
+<div class="container mt-4">
+
+    <div class="card shadow p-4">
+
+        <h2>Trace Outline & Measurements</h2>
+
+        <form method="POST">
+
+            <div class="mb-3">
+
+                <label for="item_id" class="form-label font-weight-bold">Select Item:</label>
+
+                <select name="item_id" id="item_id" class="form-control" required>
+
+                    <option value="" disabled selected>-- Choose an Item --</option>
+
+                    {% for item in items %}
+
+                        <option value="{{ item.ITEMID }}" {% if selected_item_id|string == item.ITEMID|string %}selected{% endif %}>
+
+                            {{ item.ITMNAME }} (ID: {{ item.ITEMID }})
+
+                        </option>
+
+                    {% endfor %}
+
+                </select>
+
+            </div>
+
+            
+
+            <button type="submit" class="btn btn-primary">Process Traces & Measurements</button>
+
+        </form>
+
+
+
+        {% if svg_content %}
+
+            <div class="results mt-4 p-3 bg-light rounded">
+
+                <h3>Calculated Measurements:</h3>
+
+                <p><strong>Solder Total Path Length (ITMSLDR):</strong> {{ total_len }} inches</p>
+
+                <p><strong>Came Total Path Length (ITMCAME):</strong> {{ outline_len }} inches</p>
+
+                <p><strong>Foil Total Length (ITMFOIL):</strong> {{ foil_len }} inches</p>
+
+            </div>
+
+
+
+            <h3 class="mt-4">Solder SVG Output:</h3>
+
+            <div class="svg-viewer border p-2 bg-white" style="max-width: 500px;">
+
+                {{ svg_content | safe }}
+
+            </div>
+
+
+
+            <h3 class="mt-4">Came SVG Output:</h3>
+
+            <div class="svg-viewer border p-2 bg-white" style="max-width: 500px;">
+
+                {{ outline_content | safe }}
+
+            </div>
+
+
+
+            <h3 class="mt-4">Foil SVG Output:</h3>
+
+            <div class="svg-viewer border p-2 bg-white" style="max-width: 500px;">
+
+                {{ foil_content | safe }}
+
+            </div>
+
+        {% endif %}
+
+    </div>
+
+</div>
+
+{% endblock %}
