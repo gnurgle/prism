@@ -70,10 +70,10 @@ def init_db():
             "INSERT OR IGNORE INTO COLOR (COLOR, CHEX) VALUES ('Red', 'FF0000'), ('Orange', 'FF8000'), ('Yellow', 'FFFF00'), ('Chartreuse Green', '80FF00'), ('Green', '00FF00'), ('Spring Green', '00FF80'), ('Azure', '0080FF'), ('Blue', '0000FF'), ('Violet', '8000FF'), ('Magenta', 'FF00FF'), ('Rose', 'FF0080'), ('White', 'FFFFFF'), ('Black', '000000'), ('Grey', '808080'), ('Transparent', 'FFFFFF')"
         )
         db.execute(
-            "INSERT OR IGNORE INTO GTRNS (GTRNSN, GTRNSV) VALUES ('Transparent', 60), ('Translucent', 75), ('Opaque', 95)"
+            "INSERT OR IGNORE INTO GTRNS (GTRNSN, GTRNSV) VALUES ('Clear', 35), ('Transparent', 60), ('Translucent', 75), ('Opaque', 95)"
         )
         db.execute(
-            "INSERT OR IGNORE INTO UNTS (UNTTYPE, CFACTOR) VALUES ('inches', 1), ('feet', 12), ('yards', 36), ('pounds', 454)"
+            "INSERT OR IGNORE INTO UNTS (UNTTYPE, CFACTOR) VALUES ('inches', 1), ('feet', 12), ('yards', 36), ('pounds', 454), ('units', 1)"
         )
         db.execute(
             "INSERT OR IGNORE INTO MST (MSITYPE) VALUES ('Solder'), ('Foil'), ('Came'), ('Rings'), ('Chain'), ('Consumables'), ('Decoration'), ('Other')"
@@ -337,6 +337,32 @@ def item_detail(item_id):
 
 
 
+    # Fetch display-only decoration items associated via IMI mapping table with full pricing attributes
+
+    associated_decorations = db.execute(
+
+        """
+
+        SELECT m.MSIID, m.MSINAME, i.IMIAMT, m.MSIUNIT, u.CFACTOR
+
+        FROM IMI i
+
+        JOIN MSI m ON i.MSIID = m.MSIID
+
+        LEFT JOIN UNTS u ON m.UNTTYPE = u.UNTTYPE
+
+        WHERE i.ITEMID = ? AND m.MSITYPE = 'Decoration'
+
+        ORDER BY m.MSINAME ASC
+
+        """,
+
+        (item_id,),
+
+    ).fetchall()
+
+
+
     # Populate template-expected supply name fields onto the item dictionary safely
 
     item['MSLDR_NAME'] = supplies_map['Solder']['MSINAME'] if 'Solder' in supplies_map else ''
@@ -451,7 +477,59 @@ def item_detail(item_id):
 
 
 
-    estimated_supplies_cost = estimated_supplies_core_cost
+    decorations_cost = 0.0
+
+    for deco in associated_decorations:
+
+        qty = float(deco['IMIAMT']) if deco['IMIAMT'] is not None else 0.0
+
+        if qty > 0 and deco['MSIID']:
+
+            misc_id = deco['MSIID']
+
+            cfactor = deco['CFACTOR']
+
+            msiunit = deco['MSIUNIT']
+
+
+
+            price_row = db.execute(
+
+                """
+
+                    SELECT MSIPRICE AS PRICE FROM MSP 
+
+                    WHERE MSIID = ? AND (ENDDATE IS NULL OR ENDDATE >= DATE('now'))
+
+                    ORDER BY STDATE DESC LIMIT 1
+
+                """,
+
+                (misc_id,),
+
+            ).fetchone()
+
+
+
+            if price_row and price_row['PRICE']:
+
+                unit_price = float(price_row['PRICE'])
+
+                valid_cfactor = float(cfactor) if cfactor and float(cfactor) > 0 else 1.0
+
+                valid_msiunit = float(msiunit) if msiunit is not None and float(msiunit) > 0 else 1.0
+
+                
+
+                divisor = valid_cfactor * valid_msiunit
+
+                if divisor > 0 and unit_price > 0:
+
+                    decorations_cost += qty * (unit_price / divisor)
+
+
+
+    estimated_supplies_cost = estimated_supplies_core_cost + decorations_cost
 
     total_cost = materials_cost + estimated_supplies_cost
 
@@ -483,389 +561,647 @@ def item_detail(item_id):
 
         associated_supplies=associated_supplies_rows,
 
+        associated_decorations=associated_decorations
+
     )
 # -----------------------------------------------------------------------------
 # CREATE ITEM ROUTE
 # -----------------------------------------------------------------------------
 
 
-@app.route('/item/create', methods=['GET', 'POST'])
+
+@app.route('/item/new', methods=['GET', 'POST'])
 
 def create_item():
 
-    """Create a new Item record and handle its material items (IMI) associations."""
-
     db = get_db()
 
-
+    
 
     if request.method == 'POST':
 
-        itm_name = request.form.get('ITMNAME', '').strip()
+        itmname = request.form.get('ITMNAME')
 
-        itm_grp = request.form.get('ITMGRP', '').strip()
+        itmgrp = request.form.get('ITMGRP') or None
 
-        new_grp = request.form.get('NEW_ITMGRP', '').strip()
+        new_itmgrp = request.form.get('NEW_ITMGRP')
 
         
 
-        # Parse dimensions securely
+        if new_itmgrp and new_itmgrp.strip():
 
-        itm_len_val = request.form.get('ITMLEN')
+            itmgrp = new_itmgrp.strip()
 
-        itm_wid_val = request.form.get('ITMWID')
-
-        itm_len = float(itm_len_val) if itm_len_val else None
-
-        itm_wid = float(itm_wid_val) if itm_wid_val else None
+            db.execute("INSERT OR IGNORE INTO IGP (ITMGRP, ISACTIVE) VALUES (?, 1)", (itmgrp,))
 
 
+
+        itmlen = request.form.get('ITMLEN')
+
+        itmwid = request.form.get('ITMWID')
 
         oneoff = 1 if request.form.get('ONEOFF') else 0
 
         current = 1 if request.form.get('CURRENT') else 0
 
-        itm_note = request.form.get('ITMNOTE', '').strip()
+        itmnote = request.form.get('ITMNOTE')
 
+        
 
-
-        selected_group = None
-
-        if new_grp:
-
-            selected_group = new_grp
-
-            existing_grp = db.execute(
-
-                'SELECT 1 FROM IGP WHERE ITMGRP = ?', (new_grp,)
-
-            ).fetchone()
-
-            if not existing_grp:
-
-                db.execute(
-
-                    'INSERT INTO IGP (ITMGRP, ISACTIVE) VALUES (?, 1)', (new_grp,)
-
-                )
-
-        elif itm_grp:
-
-            selected_group = itm_grp
-
-
-
-        # Insert base item record first to retrieve the generated ITEMID
+        # Insert core item record using uppercase field names mapping
 
         cursor = db.execute(
 
             """
 
-                INSERT INTO ITM (ITMNAME, ITMGRP, ITMLEN, ITMWID, ONEOFF, CURRENT, ITMNOTE, ITMIMG)
+            INSERT INTO ITM (ITMNAME, ITMGRP, ITMLEN, ITMWID, ONEOFF, CURRENT, ITMNOTE, ISACTIVE)
 
-                VALUES (?, ?, ?, ?, ?, ?, ?, NULL)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 1)
 
             """,
 
-            (itm_name, selected_group, itm_len, itm_wid, oneoff, current, itm_note),
+            (itmname, itmgrp, itmlen or None, itmwid or None, oneoff, current, itmnote)
 
         )
 
-        item_id = cursor.lastrowid
+        new_item_id = cursor.lastrowid
 
 
 
-        # Handle image upload if provided, using the new item_id
+        # Since supplies matrix is hidden on create, check settings.config for defaults
 
-        image_path = None
+        config_path = os.path.join(app.root_path, 'settings.config')
 
-        if 'ITMIMG_FILE' in request.files:
+        if os.path.exists(config_path):
 
-            file = request.files['ITMIMG_FILE']
+            try:
 
-            if file and file.filename != '':
+                tree = ET.parse(config_path)
 
-                image_path = process_and_save_image(
+                root = tree.getroot()
 
-                    file,
+                defaults_elem = root.find('NewItemDefaults')
 
-                    upload_subfolder='images/items',
+                if defaults_elem is not None:
 
-                    custom_filename_base=f'{item_id}_{itm_name}',
+                    config_field_map = {
 
-                    target_size=(1024, 1024),
+                        'Solder': 'Solder',
 
-                )
+                        'Foil': 'Foil',
 
-                db.execute(
+                        'Came': 'Came',
 
-                    'UPDATE ITM SET ITMIMG = ? WHERE ITEMID = ?',
+                        'Chain': 'Chain',
 
-                    (image_path, item_id),
+                        'Rings': 'Rings'
 
-                )
+                    }
 
+                    for xml_tag, msi_type in config_field_map.items():
 
+                        child = defaults_elem.find(xml_tag)
 
-        # Handle supply inputs and store amounts in IMI
+                        if child is not None and child.text and child.text.strip():
 
-        supply_inputs = [
+                            try:
 
-            ('Solder', request.form.get('ITMSLDR')),
+                                default_msiid = int(child.text.strip())
 
-            ('Foil', request.form.get('ITMFOIL')),
+                                exists = db.execute("SELECT 1 FROM MSI WHERE MSIID = ?", (default_msiid,)).fetchone()
 
-            ('Came', request.form.get('ITMCAME')),
+                                if exists:
 
-            ('Rings', request.form.get('ITMRING')),
+                                    db.execute(
 
-            ('Chain', request.form.get('ITMCHAIN')),
+                                        'INSERT INTO IMI (ITEMID, MSIID, IMIAMT) VALUES (?, ?, 0)',
 
-        ]
+                                        (new_item_id, default_msiid)
 
+                                    )
 
+                            except ValueError:
 
-        for msi_type, amount_val in supply_inputs:
+                                continue
 
-            if amount_val and float(amount_val) > 0:
+            except ET.ParseError:
 
-                amount = float(amount_val)
-
-                msi_record = db.execute(
-
-                    "SELECT MSIID FROM MSI WHERE MSITYPE = ? AND ISACTIVE = 1 LIMIT 1",
-
-                    (msi_type,)
-
-                ).fetchone()
-
-
-
-                if msi_record:
-
-                    msiid = msi_record['MSIID']
-
-                    db.execute(
-
-                        """
-
-                        INSERT INTO IMI (ITEMID, MSIID, IMIAMT)
-
-                        VALUES (?, ?, ?)
-
-                        """,
-
-                        (item_id, msiid, amount)
-
-                    )
+                pass
 
 
 
         db.commit()
 
+        flash('Item created successfully!', 'success')
 
-
-        flash(f'Item "{itm_name}" created successfully.', 'success')
-
-        return redirect(url_for('item_detail', item_id=item_id))
-
-
-
-    groups = db.execute(
-
-        'SELECT DISTINCT ITMGRP FROM ITM WHERE ITMGRP IS NOT NULL AND ITMGRP !='
-
-        " '' ORDER BY ITMGRP"
-
-    ).fetchall()
+        return redirect(url_for('item_detail', item_id=new_item_id))
 
 
 
-    msi_solder = db.execute("SELECT MSIID, MSINAME FROM MSI WHERE MSITYPE = 'Solder' AND ISACTIVE = 1").fetchall()
+    all_groups = db.execute('SELECT DISTINCT ITMGRP FROM ITM WHERE ITMGRP IS NOT NULL ORDER BY ITMGRP ASC').fetchall()
 
-    msi_foil = db.execute("SELECT MSIID, MSINAME FROM MSI WHERE MSITYPE = 'Foil' AND ISACTIVE = 1").fetchall()
+    all_msi = db.execute('SELECT MSIID, MSINAME, MSITYPE FROM MSI WHERE ISACTIVE = 1 ORDER BY MSINAME ASC').fetchall()
 
-    msi_came = db.execute("SELECT MSIID, MSINAME FROM MSI WHERE MSITYPE = 'Came' AND ISACTIVE = 1").fetchall()
+    return render_template('item_form.html', action='Create', item={}, groups=all_groups, 
 
-    msi_chain = db.execute("SELECT MSIID, MSINAME FROM MSI WHERE MSITYPE = 'Chain' AND ISACTIVE = 1").fetchall()
+                           msi_solder=[m for m in all_msi if m['MSITYPE'] == 'Solder'],
 
-    msi_rings = db.execute("SELECT MSIID, MSINAME FROM MSI WHERE MSITYPE = 'Rings' AND ISACTIVE = 1").fetchall()
+                           msi_foil=[m for m in all_msi if m['MSITYPE'] == 'Foil'],
 
-    msi_wire = db.execute("SELECT MSIID, MSINAME FROM MSI WHERE MSITYPE = 'Wire' AND ISACTIVE = 1").fetchall()
+                           msi_came=[m for m in all_msi if m['MSITYPE'] == 'Came'],
 
+                           msi_chain=[m for m in all_msi if m['MSITYPE'] == 'Chain'],
 
+                           msi_rings=[m for m in all_msi if m['MSITYPE'] == 'Rings'],
 
-    return render_template(
+                           msi_wire=[m for m in all_msi if m['MSITYPE'] == 'Wire'])
 
-        'item_form.html', 
-
-        action='Create', 
-
-        item=None, 
-
-        groups=groups,
-
-        msi_solder=msi_solder,
-
-        msi_foil=msi_foil,
-
-        msi_came=msi_came,
-
-        msi_chain=msi_chain,
-
-        msi_rings=msi_rings,
-
-        msi_wire=msi_wire
-
-    )
 
 
 @app.route('/item/<int:item_id>/edit', methods=['GET', 'POST'])
 
 def edit_item(item_id):
-    """Edit an existing item, updating its core details, component layout, and IMI supply associations."""
+
     db = get_db()
+
     
-    item = db.execute('SELECT * FROM ITM WHERE ITEMID = ?', (item_id,)).fetchone()
-    if not item:
-        flash('Item not found.', 'danger')
-        return redirect(url_for('index'))
 
     if request.method == 'POST':
-        itmname = request.form.get('itmname')
-        itmgrp = request.form.get('itmgrp') or request.form.get('NEW_ITMGRP')
-        itmlen = request.form.get('itmlen')
-        itmwid = request.form.get('itmwid')
-        oneoff = 1 if request.form.get('oneoff') else 0
-        current = 1 if request.form.get('current') else 0
-        itmnote = request.form.get('itmnote')
-        # Update core item fields
+
+        itmname = request.form.get('ITMNAME')
+
+        itmgrp = request.form.get('ITMGRP') or None
+
+        new_itmgrp = request.form.get('NEW_ITMGRP')
+
+        
+
+        if new_itmgrp and new_itmgrp.strip():
+
+            itmgrp = new_itmgrp.strip()
+
+            db.execute("INSERT OR IGNORE INTO IGP (ITMGRP, ISACTIVE) VALUES (?, 1)", (itmgrp,))
+
+
+
+        itmlen = request.form.get('ITMLEN')
+
+        itmwid = request.form.get('ITMWID')
+
+        oneoff = 1 if request.form.get('ONEOFF') else 0
+
+        current = 1 if request.form.get('CURRENT') else 0
+
+        itmnote = request.form.get('ITMNOTE')
+
+        
+
+        # Update core item record using uppercase field names mapping
+
         db.execute(
+
             """
+
             UPDATE ITM 
+
             SET ITMNAME = ?, ITMGRP = ?, ITMLEN = ?, ITMWID = ?, ONEOFF = ?, CURRENT = ?, ITMNOTE = ?
+
             WHERE ITEMID = ?
+
             """,
+
             (itmname, itmgrp, itmlen or None, itmwid or None, oneoff, current, itmnote, item_id)
+
         )
 
-        # Clear existing supply associations in IMI and re-insert submitted values
-        db.execute('DELETE FROM IMI WHERE ITEMID = ?', (item_id,))
+
+
+        # Clear existing supplies and resync from edit form matrix inputs
+
+        db.execute("DELETE FROM IMI WHERE ITEMID = ?", (item_id,))
+
+
 
         supply_inputs = [
-            ('Solder', request.form.get('ITMSLDR'), request.form.get('IMISLDR')),
-            ('Foil', request.form.get('ITMFOIL'), request.form.get('IMIFOIL')),
-            ('Came', request.form.get('ITMCAME'), request.form.get('IMICAME')),
-            ('Chain', request.form.get('ITMCHAIN'), request.form.get('IMICHAIN')),
-            ('Rings', request.form.get('ITMRING'), request.form.get('IMIRING')),
-            ('Wire', request.form.get('ITMWIRE'), request.form.get('IMIWIRE'))
+
+            (request.form.get('ITMSLDR'), request.form.get('IMISLDR')),
+
+            (request.form.get('ITMFOIL'), request.form.get('IMIFOIL')),
+
+            (request.form.get('ITMCAME'), request.form.get('IMICAME')),
+
+            (request.form.get('ITMCHAIN'), request.form.get('IMICHAIN')),
+
+            (request.form.get('ITMRING'), request.form.get('IMIRING')),
+
+            (request.form.get('ITMWIRE'), request.form.get('IMIWIRE'))
+
         ]
 
-        for msi_type, qty_val, msi_id_val in supply_inputs:
+
+
+        for qty_val, msi_id_val in supply_inputs:
+
             if qty_val and float(qty_val) > 0 and msi_id_val:
-                db.execute(
-                    'INSERT INTO IMI (ITEMID, MSIID, IMIAMT) VALUES (?, ?, ?)',
-                    (item_id, int(msi_id_val), float(qty_val))
-                )
+
+                try:
+
+                    db.execute(
+
+                        'INSERT INTO IMI (ITEMID, MSIID, IMIAMT) VALUES (?, ?, ?)',
+
+                        (item_id, int(msi_id_val), float(qty_val))
+
+                    )
+
+                except ValueError:
+
+                    continue
+
+
 
         db.commit()
+
         flash('Item updated successfully!', 'success')
+
         return redirect(url_for('item_detail', item_id=item_id))
 
-    # Fetch associated supplies from IMI mapping table for form population
-    associated_supplies = db.execute(
-        """
-        SELECT msi.MSITYPE, msi.MSIID, imi.IMIAMT 
-        FROM IMI imi
-        JOIN MSI msi ON imi.MSIID = msi.MSIID
-        WHERE imi.ITEMID = ?
-        """,
-        (item_id,)
-    ).fetchall()
 
-    supplies_dict = {row['MSITYPE']: {'amt': row['IMIAMT'], 'id': row['MSIID']} for row in associated_supplies}
-    
-    item_form_data = dict(item)
-    item_form_data['ITMSLDR'] = supplies_dict.get('Solder', {}).get('amt', '')
-    item_form_data['IMISLDR'] = supplies_dict.get('Solder', {}).get('id', '')
-    
-    item_form_data['ITMFOIL'] = supplies_dict.get('Foil', {}).get('amt', '')
-    item_form_data['IMIFOIL'] = supplies_dict.get('Foil', {}).get('id', '')
-    
-    item_form_data['ITMCAME'] = supplies_dict.get('Came', {}).get('amt', '')
-    item_form_data['IMICAME'] = supplies_dict.get('Came', {}).get('id', '')
-    
-    item_form_data['ITMCHAIN'] = supplies_dict.get('Chain', {}).get('amt', '')
-    item_form_data['IMICHAIN'] = supplies_dict.get('Chain', {}).get('id', '')
-    
-    item_form_data['ITMRING']  = supplies_dict.get('Rings', {}).get('amt', '')
-    item_form_data['IMIRING']  = supplies_dict.get('Rings', {}).get('id', '')
-    
-    item_form_data['ITMWIRE']  = supplies_dict.get('Wire', {}).get('amt', '')
-    item_form_data['IMIWIRE']  = supplies_dict.get('Wire', {}).get('id', '')
 
-    # Fetch categorized Misc Supply options for template dropdown lists[cite: 2]
-    all_msi = db.execute('SELECT MSIID, MSINAME, MSITYPE FROM MSI ORDER BY MSINAME ASC').fetchall()
-    
-    msi_solder = [m for m in all_msi if m['MSITYPE'] == 'Solder']
-    msi_foil = [m for m in all_msi if m['MSITYPE'] == 'Foil']
-    msi_came = [m for m in all_msi if m['MSITYPE'] == 'Came']
-    msi_chain = [m for m in all_msi if m['MSITYPE'] == 'Chain']
-    msi_rings = [m for m in all_msi if m['MSITYPE'] == 'Rings']
-    msi_wire = [m for m in all_msi if m['MSITYPE'] == 'Wire']
+    item = db.execute('SELECT * FROM ITM WHERE ITEMID = ?', (item_id,)).fetchone()
 
     all_groups = db.execute('SELECT DISTINCT ITMGRP FROM ITM WHERE ITMGRP IS NOT NULL ORDER BY ITMGRP ASC').fetchall()
 
-   # Pass filtered decoration choices to item_form templates (GET)
-    msi_decorations = db.execute(
-    """
-    SELECT m.MSIID, m.MSINAME 
-    FROM MSI m 
-    JOIN MST t ON m.MSITYPE = t.MSITYPE
-    WHERE m.MSITYPE = 'Decoration' AND m.ISACTIVE = 1
-    ORDER BY m.MSINAME ASC
-    """
-    ).fetchall()
+    all_msi = db.execute('SELECT MSIID, MSINAME, MSITYPE FROM MSI WHERE ISACTIVE = 1 ORDER BY MSINAME ASC').fetchall()
 
-    # Handle saving/updating arrays in POST handling blocks:
-    deco_msiids = request.form.getlist('deco_msiid[]')
-    deco_amts = request.form.getlist('deco_amt[]')
-
-    # Clear existing decoration mappings if updating, then insert fresh rows matching item_id
-    db.execute("DELETE FROM IMI WHERE ITEMID = ? AND MSIID IN (SELECT MSIID FROM MSI WHERE MSITYPE = 'Decoration')", (item_id,))
-
-    for msiid_val, amt_val in zip(deco_msiids, deco_amts):
-    # Ensure both fields have actual values and are not empty strings/none
-      if msiid_val and msiid_val.strip() and amt_val and amt_val.strip():
-        try:
-            msiid_int = int(msiid_val)
-            amt_float = float(amt_val)
-            
-            if amt_float > 0:
-                # Optional safety check: verify MSIID exists in MSI table to prevent constraint errors
-                exists = db.execute("SELECT 1 FROM MSI WHERE MSIID = ?", (msiid_int,)).fetchone()
-                if exists:
-                    db.execute(
-                        "INSERT INTO IMI (ITEMID, MSIID, IMIAMT) VALUES (?, ?, ?)",
-                        (item_id, msiid_int, amt_float)
-                    )
-        except ValueError:
-            # Catch conversion errors if bad data slips through
-            continue
+    
 
     return render_template(
+
         'item_form.html',
+
         action='Edit',
-        item=item_form_data,
+
+        item=item,
+
         groups=all_groups,
-        msi_solder=msi_solder,
-        msi_foil=msi_foil,
-        msi_came=msi_came,
-        msi_chain=msi_chain,
-        msi_rings=msi_rings,
-        msi_wire=msi_wire,
-        msi_decorations=msi_decorations
+
+        msi_solder=[m for m in all_msi if m['MSITYPE'] == 'Solder'],
+
+        msi_foil=[m for m in all_msi if m['MSITYPE'] == 'Foil'],
+
+        msi_came=[m for m in all_msi if m['MSITYPE'] == 'Came'],
+
+        msi_chain=[m for m in all_msi if m['MSITYPE'] == 'Chain'],
+
+        msi_rings=[m for m in all_msi if m['MSITYPE'] == 'Rings'],
+
+        msi_wire=[m for m in all_msi if m['MSITYPE'] == 'Wire']
+
     )
+
+@app.route('/item/<int:item_id>/edit', methods=['GET', 'POST'])
+
+def edit_item(item_id):
+
+    """Edit an existing item, updating its core details, component layout, and IMI supply associations."""
+
+    db = get_db()
+
+    
+
+    item = db.execute('SELECT * FROM ITM WHERE ITEMID = ?', (item_id,)).fetchone()
+
+    if not item:
+
+        flash('Item not found.', 'danger')
+
+        return redirect(url_for('index'))
+
+
+
+    if request.method == 'POST':
+
+        itmname = request.form.get('itmname')
+
+        itmgrp = request.form.get('itmgrp')
+
+        new_itmgrp = request.form.get('NEW_ITMGRP')
+
+        
+
+        # If a new group is specified, insert it into IGP first to satisfy foreign key constraints
+
+        if new_itmgrp and new_itmgrp.strip():
+
+            itmgrp = new_itmgrp.strip()
+
+            db.execute(
+
+                "INSERT OR IGNORE INTO IGP (ITMGRP, ISACTIVE) VALUES (?, 1)",
+
+                (itmgrp,)
+
+            )
+
+
+
+        itmlen = request.form.get('itmlen')
+
+        itmwid = request.form.get('itmwid')
+
+        oneoff = 1 if request.form.get('oneoff') else 0
+
+        current = 1 if request.form.get('current') else 0
+
+        itmnote = request.form.get('itmnote')
+
+        
+
+        # Update core item fields safely now that IGP value is guaranteed to exist
+
+        db.execute(
+
+            """
+
+            UPDATE ITM 
+
+            SET ITMNAME = ?, ITMGRP = ?, ITMLEN = ?, ITMWID = ?, ONEOFF = ?, CURRENT = ?, ITMNOTE = ?
+
+            WHERE ITEMID = ?
+
+            """,
+
+            (itmname, itmgrp, itmlen or None, itmwid or None, oneoff, current, itmnote, item_id)
+
+        )
+
+
+        # Clear existing supply associations in IMI (excluding Decoration, handled separately below)
+
+        db.execute('DELETE FROM IMI WHERE ITEMID = ? AND MSIID NOT IN (SELECT MSIID FROM MSI WHERE MSITYPE = \'Decoration\')', (item_id,))
+
+
+
+        supply_inputs = [
+
+            ('Solder', request.form.get('ITMSLDR'), request.form.get('IMISLDR')),
+
+            ('Foil', request.form.get('ITMFOIL'), request.form.get('IMIFOIL')),
+
+            ('Came', request.form.get('ITMCAME'), request.form.get('IMICAME')),
+
+            ('Chain', request.form.get('ITMCHAIN'), request.form.get('IMICHAIN')),
+
+            ('Rings', request.form.get('ITMRING'), request.form.get('IMIRING')),
+
+            ('Wire', request.form.get('ITMWIRE'), request.form.get('IMIWIRE'))
+
+        ]
+
+
+
+        for msi_type, qty_val, msi_id_val in supply_inputs:
+
+            if qty_val and float(qty_val) > 0 and msi_id_val:
+
+                msiid_int = int(msi_id_val)
+
+                # Verify MSIID exists in MSI table before insertion
+
+                exists = db.execute("SELECT 1 FROM MSI WHERE MSIID = ?", (msiid_int,)).fetchone()
+
+                if exists:
+
+                    db.execute(
+
+                        'INSERT INTO IMI (ITEMID, MSIID, IMIAMT) VALUES (?, ?, ?)',
+
+                        (item_id, msiid_int, float(qty_val))
+
+                    )
+
+
+
+        # Handle saving/updating decoration arrays from POST request
+
+        deco_msiids = request.form.getlist('deco_msiid[]')
+
+        deco_amts = request.form.getlist('deco_amt[]')
+
+
+
+        # Clear existing decoration mappings for this item safely
+
+        db.execute("DELETE FROM IMI WHERE ITEMID = ? AND MSIID IN (SELECT MSIID FROM MSI WHERE MSITYPE = 'Decoration')", (item_id,))
+
+
+
+        for msiid_val, amt_val in zip(deco_msiids, deco_amts):
+
+            if msiid_val and msiid_val.strip() and amt_val and amt_val.strip():
+
+                try:
+
+                    msiid_int = int(msiid_val)
+
+                    amt_float = float(amt_val)
+
+                    
+
+                    if amt_float > 0:
+
+                        # Double check that the MSI record actually exists to prevent FOREIGN KEY constraints
+
+                        exists = db.execute("SELECT 1 FROM MSI WHERE MSIID = ?", (msiid_int,)).fetchone()
+
+                        if exists:
+
+                            db.execute(
+
+                                "INSERT INTO IMI (ITEMID, MSIID, IMIAMT) VALUES (?, ?, ?)",
+
+                                (item_id, msiid_int, amt_float)
+
+                            )
+
+                except ValueError:
+
+                    continue
+
+
+
+        db.commit()
+
+        flash('Item updated successfully!', 'success')
+
+        return redirect(url_for('item_detail', item_id=item_id))
+
+
+
+    # Fetch associated supplies from IMI mapping table for form population
+
+    associated_supplies = db.execute(
+
+        """
+
+        SELECT msi.MSITYPE, msi.MSIID, imi.IMIAMT 
+
+        FROM IMI imi
+
+        JOIN MSI msi ON imi.MSIID = msi.MSIID
+
+        WHERE imi.ITEMID = ?
+
+        """,
+
+        (item_id,)
+
+    ).fetchall()
+
+
+
+    supplies_dict = {row['MSITYPE']: {'amt': row['IMIAMT'], 'id': row['MSIID']} for row in associated_supplies}
+
+    
+
+    item_form_data = dict(item)
+
+    item_form_data['ITMSLDR'] = supplies_dict.get('Solder', {}).get('amt', '')
+
+    item_form_data['IMISLDR'] = supplies_dict.get('Solder', {}).get('id', '')
+
+    
+
+    item_form_data['ITMFOIL'] = supplies_dict.get('Foil', {}).get('amt', '')
+
+    item_form_data['IMIFOIL'] = supplies_dict.get('Foil', {}).get('id', '')
+
+    
+
+    item_form_data['ITMCAME'] = supplies_dict.get('Came', {}).get('amt', '')
+
+    item_form_data['IMICAME'] = supplies_dict.get('Came', {}).get('id', '')
+
+    
+
+    item_form_data['ITMCHAIN'] = supplies_dict.get('Chain', {}).get('amt', '')
+
+    item_form_data['IMICHAIN'] = supplies_dict.get('Chain', {}).get('id', '')
+
+    
+
+    item_form_data['ITMRING']  = supplies_dict.get('Rings', {}).get('amt', '')
+
+    item_form_data['IMIRING']  = supplies_dict.get('Rings', {}).get('id', '')
+
+    
+
+    item_form_data['ITMWIRE']  = supplies_dict.get('Wire', {}).get('amt', '')
+
+    item_form_data['IMIWIRE']  = supplies_dict.get('Wire', {}).get('id', '')
+
+
+
+    # Fetch categorized Misc Supply options for template dropdown lists
+
+    all_msi = db.execute('SELECT MSIID, MSINAME, MSITYPE FROM MSI ORDER BY MSINAME ASC').fetchall()
+
+    
+
+    msi_solder = [m for m in all_msi if m['MSITYPE'] == 'Solder']
+
+    msi_foil = [m for m in all_msi if m['MSITYPE'] == 'Foil']
+
+    msi_came = [m for m in all_msi if m['MSITYPE'] == 'Came']
+
+    msi_chain = [m for m in all_msi if m['MSITYPE'] == 'Chain']
+
+    msi_rings = [m for m in all_msi if m['MSITYPE'] == 'Rings']
+
+    msi_wire = [m for m in all_msi if m['MSITYPE'] == 'Wire']
+
+
+
+    all_groups = db.execute('SELECT DISTINCT ITMGRP FROM ITM WHERE ITMGRP IS NOT NULL ORDER BY ITMGRP ASC').fetchall()
+
+
+
+    # Fetch filtered decoration choices for template dropdowns
+
+    msi_decorations = db.execute(
+
+        """
+
+        SELECT m.MSIID, m.MSINAME 
+
+        FROM MSI m 
+
+        JOIN MST t ON m.MSITYPE = t.MSITYPE
+
+        WHERE m.MSITYPE = 'Decoration' AND m.ISACTIVE = 1
+
+        ORDER BY m.MSINAME ASC
+
+        """
+
+    ).fetchall()
+
+
+
+    # Fetch existing decoration rows associated with this item for GET rendering
+
+    associated_decorations = db.execute(
+
+        """
+
+        SELECT i.MSIID, i.IMIAMT, m.MSINAME
+
+        FROM IMI i
+
+        JOIN MSI m ON i.MSIID = m.MSIID
+
+        WHERE i.ITEMID = ? AND m.MSITYPE = 'Decoration'
+
+        """,
+
+        (item_id,)
+
+    ).fetchall()
+
+
+
+    return render_template(
+
+        'item_form.html',
+
+        action='Edit',
+
+        item=item_form_data,
+
+        groups=all_groups,
+
+        msi_solder=msi_solder,
+
+        msi_foil=msi_foil,
+
+        msi_came=msi_came,
+
+        msi_chain=msi_chain,
+
+        msi_rings=msi_rings,
+
+        msi_wire=msi_wire,
+
+        msi_decorations=msi_decorations,
+
+        associated_decorations=associated_decorations
+
+    )
+
+
+
+
 
 @app.route('/item/<int:item_id>/history')
 def price_history(item_id):
@@ -3256,7 +3592,133 @@ def trace_outline():
     )
 
 
+@app.route('/settings', methods=['GET', 'POST'])
 
+def settings():
+
+    """Manage application settings and save them to a local settings.config XML file."""
+
+    db = get_db()
+
+    config_path = os.path.join(app.root_path, 'settings.config')
+
+
+
+    # Handle POST submission to save configurations to XML
+
+    if request.method == 'POST':
+
+        root = ET.Element('Settings')
+
+        new_item_elem = ET.SubElement(root, 'NewItemDefaults')
+
+        
+
+        # Grab values from form inputs
+
+        fields = ['Solder', 'Foil', 'Came', 'Chain', 'Rings']
+
+        for field in fields:
+
+            val = request.form.get(f'default_{field.lower()}')
+
+            ET.SubElement(new_item_elem, field).text = val if val else ''
+
+
+
+        # Write out to settings.config XML file
+
+        tree = ET.ElementTree(root)
+
+        tree.write(config_path, encoding='utf-8', xml_declaration=True)
+
+        
+
+        flash('Settings saved successfully!', 'success')
+
+        return redirect(url_for('settings'))
+
+
+
+    # Load existing settings from XML if the file exists
+
+    defaults = {
+
+        'Solder': '',
+
+        'Foil': '',
+
+        'Came': '',
+
+        'Chain': '',
+
+        'Rings': ''
+
+    }
+
+    
+
+    if os.path.exists(config_path):
+
+        try:
+
+            tree = ET.parse(config_path)
+
+            root = tree.getroot()
+
+            defaults_elem = root.find('NewItemDefaults')
+
+            if defaults_elem is not None:
+
+                for k in defaults.keys():
+
+                    child = defaults_elem.find(k)
+
+                    if child is not None and child.text:
+
+                        defaults[k] = child.text
+
+        except ET.ParseError:
+
+            pass
+
+
+
+    # Fetch all active Misc Supplies categorized for dropdown population
+
+    all_msi = db.execute('SELECT MSIID, MSINAME, MSITYPE FROM MSI WHERE ISACTIVE = 1 ORDER BY MSINAME ASC').fetchall()
+
+    
+
+    msi_solder = [m for m in all_msi if m['MSITYPE'] == 'Solder']
+
+    msi_foil = [m for m in all_msi if m['MSITYPE'] == 'Foil']
+
+    msi_came = [m for m in all_msi if m['MSITYPE'] == 'Came']
+
+    msi_chain = [m for m in all_msi if m['MSITYPE'] == 'Chain']
+
+    msi_rings = [m for m in all_msi if m['MSITYPE'] == 'Rings']
+
+
+
+    return render_template(
+
+        'settings.html',
+
+        defaults=defaults,
+
+        msi_solder=msi_solder,
+
+        msi_foil=msi_foil,
+
+        msi_came=msi_came,
+
+        msi_chain=msi_chain,
+
+        msi_rings=msi_rings
+
+    )
 
 
 
