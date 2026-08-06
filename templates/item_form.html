@@ -270,8 +270,136 @@
 
                 </div>
 
+<!-- Decorations Section -->
+
+<div class="card mb-4 shadow-sm">
+
+    <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+
+        <h5 class="mb-0">Decorations</h5>
+
+    </div>
+
+    <div class="card-body">
+
+        <div class="table-responsive">
+
+            <table class="table table-bordered align-middle" id="decorations-table">
+
+                <thead>
+
+                    <tr>
+
+                        <th style="width: 80%;">Misc Item Name</th>
+
+                        <th style="width: 15%;">Amount</th>
+
+                        <th style="width: 5%;" class="text-center">Action</th>
+
+                    </tr>
+
+                </thead>
+
+<tbody>
+
+    <!-- Render any existing associated decorations -->
+
+    {% if associated_decorations %}
+
+        {% for deco in associated_decorations %}
+
+        <tr>
+
+            <td>
+
+                <select name="deco_msiid[]" class="form-select select-decoration">
+
+                    <option value="">-- Select Decoration Item --</option>
+
+                    {% for msi in msi_decorations %}
+
+                    <option value="{{ msi.MSIID }}" {% if msi.MSIID == deco.MSIID %}selected{% endif %}>
+
+                        {{ msi.MSINAME }}
+
+                    </option>
+
+                    {% endfor %}
+
+                </select>
+
+            </td>
+
+            <td>
+
+                <input type="number" step="any" name="deco_amt[]" class="form-control" value="{{ deco.IMIAMT }}">
+
+            </td>
+
+            <td class="text-center">
+
+                <button type="button" class="btn btn-outline-danger btn-sm delete-row-btn">
+
+                    <i class="bi bi-trash"></i> Delete
+
+                </button>
+
+            </td>
+
+        </tr>
+
+        {% endfor %}
+
+    {% endif %}
 
 
+
+    <!-- Always include an empty row at the bottom for adding new items -->
+
+    <tr>
+
+        <td>
+
+            <select name="deco_msiid[]" class="form-select select-decoration">
+
+                <option value="">-- Select Decoration Item --</option>
+
+                {% for msi in msi_decorations %}
+
+                <option value="{{ msi.MSIID }}">{{ msi.MSINAME }}</option>
+
+                {% endfor %}
+
+            </select>
+
+        </td>
+
+        <td>
+
+            <input type="number" step="any" name="deco_amt[]" class="form-control" placeholder="Amt">
+
+        </td>
+
+        <td class="text-center">
+
+            <button type="button" class="btn btn-outline-danger btn-sm delete-row-btn">
+
+                <i class="bi bi-trash"></i> Delete
+
+            </button>
+
+        </td>
+
+    </tr>
+
+</tbody>
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
                 <div class="mb-3">
 
                     <label for="ITMNOTE" class="form-label">Notes</label>
@@ -348,4 +476,69 @@
 
 </form>
 
+<script>
+
+document.addEventListener('change', function(e) {
+
+    if (e.target && e.target.classList.contains('select-decoration')) {
+
+        const tbody = document.querySelector('#decorations-table tbody');
+
+        const rows = tbody.querySelectorAll('tr');
+
+        const lastRow = rows[rows.length - 1];
+
+        
+
+        // If the user changed the dropdown in the *last* row and picked something, add a new blank row below it
+
+        if (e.target.closest('tr') === lastRow && e.target.value !== "") {
+
+            const newRow = lastRow.cloneNode(true);
+
+            newRow.querySelector('select').value = "";
+
+            newRow.querySelector('input[type="number"]').value = "";
+
+            tbody.appendChild(newRow);
+
+        }
+
+    }
+
+});
+
+
+
+document.addEventListener('click', function(e) {
+
+    if (e.target && (e.target.classList.contains('delete-row-btn') || e.target.closest('.delete-row-btn'))) {
+
+        const tbody = document.querySelector('#decorations-table tbody');
+
+        const rows = tbody.querySelectorAll('tr');
+
+        const rowToRemove = e.target.closest('tr');
+
+        
+
+        // Keep at least one row in the table
+
+        if (rows.length > 1) {
+
+            rowToRemove.remove();
+
+        } else {
+
+            rowToRemove.querySelector('select').value = "";
+
+            rowToRemove.querySelector('input[type="number"]').value = "";
+
+        }
+
+    }
+
+});
+
+</script>
 {% endblock %}

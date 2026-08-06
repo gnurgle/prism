@@ -1,0 +1,229 @@
+{% extends 'base.html' %}
+
+
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+
+    <div>
+
+        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Dashboard</a>
+
+        <h2>Application Settings</h2>
+
+    </div>
+
+</div>
+
+
+
+<form method="POST">
+
+    <div class="row">
+
+        <!-- Left Side Column: Sections Navigation -->
+
+        <div class="col-md-3">
+
+            <div class="card shadow-sm">
+
+                <div class="card-header bg-dark text-white">Sections</div>
+
+                <div class="list-group list-group-flush">
+
+                    <a href="#new-item-section" class="list-group-item list-group-item-action active">New Item</a>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- Right Side Column: Main Content Area -->
+
+        <div class="col-md-9">
+
+            <div class="card shadow-sm mb-4" id="new-item-section">
+
+                <div class="card-header bg-dark text-white">Default New Item Settings</div>
+
+                <div class="card-body">
+
+                    <p class="text-muted small mb-3">Configure standard default supply links used when initializing new items.</p>
+
+                    
+
+                    <!-- Solder Default -->
+
+                    <div class="mb-3 row">
+
+                        <label for="default_solder" class="col-sm-3 col-form-label fw-bold">Solder:</label>
+
+                        <div class="col-sm-9">
+
+                            <select name="default_solder" id="default_solder" class="form-select">
+
+                                <option value="">-- None / Default --</option>
+
+                                {% for msi in msi_solder %}
+
+                                <option value="{{ msi.MSIID }}" {% if defaults.Solder == msi.MSIID|string %}selected{% endif %}>
+
+                                    {{ msi.MSINAME }}
+
+                                </option>
+
+                                {% endfor %}
+
+                            </select>
+
+                        </div>
+
+                    </div>
+
+
+
+                    <!-- Foil Default -->
+
+                    <div class="mb-3 row">
+
+                        <label for="default_foil" class="col-sm-3 col-form-label fw-bold">Foil:</label>
+
+                        <div class="col-sm-9">
+
+                            <select name="default_foil" id="default_foil" class="form-select">
+
+                                <option value="">-- None / Default --</option>
+
+                                {% for msi in msi_foil %}
+
+                                <option value="{{ msi.MSIID }}" {% if defaults.Foil == msi.MSIID|string %}selected{% endif %}>
+
+                                    {{ msi.MSINAME }}
+
+                                </option>
+
+                                {% endfor %}
+
+                            </select>
+
+                        </div>
+
+                    </div>
+
+
+
+                    <!-- Came Default -->
+
+                    <div class="mb-3 row">
+
+                        <label for="default_came" class="col-sm-3 col-form-label fw-bold">Came:</label>
+
+                        <div class="col-sm-9">
+
+                            <select name="default_came" id="default_came" class="form-select">
+
+                                <option value="">-- None / Default --</option>
+
+                                {% for msi in msi_came %}
+
+                                <option value="{{ msi.MSIID }}" {% if defaults.Came == msi.MSIID|string %}selected{% endif %}>
+
+                                    {{ msi.MSINAME }}
+
+                                </option>
+
+                                {% endfor %}
+
+                            </select>
+
+                        </div>
+
+                    </div>
+
+
+
+                    <!-- Chain Default -->
+
+                    <div class="mb-3 row">
+
+                        <label for="default_chain" class="col-sm-3 col-form-label fw-bold">Chain:</label>
+
+                        <div class="col-sm-9">
+
+                            <select name="default_chain" id="default_chain" class="form-select">
+
+                                <option value="">-- None / Default --</option>
+
+                                {% for msi in msi_chain %}
+
+                                <option value="{{ msi.MSIID }}" {% if defaults.Chain == msi.MSIID|string %}selected{% endif %}>
+
+                                    {{ msi.MSINAME }}
+
+                                </option>
+
+                                {% endfor %}
+
+                            </select>
+
+                        </div>
+
+                    </div>
+
+
+
+                    <!-- Rings Default -->
+
+                    <div class="mb-3 row">
+
+                        <label for="default_rings" class="col-sm-3 col-form-label fw-bold">Rings:</label>
+
+                        <div class="col-sm-9">
+
+                            <select name="default_rings" id="default_rings" class="form-select">
+
+                                <option value="">-- None / Default --</option>
+
+                                {% for msi in msi_rings %}
+
+                                <option value="{{ msi.MSIID }}" {% if defaults.Rings == msi.MSIID|string %}selected{% endif %}>
+
+                                    {{ msi.MSINAME }}
+
+                                </option>
+
+                                {% endfor %}
+
+                            </select>
+
+                        </div>
+
+                    </div>
+
+
+
+                </div>
+
+            </div>
+
+
+
+            <!-- Save Button Row -->
+
+            <div class="text-end">
+
+                <button type="submit" class="btn btn-primary px-4">💾 Save Settings</button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</form>
+
+{% endblock %}

@@ -722,148 +722,6 @@ def create_item():
 
 def edit_item(item_id):
 
-    db = get_db()
-
-    
-
-    if request.method == 'POST':
-
-        itmname = request.form.get('ITMNAME')
-
-        itmgrp = request.form.get('ITMGRP') or None
-
-        new_itmgrp = request.form.get('NEW_ITMGRP')
-
-        
-
-        if new_itmgrp and new_itmgrp.strip():
-
-            itmgrp = new_itmgrp.strip()
-
-            db.execute("INSERT OR IGNORE INTO IGP (ITMGRP, ISACTIVE) VALUES (?, 1)", (itmgrp,))
-
-
-
-        itmlen = request.form.get('ITMLEN')
-
-        itmwid = request.form.get('ITMWID')
-
-        oneoff = 1 if request.form.get('ONEOFF') else 0
-
-        current = 1 if request.form.get('CURRENT') else 0
-
-        itmnote = request.form.get('ITMNOTE')
-
-        
-
-        # Update core item record using uppercase field names mapping
-
-        db.execute(
-
-            """
-
-            UPDATE ITM 
-
-            SET ITMNAME = ?, ITMGRP = ?, ITMLEN = ?, ITMWID = ?, ONEOFF = ?, CURRENT = ?, ITMNOTE = ?
-
-            WHERE ITEMID = ?
-
-            """,
-
-            (itmname, itmgrp, itmlen or None, itmwid or None, oneoff, current, itmnote, item_id)
-
-        )
-
-
-
-        # Clear existing supplies and resync from edit form matrix inputs
-
-        db.execute("DELETE FROM IMI WHERE ITEMID = ?", (item_id,))
-
-
-
-        supply_inputs = [
-
-            (request.form.get('ITMSLDR'), request.form.get('IMISLDR')),
-
-            (request.form.get('ITMFOIL'), request.form.get('IMIFOIL')),
-
-            (request.form.get('ITMCAME'), request.form.get('IMICAME')),
-
-            (request.form.get('ITMCHAIN'), request.form.get('IMICHAIN')),
-
-            (request.form.get('ITMRING'), request.form.get('IMIRING')),
-
-            (request.form.get('ITMWIRE'), request.form.get('IMIWIRE'))
-
-        ]
-
-
-
-        for qty_val, msi_id_val in supply_inputs:
-
-            if qty_val and float(qty_val) > 0 and msi_id_val:
-
-                try:
-
-                    db.execute(
-
-                        'INSERT INTO IMI (ITEMID, MSIID, IMIAMT) VALUES (?, ?, ?)',
-
-                        (item_id, int(msi_id_val), float(qty_val))
-
-                    )
-
-                except ValueError:
-
-                    continue
-
-
-
-        db.commit()
-
-        flash('Item updated successfully!', 'success')
-
-        return redirect(url_for('item_detail', item_id=item_id))
-
-
-
-    item = db.execute('SELECT * FROM ITM WHERE ITEMID = ?', (item_id,)).fetchone()
-
-    all_groups = db.execute('SELECT DISTINCT ITMGRP FROM ITM WHERE ITMGRP IS NOT NULL ORDER BY ITMGRP ASC').fetchall()
-
-    all_msi = db.execute('SELECT MSIID, MSINAME, MSITYPE FROM MSI WHERE ISACTIVE = 1 ORDER BY MSINAME ASC').fetchall()
-
-    
-
-    return render_template(
-
-        'item_form.html',
-
-        action='Edit',
-
-        item=item,
-
-        groups=all_groups,
-
-        msi_solder=[m for m in all_msi if m['MSITYPE'] == 'Solder'],
-
-        msi_foil=[m for m in all_msi if m['MSITYPE'] == 'Foil'],
-
-        msi_came=[m for m in all_msi if m['MSITYPE'] == 'Came'],
-
-        msi_chain=[m for m in all_msi if m['MSITYPE'] == 'Chain'],
-
-        msi_rings=[m for m in all_msi if m['MSITYPE'] == 'Rings'],
-
-        msi_wire=[m for m in all_msi if m['MSITYPE'] == 'Wire']
-
-    )
-
-@app.route('/item/<int:item_id>/edit', methods=['GET', 'POST'])
-
-def edit_item(item_id):
-
     """Edit an existing item, updating its core details, component layout, and IMI supply associations."""
 
     db = get_db()
@@ -882,9 +740,9 @@ def edit_item(item_id):
 
     if request.method == 'POST':
 
-        itmname = request.form.get('itmname')
+        itmname = request.form.get('ITMNAME')
 
-        itmgrp = request.form.get('itmgrp')
+        itmgrp = request.form.get('ITMGRP') or None
 
         new_itmgrp = request.form.get('NEW_ITMGRP')
 
@@ -906,15 +764,15 @@ def edit_item(item_id):
 
 
 
-        itmlen = request.form.get('itmlen')
+        itmlen = request.form.get('ITMLEN')
 
-        itmwid = request.form.get('itmwid')
+        itmwid = request.form.get('ITMWID')
 
-        oneoff = 1 if request.form.get('oneoff') else 0
+        oneoff = 1 if request.form.get('ONEOFF') else 0
 
-        current = 1 if request.form.get('current') else 0
+        current = 1 if request.form.get('CURRENT') else 0
 
-        itmnote = request.form.get('itmnote')
+        itmnote = request.form.get('ITMNOTE')
 
         
 
@@ -935,6 +793,7 @@ def edit_item(item_id):
             (itmname, itmgrp, itmlen or None, itmwid or None, oneoff, current, itmnote, item_id)
 
         )
+
 
 
         # Clear existing supply associations in IMI (excluding Decoration, handled separately below)
@@ -965,21 +824,27 @@ def edit_item(item_id):
 
             if qty_val and float(qty_val) > 0 and msi_id_val:
 
-                msiid_int = int(msi_id_val)
+                try:
 
-                # Verify MSIID exists in MSI table before insertion
+                    msiid_int = int(msi_id_val)
 
-                exists = db.execute("SELECT 1 FROM MSI WHERE MSIID = ?", (msiid_int,)).fetchone()
+                    # Verify MSIID exists in MSI table before insertion
 
-                if exists:
+                    exists = db.execute("SELECT 1 FROM MSI WHERE MSIID = ?", (msiid_int,)).fetchone()
 
-                    db.execute(
+                    if exists:
 
-                        'INSERT INTO IMI (ITEMID, MSIID, IMIAMT) VALUES (?, ?, ?)',
+                        db.execute(
 
-                        (item_id, msiid_int, float(qty_val))
+                            'INSERT INTO IMI (ITEMID, MSIID, IMIAMT) VALUES (?, ?, ?)',
 
-                    )
+                            (item_id, msiid_int, float(qty_val))
+
+                        )
+
+                except ValueError:
+
+                    continue
 
 
 
@@ -1102,7 +967,6 @@ def edit_item(item_id):
     item_form_data['IMIWIRE']  = supplies_dict.get('Wire', {}).get('id', '')
 
 
-
     # Fetch categorized Misc Supply options for template dropdown lists
 
     all_msi = db.execute('SELECT MSIID, MSINAME, MSITYPE FROM MSI ORDER BY MSINAME ASC').fetchall()
@@ -1198,7 +1062,6 @@ def edit_item(item_id):
         associated_decorations=associated_decorations
 
     )
-
 
 
 
