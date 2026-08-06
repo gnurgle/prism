@@ -117,181 +117,151 @@ def index():
         "dashboard.html", stats=stats, recent_audits=recent_audits
     )
 
-@app.route('/item/<int:item_id>')
+@app.route('/item/<int:item_id>', methods=['GET'])
 
 def item_detail(item_id):
 
-  """Display full details, pricing metrics, components, and group siblings."""
+    """Display full details, pricing metrics, components, and group siblings using IMI mapping table."""
 
-  db = get_db()
+    db = get_db()
 
 
 
-  # Conversion Constants
+    # Conversion Constants
 
-  SOLDER_CONVERSION = 0.3776
+    SOLDER_CONVERSION = 0.3776
 
-  CAME_CONVERSION = 0.1652
+    CAME_CONVERSION = 0.1652
 
 
 
-  # Fetch core item record with joined MSI info for linked supplies
+    # Fetch core item record and safely convert sqlite3.Row to a standard dictionary
 
-  item = db.execute(
+    raw_item = db.execute(
 
-      """
+        'SELECT * FROM ITM WHERE ITEMID = ?', (item_id,)
 
-        SELECT i.*, 
+    ).fetchone()
 
-               s_sldr.MSINAME AS MSLDR_NAME, s_sldr.UNTTYPE AS MSLDR_UNIT,
 
-               s_foil.MSINAME AS MFOIL_NAME, s_foil.UNTTYPE AS MFOIL_UNIT,
 
-               s_came.MSINAME AS MCAME_NAME, s_came.UNTTYPE AS MCAME_UNIT,
+    if not raw_item:
 
-               s_chain.MSINAME AS MCHAIN_NAME, s_chain.UNTTYPE AS MCHAIN_UNIT,
+        flash('Item record not found.', 'danger')
 
-               s_ring.MSINAME AS MRING_NAME, s_ring.UNTTYPE AS MRING_UNIT,
+        return redirect(url_for('index'))
 
-               s_wire.MSINAME AS MWIRE_NAME, s_wire.UNTTYPE AS MWIRE_UNIT
+    
 
-        FROM ITM i
+    item = dict(raw_item)
 
-        LEFT JOIN MSI s_sldr ON i.IMISLDR = s_sldr.MSIID
 
-        LEFT JOIN MSI s_foil ON i.IMIFOIL = s_foil.MSIID
 
-        LEFT JOIN MSI s_came ON i.IMICAME = s_came.MSIID
+    # Fetch associated components (IGC) with joined glass info
 
-        LEFT JOIN MSI s_chain ON i.IMICHAIN = s_chain.MSIID
-
-        LEFT JOIN MSI s_ring ON i.IMIRING = s_ring.MSIID
-
-        LEFT JOIN MSI s_wire ON i.IMIWIRE = s_wire.MSIID
-
-        WHERE i.ITEMID = ?
-
-      """,
-
-      (item_id,),
-
-  ).fetchone()
-
-
-
-  if not item:
-
-    flash('Item record not found.', 'danger')
-
-    return redirect(url_for('index'))
-
-
-
-  # Fetch associated components (IGC) with joined glass info
-
-  components = db.execute(
-
-      """
-
-        SELECT c.*, g.GLSNAME 
-
-        FROM IGC c
-
-        LEFT JOIN GSI g ON c.GLASSID = g.GLASSID
-
-        WHERE c.ITEMID = ?
-
-        ORDER BY c.COMPNUM ASC
-
-    """,
-
-      (item_id,),
-
-  ).fetchall()
-
-
-
-  # Fetch Pricing Metrics from IPC table using correct columns (ITMPRICE, STDATE, ENDDATE)
-
-  current_price = db.execute(
-
-      """
-
-        SELECT ITMPRICE AS PRICE FROM IPC 
-
-        WHERE ITEMID = ? AND (ENDDATE IS NULL OR ENDDATE >= DATE('now'))
-
-        ORDER BY STDATE DESC LIMIT 1
-
-    """,
-
-      (item_id,),
-
-  ).fetchone()
-
-
-
-  lowest_price = db.execute(
-
-      """
-
-        SELECT ITMPRICE AS PRICE, STDATE AS START_DATE, ENDDATE AS END_DATE FROM IPC 
-
-        WHERE ITEMID = ? 
-
-        ORDER BY ITMPRICE ASC LIMIT 1
-
-    """,
-
-      (item_id,),
-
-  ).fetchone()
-
-
-
-  highest_price = db.execute(
-
-      """
-
-        SELECT ITMPRICE AS PRICE, STDATE AS START_DATE, ENDDATE AS END_DATE FROM IPC 
-
-        WHERE ITEMID = ? 
-
-        ORDER BY ITMPRICE DESC LIMIT 1
-
-    """,
-
-      (item_id,),
-
-  ).fetchone()
-
-
-
-  # Fetch group siblings if item is not a one-off and has a group assigned
-
-  group_siblings = []
-
-  if not item['ONEOFF'] and item['ITMGRP']:
-
-    group_siblings = db.execute(
+    components = db.execute(
 
         """
 
-            SELECT ITEMID, ITMNAME FROM ITM 
+            SELECT c.*, g.GLSNAME 
 
-            WHERE ITMGRP = ? AND ONEOFF = 0
+            FROM IGC c
 
-            ORDER BY ITMNAME ASC
+            LEFT JOIN GSI g ON c.GLASSID = g.GLASSID
+
+            WHERE c.ITEMID = ?
+
+            ORDER BY c.COMPNUM ASC
 
         """,
 
-        (item['ITMGRP'],),
+        (item_id,),
 
     ).fetchall()
 
 
 
-  components_with_cost = db.execute(
+    # Fetch Pricing Metrics from IPC table using correct columns (ITMPRICE, STDATE, ENDDATE)
+
+    current_price = db.execute(
+
+        """
+
+            SELECT ITMPRICE AS PRICE FROM IPC 
+
+            WHERE ITEMID = ? AND (ENDDATE IS NULL OR ENDDATE >= DATE('now'))
+
+            ORDER BY STDATE DESC LIMIT 1
+
+        """,
+
+        (item_id,),
+
+    ).fetchone()
+
+
+
+    lowest_price = db.execute(
+
+        """
+
+            SELECT ITMPRICE AS PRICE, STDATE AS START_DATE, ENDDATE AS END_DATE FROM IPC 
+
+            WHERE ITEMID = ? 
+
+            ORDER BY ITMPRICE ASC LIMIT 1
+
+        """,
+
+        (item_id,),
+
+    ).fetchone()
+
+
+
+    highest_price = db.execute(
+
+        """
+
+            SELECT ITMPRICE AS PRICE, STDATE AS START_DATE, ENDDATE AS END_DATE FROM IPC 
+
+            WHERE ITEMID = ? 
+
+            ORDER BY ITMPRICE DESC LIMIT 1
+
+        """,
+
+        (item_id,),
+
+    ).fetchone()
+
+
+
+    # Fetch group siblings if item is not a one-off and has a group assigned
+
+    group_siblings = []
+
+    if not item['ONEOFF'] and item['ITMGRP']:
+
+        group_siblings = db.execute(
+
+            """
+
+                SELECT ITEMID, ITMNAME FROM ITM 
+
+                WHERE ITMGRP = ? AND ONEOFF = 0
+
+                ORDER BY ITMNAME ASC
+
+            """,
+
+            (item['ITMGRP'],),
+
+        ).fetchall()
+
+
+
+    components_with_cost = db.execute(
 
         """
 
@@ -319,139 +289,135 @@ def item_detail(item_id):
 
 
 
-  materials_cost = 0.0
+    materials_cost = 0.0
 
-  for comp in components_with_cost:
+    for comp in components_with_cost:
 
-      comp_sqin = (comp['COMPLEN'] or 0) * (comp['COMPWID'] or 0)
+        comp_sqin = (comp['COMPLEN'] or 0) * (comp['COMPWID'] or 0)
 
-      glass_sheet_area = (comp['GLSLEN'] or 1) * (comp['GLSWID'] or 1)
+        glass_sheet_area = (comp['GLSLEN'] or 1) * (comp['GLSWID'] or 1)
 
-      glass_sheet_price = comp['LATEST_GLSPRICE'] or 0.0
+        glass_sheet_price = comp['LATEST_GLSPRICE'] or 0.0
 
         
 
-      if glass_sheet_area > 0:
+        if glass_sheet_area > 0:
 
-          cost_per_sqin = glass_sheet_price / glass_sheet_area
+            cost_per_sqin = glass_sheet_price / glass_sheet_area
 
-          materials_cost += comp_sqin * cost_per_sqin
+            materials_cost += comp_sqin * cost_per_sqin
 
 
 
+    # Fetch all associated supplies from IMI mapping table for this item
 
+    associated_supplies_rows = db.execute(
 
+        """
 
-  # Calculate metrics directly from ITM fields, applying SOLDER_CONVERSION and CAME_CONVERSION
+        SELECT msi.MSIID, msi.MSINAME, msi.MSITYPE, imi.IMIAMT, msi.MSIUNIT, u.CFACTOR
 
-  raw_sldr = float(item['ITMSLDR'] or 0.0)
+        FROM IMI imi
 
-  raw_came = float(item['ITMCAME'] or 0.0)
-  
+        JOIN MSI msi ON imi.MSIID = msi.MSIID
 
-  itm_supplies = {
+        LEFT JOIN UNTS u ON msi.UNTTYPE = u.UNTTYPE
 
-      'ITMSLDR': (raw_sldr * SOLDER_CONVERSION * 2) + (raw_came * CAME_CONVERSION * 2),
+        WHERE imi.ITEMID = ?
 
-      'ITMCAME': float(item['ITMCAME'] or 0.0),
+        """,
 
-      'ITMFOIL': float(item['ITMFOIL'] or 0.0),
+        (item_id,),
 
-      'ITMCHAIN': float(item['ITMCHAIN'] or 0.0),
+    ).fetchall()
 
-      'ITMRING': float(item['ITMRING'] or 0),
 
-      'ITMWIRE': float(item['ITMWIRE'] or 0.0)
 
-  }
+    supplies_map = {row['MSITYPE']: row for row in associated_supplies_rows}
 
-# Fetch associated MSIIDs, CFACTORs, and MSIUNITs by joining MSI and UNTS tables
 
-  supply_links = db.execute(
 
-      """
+    # Populate template-expected supply name fields onto the item dictionary safely
 
-        SELECT 
+    item['MSLDR_NAME'] = supplies_map['Solder']['MSINAME'] if 'Solder' in supplies_map else ''
 
-            i.IMISLDR AS sldr_id, u_sldr.CFACTOR as sldr_cfactor, m_sldr.MSIUNIT as sldr_msiunit,
+    item['MFOIL_NAME'] = supplies_map['Foil']['MSINAME'] if 'Foil' in supplies_map else ''
 
-            i.IMIFOIL AS foil_id, u_foil.CFACTOR as foil_cfactor, m_foil.MSIUNIT as foil_msiunit,
+    item['MCAME_NAME'] = supplies_map['Came']['MSINAME'] if 'Came' in supplies_map else ''
 
-            i.IMICAME AS came_id, u_came.CFACTOR as came_cfactor, m_came.MSIUNIT as came_msiunit,
+    item['MCHAIN_NAME'] = supplies_map['Chain']['MSINAME'] if 'Chain' in supplies_map else ''
 
-            i.IMICHAIN AS chain_id, u_chain.CFACTOR as chain_cfactor, m_chain.MSIUNIT as chain_msiunit,
+    item['MRING_NAME']  = supplies_map['Rings']['MSINAME'] if 'Rings' in supplies_map else ''
 
-            i.IMIRING AS ring_id, u_ring.CFACTOR as ring_cfactor, m_ring.MSIUNIT as ring_msiunit,
+    item['MWIRE_NAME']  = supplies_map['Wire']['MSINAME'] if 'Wire' in supplies_map else ''
 
-            i.IMIWIRE AS wire_id, u_wire.CFACTOR as wire_cfactor, m_wire.MSIUNIT as wire_msiunit
 
-        FROM ITM i
 
-        LEFT JOIN MSI m_sldr ON i.IMISLDR = m_sldr.MSIID
+    raw_sldr = float(supplies_map['Solder']['IMIAMT']) if 'Solder' in supplies_map and supplies_map['Solder']['IMIAMT'] is not None else 0.0
 
-        LEFT JOIN UNTS u_sldr ON m_sldr.UNTTYPE = u_sldr.UNTTYPE
+    raw_came = float(supplies_map['Came']['IMIAMT']) if 'Came' in supplies_map and supplies_map['Came']['IMIAMT'] is not None else 0.0
 
-        LEFT JOIN MSI m_foil ON i.IMIFOIL = m_foil.MSIID
 
-        LEFT JOIN UNTS u_foil ON m_foil.UNTTYPE = u_foil.UNTTYPE
 
-        LEFT JOIN MSI m_came ON i.IMICAME = m_came.MSIID
+    itm_supplies = {
 
-        LEFT JOIN UNTS u_came ON m_came.UNTTYPE = u_came.UNTTYPE
+        'ITMSLDR': (raw_sldr * SOLDER_CONVERSION * 2) + (raw_came * CAME_CONVERSION * 2),
 
-        LEFT JOIN MSI m_chain ON i.IMICHAIN = m_chain.MSIID
+        'ITMCAME': raw_came,
 
-        LEFT JOIN UNTS u_chain ON m_chain.UNTTYPE = u_chain.UNTTYPE
+        'ITMFOIL': float(supplies_map['Foil']['IMIAMT']) if 'Foil' in supplies_map and supplies_map['Foil']['IMIAMT'] is not None else 0.0,
 
-        LEFT JOIN MSI m_ring ON i.IMIRING = m_ring.MSIID
+        'ITMCHAIN': float(supplies_map['Chain']['IMIAMT']) if 'Chain' in supplies_map and supplies_map['Chain']['IMIAMT'] is not None else 0.0,
 
-        LEFT JOIN UNTS u_ring ON m_ring.UNTTYPE = u_ring.UNTTYPE
+        'ITMRING': float(supplies_map['Rings']['IMIAMT']) if 'Rings' in supplies_map and supplies_map['Rings']['IMIAMT'] is not None else 0,
 
-        LEFT JOIN MSI m_wire ON i.IMIWIRE = m_wire.MSIID
+        'ITMWIRE': float(supplies_map['Wire']['IMIAMT']) if 'Wire' in supplies_map and supplies_map['Wire']['IMIAMT'] is not None else 0.0
 
-        LEFT JOIN UNTS u_wire ON m_wire.UNTTYPE = u_wire.UNTTYPE
+    }
 
-        WHERE i.ITEMID = ?
 
-      """,
 
-      (item_id,),
+    estimated_supplies_core_cost = 0.0
 
-  ).fetchone()
 
 
+    for msi_type, qty in itm_supplies.items():
 
-  estimated_supplies_core_cost = 0.0
+        type_lookup_map = {
 
+            'ITMSLDR': 'Solder',
 
+            'ITMFOIL': 'Foil',
 
-  if supply_links:
+            'ITMCAME': 'Came',
 
-      supplies_to_calc = [
+            'ITMCHAIN': 'Chain',
 
-          (itm_supplies['ITMSLDR'], supply_links['sldr_id'], supply_links['sldr_cfactor'], supply_links['sldr_msiunit']),
+            'ITMRING': 'Rings',
 
-          (itm_supplies['ITMFOIL'], supply_links['foil_id'], supply_links['foil_cfactor'], supply_links['foil_msiunit']),
+            'ITMWIRE': 'Wire'
 
-          (itm_supplies['ITMCAME'], supply_links['came_id'], supply_links['came_cfactor'], supply_links['came_msiunit']),
+        }
 
-          (itm_supplies['ITMCHAIN'], supply_links['chain_id'], supply_links['chain_cfactor'], supply_links['chain_msiunit']),
+        actual_type = type_lookup_map.get(msi_type)
 
-          (itm_supplies['ITMRING'], supply_links['ring_id'], supply_links['ring_cfactor'], supply_links['ring_msiunit']),
+        supply_data = supplies_map.get(actual_type)
 
-          (itm_supplies['ITMWIRE'], supply_links['wire_id'], supply_links['wire_cfactor'], supply_links['wire_msiunit'])
 
-      ]
 
+        if qty and qty > 0 and supply_data and supply_data['MSIID']:
 
+            misc_id = supply_data['MSIID']
 
-      for qty, misc_id, cfactor, msiunit in supplies_to_calc:
+            cfactor = supply_data['CFACTOR']
 
-          if qty and qty > 0 and misc_id:
+            msiunit = supply_data['MSIUNIT']
 
-              price_row = db.execute(
 
-                  """
+
+            price_row = db.execute(
+
+                """
 
                     SELECT MSIPRICE AS PRICE FROM MSP 
 
@@ -459,378 +425,247 @@ def item_detail(item_id):
 
                     ORDER BY STDATE DESC LIMIT 1
 
-                  """,
+                """,
 
-                  (misc_id,),
+                (misc_id,),
 
-              ).fetchone()
-
-
-
-              if price_row and price_row['PRICE']:
-
-                  unit_price = float(price_row['PRICE'])
-
-                  valid_cfactor = float(cfactor) if cfactor and float(cfactor) > 0 else 1.0
-
-                  valid_msiunit = float(msiunit) if msiunit and float(msiunit) > 0 else 1.0
-
-                  
-
-                  divisor = valid_cfactor * valid_msiunit
-
-                  if divisor > 0 and unit_price > 0:
-
-                      estimated_supplies_core_cost += qty * (unit_price / divisor)
+            ).fetchone()
 
 
 
-  estimated_supplies_cost = estimated_supplies_core_cost
+            if price_row and price_row['PRICE']:
 
-  total_cost = materials_cost + estimated_supplies_cost
+                unit_price = float(price_row['PRICE'])
 
-  return render_template(
+                valid_cfactor = float(cfactor) if cfactor and float(cfactor) > 0 else 1.0
 
-      'item_detail.html',
+                valid_msiunit = float(msiunit) if msiunit is not None and float(msiunit) > 0 else 1.0
 
-      item=item,
+                
 
-      components=components,
+                divisor = valid_cfactor * valid_msiunit
 
-      current_price=current_price,
+                if divisor > 0 and unit_price > 0:
 
-      lowest_price=lowest_price,
+                    estimated_supplies_core_cost += qty * (unit_price / divisor)
 
-      highest_price=highest_price,
 
-      materials_cost=materials_cost,
 
-      estimated_supplies_cost=estimated_supplies_cost,
+    estimated_supplies_cost = estimated_supplies_core_cost
 
-      total_cost=total_cost,
+    total_cost = materials_cost + estimated_supplies_cost
 
-      group_siblings=group_siblings,
 
-      itm_supplies=itm_supplies,
 
-  )
+    return render_template(
 
+        'item_detail.html',
+
+        item=item,
+
+        components=components,
+
+        current_price=current_price,
+
+        lowest_price=lowest_price,
+
+        highest_price=highest_price,
+
+        materials_cost=materials_cost,
+
+        estimated_supplies_cost=estimated_supplies_cost,
+
+        total_cost=total_cost,
+
+        group_siblings=group_siblings,
+
+        itm_supplies=itm_supplies,
+
+        associated_supplies=associated_supplies_rows,
+
+    )
 # -----------------------------------------------------------------------------
 # CREATE ITEM ROUTE
 # -----------------------------------------------------------------------------
 
 
 @app.route('/item/create', methods=['GET', 'POST'])
+
 def create_item():
-    """Create a new Item record and handle group/image inputs."""
+
+    """Create a new Item record and handle its material items (IMI) associations."""
+
     db = get_db()
 
+
+
     if request.method == 'POST':
+
         itm_name = request.form.get('ITMNAME', '').strip()
+
         itm_grp = request.form.get('ITMGRP', '').strip()
+
         new_grp = request.form.get('NEW_ITMGRP', '').strip()
+
         
+
         # Parse dimensions securely
+
         itm_len_val = request.form.get('ITMLEN')
+
         itm_wid_val = request.form.get('ITMWID')
+
         itm_len = float(itm_len_val) if itm_len_val else None
+
         itm_wid = float(itm_wid_val) if itm_wid_val else None
 
+
+
         oneoff = 1 if request.form.get('ONEOFF') else 0
+
         current = 1 if request.form.get('CURRENT') else 0
+
         itm_note = request.form.get('ITMNOTE', '').strip()
 
-        # Group safeguard: if no option selected and new input is blank, assign None
+
+
         selected_group = None
+
         if new_grp:
+
             selected_group = new_grp
+
             existing_grp = db.execute(
+
                 'SELECT 1 FROM IGP WHERE ITMGRP = ?', (new_grp,)
+
             ).fetchone()
+
             if not existing_grp:
+
                 db.execute(
+
                     'INSERT INTO IGP (ITMGRP, ISACTIVE) VALUES (?, 1)', (new_grp,)
+
                 )
+
         elif itm_grp:
+
             selected_group = itm_grp
 
-        # Save initial record to get the item_id for naming the image file
-        cursor = db.cursor()
-        cursor.execute(
+
+
+        # Insert base item record first to retrieve the generated ITEMID
+
+        cursor = db.execute(
+
             """
+
                 INSERT INTO ITM (ITMNAME, ITMGRP, ITMLEN, ITMWID, ONEOFF, CURRENT, ITMNOTE, ITMIMG)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+
+                VALUES (?, ?, ?, ?, ?, ?, ?, NULL)
+
             """,
-            (itm_name, selected_group, itm_len, itm_wid, oneoff, current, itm_note, None),
+
+            (itm_name, selected_group, itm_len, itm_wid, oneoff, current, itm_note),
+
         )
+
         item_id = cursor.lastrowid
-        db.commit()
 
-        # Handle image upload using the modular helper signature
+
+
+        # Handle image upload if provided, using the new item_id
+
         image_path = None
+
         if 'ITMIMG_FILE' in request.files:
+
             file = request.files['ITMIMG_FILE']
+
             if file and file.filename != '':
+
                 image_path = process_and_save_image(
+
                     file,
+
                     upload_subfolder='images/items',
+
                     custom_filename_base=f'{item_id}_{itm_name}',
+
                     target_size=(1024, 1024),
+
                 )
-                cursor.execute(
-                    'UPDATE ITM SET ITMIMG = ? WHERE ITEMID = ?', (image_path, item_id)
-                )
-                db.commit()
-
-        flash(f'Item "{itm_name}" successfully created.', 'success')
-        return redirect(url_for('item_detail', item_id=item_id))
-
-    groups = db.execute(
-        'SELECT DISTINCT ITMGRP FROM ITM WHERE ITMGRP IS NOT NULL AND ITMGRP !='
-        " '' ORDER BY ITMGRP"
-    ).fetchall()
-    return render_template('item_form.html', action='Create', groups=groups)
-
-
-@app.route('/item/<int:item_id>/edit', methods=['GET', 'POST'])
-
-def edit_item(item_id):
-
-    """Edit an existing Item record, matching glass image upload handling."""
-
-    db = get_db()
-
-
-
-    item = db.execute(
-
-        'SELECT * FROM ITM WHERE ITEMID = ?', (item_id,)
-
-    ).fetchone()
-
-
-
-    if not item:
-
-        flash('Item record not found.', 'danger')
-
-        return redirect(url_for('index'))
-
-
-
-    if request.method == 'POST':
-
-        itm_name = request.form.get('ITMNAME', '').strip()
-
-        itm_grp = request.form.get('ITMGRP', '').strip()
-
-        new_grp = request.form.get('NEW_ITMGRP', '').strip()
-
-        
-
-        # Parse dimensions securely
-
-        itm_len_val = request.form.get('ITMLEN')
-
-        itm_wid_val = request.form.get('ITMWID')
-
-        itm_len = float(itm_len_val) if itm_len_val else None
-
-        itm_wid = float(itm_wid_val) if itm_wid_val else None
-
-
-
-        # Parse supply metrics and selected linked MSI IDs
-
-        itm_sldr = float(request.form.get('ITMSLDR')) if request.form.get('ITMSLDR') else None
-
-        itm_foil = float(request.form.get('ITMFOIL')) if request.form.get('ITMFOIL') else None
-
-        itm_came = float(request.form.get('ITMCAME')) if request.form.get('ITMCAME') else None
-
-        itm_chain = int(request.form.get('ITMCHAIN')) if request.form.get('ITMCHAIN') else None
-
-        itm_ring = int(request.form.get('ITMRING')) if request.form.get('ITMRING') else None
-
-        itm_wire = int(request.form.get('ITMWIRE')) if request.form.get('ITMWIRE') else None
-
-
-
-        imi_sldr = int(request.form.get('IMISLDR')) if request.form.get('IMISLDR') else None
-
-        imi_foil = int(request.form.get('IMIFOIL')) if request.form.get('IMIFOIL') else None
-
-        imi_came = int(request.form.get('IMICAME')) if request.form.get('IMICAME') else None
-
-        imi_chain = int(request.form.get('IMICHAIN')) if request.form.get('IMICHAIN') else None
-
-        imi_ring = int(request.form.get('IMIRING')) if request.form.get('IMIRING') else None
-
-        imi_wire = int(request.form.get('IMIWIRE')) if request.form.get('IMIWIRE') else None
-
-
-
-        oneoff = 1 if request.form.get('ONEOFF') else 0
-
-        current = 1 if request.form.get('CURRENT') else 0
-
-        itm_note = request.form.get('ITMNOTE', '').strip()
-
-
-
-        selected_group = None
-
-        if new_grp:
-
-            selected_group = new_grp
-
-            existing_grp = db.execute(
-
-                'SELECT 1 FROM IGP WHERE ITMGRP = ?', (new_grp,)
-
-            ).fetchone()
-
-            if not existing_grp:
 
                 db.execute(
 
-                    'INSERT INTO IGP (ITMGRP, ISACTIVE) VALUES (?, 1)', (new_grp,)
+                    'UPDATE ITM SET ITMIMG = ? WHERE ITEMID = ?',
 
-                )
-
-        elif itm_grp:
-
-            selected_group = itm_grp
-
-
-
-        # Keep existing image unless a new file is uploaded
-
-        image_path = item['ITMIMG']
-
-        if 'ITMIMG_FILE' in request.files:
-
-            file = request.files['ITMIMG_FILE']
-
-            if file and file.filename != '':
-
-                image_path = process_and_save_image(
-
-                    file,
-
-                    upload_subfolder='images/items',
-
-                    custom_filename_base=f'{item_id}_{itm_name}',
-
-                    target_size=(1024, 1024),
+                    (image_path, item_id),
 
                 )
 
 
 
-        db.execute(
+        # Handle supply inputs and store amounts in IMI
 
-            """
+        supply_inputs = [
 
-                UPDATE ITM 
+            ('Solder', request.form.get('ITMSLDR')),
 
-                SET ITMNAME = ?, 
+            ('Foil', request.form.get('ITMFOIL')),
 
-                    ITMGRP = ?, 
+            ('Came', request.form.get('ITMCAME')),
 
-                    ITMLEN = ?,
+            ('Rings', request.form.get('ITMRING')),
 
-                    ITMWID = ?,
+            ('Chain', request.form.get('ITMCHAIN')),
 
-                    ITMSLDR = ?,
+        ]
 
-                    ITMFOIL = ?,
 
-                    ITMCAME = ?,
 
-                    ITMCHAIN = ?,
+        for msi_type, amount_val in supply_inputs:
 
-                    ITMRING = ?,
+            if amount_val and float(amount_val) > 0:
 
-                    ITMWIRE = ?,
+                amount = float(amount_val)
 
-                    IMISLDR = ?,
+                msi_record = db.execute(
 
-                    IMIFOIL = ?,
+                    "SELECT MSIID FROM MSI WHERE MSITYPE = ? AND ISACTIVE = 1 LIMIT 1",
 
-                    IMICAME = ?,
+                    (msi_type,)
 
-                    IMICHAIN = ?,
+                ).fetchone()
 
-                    IMIRING = ?,
 
-                    IMIWIRE = ?,
 
-                    ONEOFF = ?, 
+                if msi_record:
 
-                    CURRENT = ?, 
+                    msiid = msi_record['MSIID']
 
-                    ITMNOTE = ?, 
+                    db.execute(
 
-                    ITMIMG = ?
+                        """
 
-                WHERE ITEMID = ?
+                        INSERT INTO IMI (ITEMID, MSIID, IMIAMT)
 
-            """,
+                        VALUES (?, ?, ?)
 
-            (
+                        """,
 
-                itm_name,
+                        (item_id, msiid, amount)
 
-                selected_group,
+                    )
 
-                itm_len,
 
-                itm_wid,
-
-                itm_sldr,
-
-                itm_foil,
-
-                itm_came,
-
-                itm_chain,
-
-                itm_ring,
-
-                itm_wire,
-
-                imi_sldr,
-
-                imi_foil,
-
-                imi_came,
-
-                imi_chain,
-
-                imi_ring,
-
-                imi_wire,
-
-                oneoff,
-
-                current,
-
-                itm_note,
-
-                image_path,
-
-                item_id,
-
-            ),
-
-        )
 
         db.commit()
 
 
 
-        flash(f'Item "{itm_name}" updated successfully.', 'success')
+        flash(f'Item "{itm_name}" created successfully.', 'success')
 
         return redirect(url_for('item_detail', item_id=item_id))
 
@@ -845,8 +680,6 @@ def edit_item(item_id):
     ).fetchall()
 
 
-
-    # Fetch type-matched MSI lists for the edit dropdown cells
 
     msi_solder = db.execute("SELECT MSIID, MSINAME FROM MSI WHERE MSITYPE = 'Solder' AND ISACTIVE = 1").fetchall()
 
@@ -866,11 +699,228 @@ def edit_item(item_id):
 
         'item_form.html', 
 
-        action='Edit', 
+        action='Create', 
 
-        item=item, 
+        item=None, 
 
         groups=groups,
+
+        msi_solder=msi_solder,
+
+        msi_foil=msi_foil,
+
+        msi_came=msi_came,
+
+        msi_chain=msi_chain,
+
+        msi_rings=msi_rings,
+
+        msi_wire=msi_wire
+
+    )
+
+
+@app.route('/item/<int:item_id>/edit', methods=['GET', 'POST'])
+
+def edit_item(item_id):
+
+    """Edit an existing item, updating its core details, component layout, and IMI supply associations."""
+
+    db = get_db()
+
+    
+
+    item = db.execute('SELECT * FROM ITM WHERE ITEMID = ?', (item_id,)).fetchone()
+
+    if not item:
+
+        flash('Item not found.', 'danger')
+
+        return redirect(url_for('index'))
+
+
+
+    if request.method == 'POST':
+
+        itmname = request.form.get('itmname')
+
+        itmgrp = request.form.get('itmgrp') or request.form.get('NEW_ITMGRP')
+
+        itmlen = request.form.get('itmlen')
+
+        itmwid = request.form.get('itmwid')
+
+        oneoff = 1 if request.form.get('oneoff') else 0
+
+        current = 1 if request.form.get('current') else 0
+
+        itmnote = request.form.get('itmnote')
+
+
+
+        # Update core item fields
+
+        db.execute(
+
+            """
+
+            UPDATE ITM 
+
+            SET ITMNAME = ?, ITMGRP = ?, ITMLEN = ?, ITMWID = ?, ONEOFF = ?, CURRENT = ?, ITMNOTE = ?
+
+            WHERE ITEMID = ?
+
+            """,
+
+            (itmname, itmgrp, itmlen or None, itmwid or None, oneoff, current, itmnote, item_id)
+
+        )
+
+
+
+        # Clear existing supply associations in IMI and re-insert submitted values
+
+        db.execute('DELETE FROM IMI WHERE ITEMID = ?', (item_id,))
+
+
+
+        supply_inputs = [
+
+            ('Solder', request.form.get('ITMSLDR'), request.form.get('IMISLDR')),
+
+            ('Foil', request.form.get('ITMFOIL'), request.form.get('IMIFOIL')),
+
+            ('Came', request.form.get('ITMCAME'), request.form.get('IMICAME')),
+
+            ('Chain', request.form.get('ITMCHAIN'), request.form.get('IMICHAIN')),
+
+            ('Rings', request.form.get('ITMRING'), request.form.get('IMIRING')),
+
+            ('Wire', request.form.get('ITMWIRE'), request.form.get('IMIWIRE'))
+
+        ]
+
+
+
+        for msi_type, qty_val, msi_id_val in supply_inputs:
+
+            if qty_val and float(qty_val) > 0 and msi_id_val:
+
+                db.execute(
+
+                    'INSERT INTO IMI (ITEMID, MSIID, IMIAMT) VALUES (?, ?, ?)',
+
+                    (item_id, int(msi_id_val), float(qty_val))
+
+                )
+
+
+
+        db.commit()
+
+        flash('Item updated successfully!', 'success')
+
+        return redirect(url_for('item_detail', item_id=item_id))
+
+
+
+    # Fetch associated supplies from IMI mapping table for form population
+
+    associated_supplies = db.execute(
+
+        """
+
+        SELECT msi.MSITYPE, msi.MSIID, imi.IMIAMT 
+
+        FROM IMI imi
+
+        JOIN MSI msi ON imi.MSIID = msi.MSIID
+
+        WHERE imi.ITEMID = ?
+
+        """,
+
+        (item_id,)
+
+    ).fetchall()
+
+
+
+    supplies_dict = {row['MSITYPE']: {'amt': row['IMIAMT'], 'id': row['MSIID']} for row in associated_supplies}
+
+    
+
+    item_form_data = dict(item)
+
+    item_form_data['ITMSLDR'] = supplies_dict.get('Solder', {}).get('amt', '')
+
+    item_form_data['IMISLDR'] = supplies_dict.get('Solder', {}).get('id', '')
+
+    
+
+    item_form_data['ITMFOIL'] = supplies_dict.get('Foil', {}).get('amt', '')
+
+    item_form_data['IMIFOIL'] = supplies_dict.get('Foil', {}).get('id', '')
+
+    
+
+    item_form_data['ITMCAME'] = supplies_dict.get('Came', {}).get('amt', '')
+
+    item_form_data['IMICAME'] = supplies_dict.get('Came', {}).get('id', '')
+
+    
+
+    item_form_data['ITMCHAIN'] = supplies_dict.get('Chain', {}).get('amt', '')
+
+    item_form_data['IMICHAIN'] = supplies_dict.get('Chain', {}).get('id', '')
+
+    
+
+    item_form_data['ITMRING']  = supplies_dict.get('Rings', {}).get('amt', '')
+
+    item_form_data['IMIRING']  = supplies_dict.get('Rings', {}).get('id', '')
+
+    
+
+    item_form_data['ITMWIRE']  = supplies_dict.get('Wire', {}).get('amt', '')
+
+    item_form_data['IMIWIRE']  = supplies_dict.get('Wire', {}).get('id', '')
+
+
+
+    # Fetch categorized Misc Supply options for template dropdown lists[cite: 2]
+
+    all_msi = db.execute('SELECT MSIID, MSINAME, MSITYPE FROM MSI ORDER BY MSINAME ASC').fetchall()
+
+    
+
+    msi_solder = [m for m in all_msi if m['MSITYPE'] == 'Solder']
+
+    msi_foil = [m for m in all_msi if m['MSITYPE'] == 'Foil']
+
+    msi_came = [m for m in all_msi if m['MSITYPE'] == 'Came']
+
+    msi_chain = [m for m in all_msi if m['MSITYPE'] == 'Chain']
+
+    msi_rings = [m for m in all_msi if m['MSITYPE'] == 'Rings']
+
+    msi_wire = [m for m in all_msi if m['MSITYPE'] == 'Wire']
+
+
+
+    all_groups = db.execute('SELECT DISTINCT ITMGRP FROM ITM WHERE ITMGRP IS NOT NULL ORDER BY ITMGRP ASC').fetchall()
+
+
+
+    return render_template(
+
+        'item_form.html',
+
+        action='Edit',
+
+        item=item_form_data,
+
+        groups=all_groups,
 
         msi_solder=msi_solder,
 
