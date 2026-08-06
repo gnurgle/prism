@@ -2402,57 +2402,111 @@ def list_misc():
         }
     )
 @app.route("/misc_items/new", methods=["GET", "POST"])
+
 def create_misc():
 
     db = get_db()
+
     if request.method == "POST":
 
         msiname = request.form.get('MSINAME')
-        msiimg = request.form.get('MSIIMG')
+
+        # Remove or ignore request.form.get('MSIIMG') if it's coming from a file input text field
+
         msistock = request.form.get('MSISTOCK') or 0
+
         msiurl = request.form.get('MSIURL')
+
         msinote = request.form.get('MSINOTE')
+
         msiunit = request.form.get('MSIUNIT') or 0
+
         unttype = request.form.get('UNTTYPE') or None
+
         msitype = request.form.get('MSITYPE') or None
+
         msiprice = request.form.get('MSIPRICE')
+
         isactive = 1
 
+
+
+        # Insert initially with NULL or empty image path
+
         cursor = db.execute(
+
             """
+
             INSERT INTO MSI (MSINAME, MSIIMG, MSISTOCK, MSIURL, 
+
                 MSINOTE, MSIUNIT, UNTTYPE, MSITYPE, ISACTIVE)
+
                 VALUES (?,?,?,?,?,?,?,?,?)
-        """,
+
+            """,
+
             (
-                msiname, msiimg, msistock, msiurl,
+
+                msiname, None, msistock, msiurl,
+
                 msinote, msiunit, unttype, msitype, isactive
+
             ),
+
         )
+
+
 
         misc_id = cursor.lastrowid
 
+
+
+        # Handle file upload correctly
+
         msiimg_path = None
+
         file = request.files.get("MSIIMG_FILE")
+
         if file and file.filename != '':
+
             pattern_name = f"{misc_id}_{msiname}"
-            glsimg_path = process_and_save_image(
+
+            msiimg_path = process_and_save_image(
+
                 file_obj=file,
+
                 upload_subfolder='images/misc',
+
                 custom_filename_base=pattern_name,
+
                 target_size=(256, 256)
+
             )
+
+            # Update MSIIMG field in MSI table with the saved relative path
+
             db.execute("UPDATE MSI SET MSIIMG = ? WHERE MSIID = ?", (msiimg_path, misc_id))
 
+
+
         if msiprice:
+
             db.execute(
+
                 """
+
                 INSERT INTO MSP (MSIID, MSIPRICE, STDATE) VALUES (?, ?, DATE('now'))
-            """,
+
+                """,
+
                 (misc_id, msiprice),
+
             )
 
+
+
         db.commit()
+
         flash("Misc Item recorded successfully!", "success")
 
         return redirect(url_for("list_misc"))
@@ -2460,11 +2514,17 @@ def create_misc():
 
 
     unit_types = db.execute("SELECT * FROM UNTS").fetchall()
+
     misc_types = db.execute("SELECT * FROM MST").fetchall()
 
+
+
     return render_template(
+
         "misc_form.html", unit_types=unit_types, misc_types=misc_types
+
     )
+
 # --- MISC DETAIL SUMMARY PAGE ---
 @app.route('/misc_item/<int:misc_id>')
 def misc_detail(misc_id):

@@ -12,11 +12,11 @@
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label">Misc Item Name</label>
-                            <input type="text" name="MSINAME" class="form-control" value="{{ misc.MSINAME if misc else '' }}" required maxlength="255">
+                            <input type="text" name="MSINAME" class="form-control" value="{{ misc.MSINAME if misc else '' }}" required maxlength="255" required>
 			</div>
                         <div class="col-md-6">
-                            <label class="form-label">Misc Item Name</label>
-                            <select name="MSITYPE" class="form-select">
+                            <label class="form-label">Misc Item Type</label>
+                            <select name="MSITYPE" class="form-select" required>
                                 <option value="">-- Select Unit  Type --</option>
                                 {% for t in misc_types %}
                                     <option value="{{ t.MSITYPE }}" {% if misc and misc.MSITYPE == t.MSITYPE %}selected{% endif %}>
@@ -47,7 +47,7 @@
                         </div>
 			<div class="col-md-6">
                             <label class="form-label">Unit Measurement</label>
-                            <select name="UNTTYPE" class="form-select">
+                            <select name="UNTTYPE" class="form-select" required>
                                 <option value="">-- Select Unit Type --</option>
                                 {% for u in unit_types %}
                                     <option value="{{ u.UNTTYPE }}" {% if misc and misc.UNTTYPE == u.UNTTYPE %}selected{% endif %}>

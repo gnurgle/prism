@@ -116,7 +116,7 @@
         <div class="card shadow-sm">
             <div class="card-header bg-dark text-white">Misc Item Image </div>
             <div class="card-body text-center">
-                {% if mist.MSIIMG.startswith('http://') or misc.MSIIMG.startswith('https://') %}
+                {% if misc.MSIIMG.startswith('http://') or misc.MSIIMG.startswith('https://') %}
                     <img src="{{ misc.MSIIMG }}" alt="{{ misc.MSINAME }}" class="img-fluid rounded border" style="max-height: 250px;">
                 {% else %}
                     <img src="{{ url_for('static', filename=misc.MSIIMG.lstrip('/')) }}" alt="{{ misc.MSINAME }}" class="img-fluid rounded border" style="max-height: 250px;">

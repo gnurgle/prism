@@ -31,9 +31,9 @@
                     <td>
                         {% if p.change is not none %}
                             {% if p.change > 0 %}
-                                <span class="text-danger fw-bold">+${{ "%.2f"|format(p.change) }}</span>
+                                <span class="text-success fw-bold">+${{ "%.2f"|format(p.change) }}</span>
                             {% elif p.change < 0 %}
-                                <span class="text-success fw-bold">-${{ "%.2f"|format(p.change|abs) }}</span>
+                                <span class="text-danger fw-bold">-${{ "%.2f"|format(p.change|abs) }}</span>
                             {% else %}
                                 <span class="text-muted">No change</span>
                             {% endif %}
