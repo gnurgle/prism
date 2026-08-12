@@ -8,9 +8,9 @@
 
     <div>
 
-        <a href="{{ url_for('list_venues') }}" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Venues</a>
+        <a href="{% if venue and venue.VENUEID %}{{ url_for('venue_detail', venue_id=venue.VENUEID) }}{% else %}{{ url_for('list_venues') }}{% endif %}" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back</a>
 
-        <h2>{{ action }} Venue</h2>
+        <h2>{% if venue and venue.VENUEID %}Edit Venue: {{ venue.VENNAME }}{% else %}Add New Venue{% endif %}</h2>
 
     </div>
 
@@ -18,27 +18,26 @@
 
 
 
-<form method="POST" class="row g-3">
+<form method="POST" action="{% if venue and venue.VENUEID %}{{ url_for('edit_venue', venue_id=venue.VENUEID) }}{% else %}{{ url_for('create_venue') }}{% endif %}">
 
-    <div class="col-md-8">
+    
 
-        <div class="card shadow-sm mb-4">
+<!-- Essential Fields (Shown on both Create and Edit) -->
 
-            <div class="card-header bg-dark text-white">Venue Information</div>
+    <div class="card shadow-sm mb-4">
 
-            <div class="card-body">
+        <div class="card-header bg-dark text-white">Essential Information</div>
 
-                <div class="mb-3">
+        <div class="card-body">
 
-                    <label for="VENNAME" class="form-label">Venue Name</label>
+            <div class="mb-3">
 
-                    <input type="text" class="form-control" id="VENNAME" name="VENNAME" value="{{ venue.VENNAME if venue else '' }}" required>
+                <label for="VENNAME" class="form-label">Venue Name *</label>
 
-                </div>
+                <input type="text" class="form-control" id="VENNAME" name="VENNAME" value="{{ venue.VENNAME if venue else '' }}" required>
 
-
-
-                <div class="mb-3">
+            </div>
+		<div class="mb-3">
 
                     <label for="VENGRP" class="form-label">Venue Group</label>
 
@@ -58,96 +57,97 @@
 
                 </div>
 
+            <div class="mb-3 form-check">
 
+                <input type="checkbox" class="form-check-input" id="ISACTIVE" name="ISACTIVE" value="1" {% if not venue or venue.ISACTIVE %}checked{% endif %}>
 
-                <div class="mb-3">
+                <label class="form-check-label" for="ISACTIVE">Active Venue</label>
 
-                    <label for="VURL" class="form-label">URL to Venue Page</label>
+            </div>
 
-                    <input type="url" class="form-control" id="VURL" name="VURL" value="{{ venue.VURL if venue else '' }}" placeholder="https://...">
+            <div class="mb-3">
 
-                </div>
+                <label for="VSDATE" class="form-label">Start Date</label>
 
+                <input type="date" class="form-control" id="VSDATE" name="VSDATE" value="{{ venue.VSDATE if venue else '' }}">
 
+            </div>
 
-                <div class="row mb-3">
+            <div class="mb-3">
 
-                    <div class="col-md-6">
+                <label for="VEDATE" class="form-label">End Date</label>
 
-                        <label for="VINSTA" class="form-label">Instagram Link</label>
+                <input type="date" class="form-control" id="VEDATE" name="VEDATE" value="{{ venue.VEDATE if venue else '' }}">
 
-                        <input type="text" class="form-control" id="VINSTA" name="VINSTA" value="{{ venue.VINSTA if venue else '' }}" placeholder="Instagram profile or URL">
+            </div>
 
-                    </div>
+        </div>
 
-                    <div class="col-md-6">
+    </div>
 
-                        <label for="VFB" class="form-label">Facebook Link</label>
+    <!-- Extra Fields (Shown ONLY when Editing) -->
 
-                        <input type="text" class="form-control" id="VFB" name="VFB" value="{{ venue.VFB if venue else '' }}" placeholder="Facebook profile or URL">
+    {% if venue and venue.VENUEID %}
 
-                    </div>
+    <div class="row">
 
-                </div>
+        <!-- Address & Location Details -->
 
+        <div class="col-md-6">
 
-                <div class="row mb-3">
+            <div class="card shadow-sm mb-4">
 
-                    <div class="col-md-6">
+                <div class="card-header bg-dark text-white">Address & Location</div>
 
-                        <label for="VSDATE" class="form-label">Start Date</label>
+                <div class="card-body">
 
-                        <input type="date" class="form-control" id="VSDATE" name="VSDATE" value="{{ venue.VSDATE if venue else '' }}">
+                    <div class="mb-3">
 
-                    </div>
+                        <label for="VSTREET1" class="form-label">Street 1</label>
 
-                    <div class="col-md-6">
-
-                        <label for="VEDATE" class="form-label">End Date</label>
-
-                        <input type="date" class="form-control" id="VEDATE" name="VEDATE" value="{{ venue.VEDATE if venue else '' }}">
-
-                    </div>
-
-                </div>
-
-
-
-                <div class="row mb-3">
-
-                    <div class="col-md-6">
-
-                        <div class="form-check">
-
-                            <input class="form-check-input" type="checkbox" id="VCAMPAVA" name="VCAMPAVA" value="1" {% if venue and venue.VCAMPAVA %}checked{% endif %}>
-
-                            <label class="form-check-label" for="VCAMPAVA">Camping Availability</label>
-
-                        </div>
+                        <input type="text" class="form-control" id="VSTREET1" name="VSTREET1" value="{{ venue.VSTREET1 or '' }}">
 
                     </div>
 
-                    <div class="col-md-6">
+                    <div class="mb-3">
 
-                        <div class="form-check">
+                        <label for="VSTREET2" class="form-label">Street 2</label>
 
-                            <input class="form-check-input" type="checkbox" id="VMULTI" name="VMULTI" value="1" {% if venue and venue.VMULTI %}checked{% endif %}>
-
-                            <label class="form-check-label" for="VMULTI">Multi-Weekend</label>
-
-                        </div>
+                        <input type="text" class="form-control" id="VSTREET2" name="VSTREET2" value="{{ venue.VSTREET2 or '' }}">
 
                     </div>
 
-                </div>
+                    <div class="mb-3">
 
+                        <label for="VCITY" class="form-label">City</label>
 
+                        <input type="text" class="form-control" id="VCITY" name="VCITY" value="{{ venue.VCITY or '' }}">
 
-                <div class="mb-3">
+                    </div>
 
-                    <label for="VENNOTE" class="form-label">Notes</label>
+                    <div class="mb-3">
 
-                    <textarea class="form-control" id="VENNOTE" name="VENNOTE" rows="3">{{ venue.VENNOTE if venue else '' }}</textarea>
+                        <label for="VSTATE" class="form-label">State</label>
+
+                        <input type="text" class="form-control" id="VSTATE" name="VSTATE" value="{{ venue.VSTATE or '' }}">
+
+                    </div>
+
+                    <div class="mb-3">
+
+                        <label for="VZIP" class="form-label">Zip Code</label>
+
+                        <input type="text" class="form-control" id="VZIP" name="VZIP" value="{{ venue.VZIP or '' }}">
+
+                    </div>
+
+                    <div class="mb-3">
+
+                        <label for="VENUELOC" class="form-label">Location Info</label>
+
+                        <input type="text" class="form-control" id="VENUELOC" name="VENUELOC" value="{{ venue.VENUELOC or '' }}">
+
+                    </div>
 
                 </div>
 
@@ -155,7 +155,373 @@
 
         </div>
 
-        <button type="submit" class="btn btn-success">Save Venue</button>
+
+
+        <!-- Socials & Links -->
+
+        <div class="col-md-6">
+
+            <div class="card shadow-sm mb-4">
+
+                <div class="card-header bg-dark text-white">Links & Social Media</div>
+
+                <div class="card-body">
+
+                    <div class="mb-3">
+
+                        <label for="VURL" class="form-label">Website URL</label>
+
+                        <input type="url" class="form-control" id="VURL" name="VURL" value="{{ venue.VURL or '' }}">
+
+                    </div>
+
+                    <div class="mb-3">
+
+                        <label for="VINSTA" class="form-label">Instagram</label>
+
+                        <input type="text" class="form-control" id="VINSTA" name="VINSTA" value="{{ venue.VINSTA or '' }}">
+
+                    </div>
+
+                    <div class="mb-3">
+
+                        <label for="VFB" class="form-label">Facebook</label>
+
+                        <input type="text" class="form-control" id="VFB" name="VFB" value="{{ venue.VFB or '' }}">
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <div class="row">
+
+        <!-- Contact Information -->
+
+        <div class="col-md-6">
+
+            <div class="card shadow-sm mb-4">
+
+                <div class="card-header bg-dark text-white">Contact Information</div>
+
+                <div class="card-body">
+
+                    <div class="mb-3">
+
+                        <label for="VCONNAME" class="form-label">Contact Name</label>
+
+                        <input type="text" class="form-control" id="VCONNAME" name="VCONNAME" value="{{ venue.VCONNAME or '' }}">
+
+                    </div>
+
+                    <div class="mb-3">
+
+                        <label for="VCONPHN" class="form-label">Phone Number</label>
+
+                        <input type="text" class="form-control" id="VCONPHN" name="VCONPHN" value="{{ venue.VCONPHN or '' }}">
+
+                    </div>
+
+                    <div class="mb-3">
+
+                        <label for="VCONEMAIL" class="form-label">Email Address</label>
+
+                        <input type="email" class="form-control" id="VCONEMAIL" name="VCONEMAIL" value="{{ venue.VCONEMAIL or '' }}">
+
+                    </div>
+
+                    <div class="mb-3">
+
+                        <label for="VCONNOTE" class="form-label">Contact Notes</label>
+
+                        <textarea class="form-control" id="VCONNOTE" name="VCONNOTE" rows="3">{{ venue.VCONNOTE or '' }}</textarea>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- Schedule & Financials -->
+
+        <div class="col-md-6">
+
+            <div class="card shadow-sm mb-4">
+
+                <div class="card-header bg-dark text-white">Schedule & Financials</div>
+
+                <div class="card-body">
+
+                    <div class="mb-3">
+
+                        <label for="VENDLINE" class="form-label">Application Deadline</label>
+
+                        <input type="date" class="form-control" id="VENDLINE" name="VENDLINE" value="{{ venue.VENDLINE or '' }}">
+
+                    </div>
+
+                    <div class="mb-3">
+
+                        <label for="VFEES" class="form-label">Vendor Fees ($)</label>
+
+                        <input type="number" step="0.01" class="form-control" id="VFEES" name="VFEES" value="{{ venue.VFEES or '' }}">
+
+                    </div>
+
+                    <div class="mb-3">
+
+                        <label for="VFEENOTE" class="form-label">Fee Notes</label>
+
+                        <input type="text" class="form-control" id="VFEENOTE" name="VFEENOTE" value="{{ venue.VFEENOTE or '' }}">
+
+                    </div>
+
+                    <div class="mb-3 form-check">
+
+                        <input type="checkbox" class="form-check-input" id="VMULTI" name="VMULTI" value="1" {% if venue.VMULTI %}checked{% endif %}>
+
+                        <label class="form-check-label" for="VMULTI">Multi-Weekend Event</label>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <div class="row">
+
+        <!-- Camping Details -->
+
+        <div class="col-md-6">
+
+            <div class="card shadow-sm mb-4">
+
+                <div class="card-header bg-dark text-white">Camping Information</div>
+
+                <div class="card-body">
+
+                    <div class="mb-3 form-check">
+
+                        <input type="checkbox" class="form-check-input" id="VCAMPAVA" name="VCAMPAVA" value="1" {% if venue.VCAMPAVA %}checked{% endif %}>
+
+                        <label class="form-check-label" for="VCAMPAVA">Camping Available</label>
+
+                    </div>
+
+                    <div class="mb-3 form-check">
+
+                        <input type="checkbox" class="form-check-input" id="VCAMPED" name="VCAMPED" value="1" {% if venue.VCAMPED %}checked{% endif %}>
+
+                        <label class="form-check-label" for="VCAMPED">Camped Here Before</label>
+
+                    </div>
+
+                    <div class="mb-3">
+
+                        <label for="VCAMPFEE" class="form-label">Camping Fee ($)</label>
+
+                        <input type="number" step="0.01" class="form-control" id="VCAMPFEE" name="VCAMPFEE" value="{{ venue.VCAMPFEE or '' }}">
+
+                    </div>
+
+                    <div class="mb-3">
+
+                        <label for="VCAMPNT" class="form-label">Camping Notes</label>
+
+                        <textarea class="form-control" id="VCAMPNT" name="VCAMPNT" rows="3">{{ venue.VCAMPNT or '' }}</textarea>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- General Notes -->
+
+        <div class="col-md-6">
+
+            <div class="card shadow-sm mb-4">
+
+                <div class="card-header bg-dark text-white">General Notes</div>
+
+                <div class="card-body">
+
+                    <div class="mb-3">
+
+                        <label for="VENNOTE" class="form-label">Notes</label>
+
+                        <textarea class="form-control" id="VENNOTE" name="VENNOTE" rows="10">{{ venue.VENNOTE or '' }}</textarea>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- Daily Hours & Schedule -->
+
+    <div class="card shadow-sm mb-4">
+
+        <div class="card-header bg-dark text-white">Daily Hours & Schedule</div>
+
+        <div class="card-body">
+
+            <p class="text-muted">Check the box if the venue is open that day, and specify the operating hours.</p>
+
+            
+
+            <div class="table-responsive">
+
+                <table class="table table-bordered align-middle">
+
+                    <thead class="table-light">
+
+                        <tr>
+
+                            <th style="width: 15%;">Day</th>
+
+                            <th style="width: 15%;" class="text-center">Open?</th>
+
+                            <th style="width: 35%;">Start Time</th>
+
+                            <th style="width: 35%;">End Time</th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody>
+
+                        <tr>
+
+                            <td><strong>Monday</strong></td>
+
+                            <td class="text-center"><input type="checkbox" class="form-check-input" name="VM" value="1" {% if venue.VM %}checked{% endif %}></td>
+
+                            <td><input type="time" class="form-control form-control-sm" name="VMST" value="{{ venue.VMST or '' }}"></td>
+
+                            <td><input type="time" class="form-control form-control-sm" name="VMET" value="{{ venue.VMET or '' }}"></td>
+
+                        </tr>
+
+                        <tr>
+
+                            <td><strong>Tuesday</strong></td>
+
+                            <td class="text-center"><input type="checkbox" class="form-check-input" name="VTE" value="1" {% if venue.VTE %}checked{% endif %}></td>
+
+                            <td><input type="time" class="form-control form-control-sm" name="VTST" value="{{ venue.VTST or '' }}"></td>
+
+                            <td><input type="time" class="form-control form-control-sm" name="VTET" value="{{ venue.VTET or '' }}"></td>
+
+                        </tr>
+
+                        <tr>
+
+                            <td><strong>Wednesday</strong></td>
+
+                            <td class="text-center"><input type="checkbox" class="form-check-input" name="VW" value="1" {% if venue.VW %}checked{% endif %}></td>
+
+                            <td><input type="time" class="form-control form-control-sm" name="VWST" value="{{ venue.VWST or '' }}"></td>
+
+                            <td><input type="time" class="form-control form-control-sm" name="VWET" value="{{ venue.VWET or '' }}"></td>
+
+                        </tr>
+
+                        <tr>
+
+                            <td><strong>Thursday</strong></td>
+
+                            <td class="text-center"><input type="checkbox" class="form-check-input" name="VR" value="1" {% if venue.VR %}checked{% endif %}></td>
+
+                            <td><input type="time" class="form-control form-control-sm" name="VRST" value="{{ venue.VRST or '' }}"></td>
+
+                            <td><input type="time" class="form-control form-control-sm" name="VRET" value="{{ venue.VRET or '' }}"></td>
+
+                        </tr>
+
+                        <tr>
+
+                            <td><strong>Friday</strong></td>
+
+                            <td class="text-center"><input type="checkbox" class="form-check-input" name="VF" value="1" {% if venue.VF %}checked{% endif %}></td>
+
+                            <td><input type="time" class="form-control form-control-sm" name="VFST" value="{{ venue.VFST or '' }}"></td>
+
+                            <td><input type="time" class="form-control form-control-sm" name="VFET" value="{{ venue.VFET or '' }}"></td>
+
+                        </tr>
+
+                        <tr>
+
+                            <td><strong>Saturday</strong></td>
+
+                            <td class="text-center"><input type="checkbox" class="form-check-input" name="VST" value="1" {% if venue.VST %}checked{% endif %}></td>
+
+                            <td><input type="time" class="form-control form-control-sm" name="VSTST" value="{{ venue.VSTST or '' }}"></td>
+
+                            <td><input type="time" class="form-control form-control-sm" name="VSTET" value="{{ venue.VSTET or '' }}"></td>
+
+                        </tr>
+
+                        <tr>
+
+                            <td><strong>Sunday</strong></td>
+
+                            <td class="text-center"><input type="checkbox" class="form-check-input" name="VSN" value="1" {% if venue.VSN %}checked{% endif %}></td>
+
+                            <td><input type="time" class="form-control form-control-sm" name="VSNST" value="{{ venue.VSNST or '' }}"></td>
+
+                            <td><input type="time" class="form-control form-control-sm" name="VSNET" value="{{ venue.VSNET or '' }}"></td>
+
+                        </tr>
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    {% endif %}
+
+
+
+    <div class="mb-4">
+
+        <button type="submit" class="btn btn-success btn-lg">{% if venue and venue.VENUEID %}Save Changes{% else %}Create Venue{% endif %}</button>
+
+        <a href="{% if venue and venue.VENUEID %}{{ url_for('venue_detail', venue_id=venue.VENUEID) }}{% else %}{{ url_for('list_venues') }}{% endif %}" class="btn btn-secondary btn-lg ms-2">Cancel</a>
 
     </div>
 

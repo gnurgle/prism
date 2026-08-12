@@ -3820,6 +3820,18 @@ def create_venue():
 
         vengrp = request.form.get('VENGRP') or None
 
+        new_vengrp = request.form.get('NEW_VENGRP')
+
+        
+
+        if new_vengrp and new_vengrp.strip():
+
+            vengrp = new_vengrp.strip()
+
+            db.execute("INSERT OR IGNORE INTO VGP (VENGRP, ISACTIVE) VALUES (?, 1)", (vengrp,))
+
+
+
         vcity = request.form.get('VCITY')
 
         vfees = request.form.get('VFEES') or None
@@ -3864,7 +3876,7 @@ def create_venue():
 
 
 
-    all_groups = db.execute('SELECT DISTINCT VENGRP FROM VENUE WHERE VENGRP IS NOT NULL ORDER BY VENGRP ASC').fetchall()
+    all_groups = db.execute('SELECT DISTINCT VENGRP FROM VGP WHERE ISACTIVE = 1 ORDER BY VENGRP ASC').fetchall()
 
     return render_template('venue_form.html', action='Create', venue={}, groups=all_groups)
 
@@ -3872,83 +3884,221 @@ def create_venue():
 
 
 
-@app.route('/venue/<int:venue_id>/edit', methods=['GET', 'POST'])
+@app.route('/venues/<int:venue_id>/edit', methods=['GET', 'POST'])
 
 def edit_venue(venue_id):
 
     db = get_db()
 
-    
-
-    venue = db.execute('SELECT * FROM VENUE WHERE VENUEID = ?', (venue_id,)).fetchone()
-
-    if not venue:
-
-        flash('Venue record not found.', 'danger')
-
-        return redirect(url_for('list_venues'))
+    cursor = db.cursor()
 
 
 
     if request.method == 'POST':
 
+        # Retrieve form fields
+
         venname = request.form.get('VENNAME')
 
-        vengrp = request.form.get('VENGRP') or None
-
-        vcity = request.form.get('VCITY')
-
-        vfees = request.form.get('VFEES') or None
-
-        vendline = request.form.get('VENDLINE') or None
-
-        vsdate = request.form.get('VSDATE') or None
-
-        vedate = request.form.get('VEDATE') or None
-
-        vcampava = 1 if request.form.get('VCAMPAVA') else 0
-
-        vmulti = 1 if request.form.get('VMULTI') else 0
-
-        vennote = request.form.get('VENNOTE')
+        vengrp = request.form.get('VENGRP')
 
         isactive = 1 if request.form.get('ISACTIVE') else 0
 
+        vurl = request.form.get('VURL')
 
+        vinsta = request.form.get('VINSTA')
 
-        db.execute(
-
-            """
-
-            UPDATE VENUE 
-
-            SET VENNAME = ?, VENGRP = ?, VCITY = ?, VFEES = ?, VENDLINE = ?, 
-
-                VSDATE = ?, VEDATE = ?, VCAMPAVA = ?, VMULTI = ?, VENNOTE = ?, ISACTIVE = ?
-
-            WHERE VENUEID = ?
-
-            """,
-
-            (venname, vengrp, vcity, vfees, vendline, vsdate, vedate, vcampava, vmulti, vennote, isactive, venue_id)
-
-        )
-
-        db.commit()
+        vfb = request.form.get('VFB')
 
         
 
-        flash('Venue updated successfully!', 'success')
+        vstreet1 = request.form.get('VSTREET1')
 
-        return redirect(url_for('list_venues'))
+        vstreet2 = request.form.get('VSTREET2')
+
+        vcity = request.form.get('VCITY')
+
+        vstate = request.form.get('VSTATE')
+
+        vzip = request.form.get('VZIP')
+
+        venueloc = request.form.get('VENUELOC')
+
+        
+
+        vconname = request.form.get('VCONNAME')
+
+        vconphn = request.form.get('VCONPHN')
+
+        vconemail = request.form.get('VCONEMAIL')
+
+        vconnote = request.form.get('VCONNOTE')
+
+        
+
+        vendline = request.form.get('VENDLINE')
+
+        vsdate = request.form.get('VSDATE')
+
+        vedate = request.form.get('VEDATE')
+
+        vfees = request.form.get('VFEES') or None
+
+        vfeenote = request.form.get('VFEENOTE')
+
+        vmulti = 1 if request.form.get('VMULTI') else 0
+
+        
+
+        vcampava = 1 if request.form.get('VCAMPAVA') else 0
+
+        vcamped = 1 if request.form.get('VCAMPED') else 0
+
+        vcampfee = request.form.get('VCAMPFEE') or None
+
+        vcampnt = request.form.get('VCAMPNT')
+
+        vennote = request.form.get('VENNOTE')
+
+        
+
+        # Daily checkboxes and times
+
+        vm = 1 if request.form.get('VM') else 0
+
+        vmst = request.form.get('VMST')
+
+        vmet = request.form.get('VMET')
+
+        
+
+        vte = 1 if request.form.get('VTE') else 0
+
+        vtst = request.form.get('VTST')
+
+        vtet = request.form.get('VTET')
+
+        
+
+        vw = 1 if request.form.get('VW') else 0
+
+        vwst = request.form.get('VWST')
+
+        vwet = request.form.get('VWET')
+
+        
+
+        vr = 1 if request.form.get('VR') else 0
+
+        vrst = request.form.get('VRST')
+
+        vret = request.form.get('VRET')
+
+        
+
+        vf = 1 if request.form.get('VF') else 0
+
+        vfst = request.form.get('VFST')
+
+        vfet = request.form.get('VFET')
+
+        
+
+        vst = 1 if request.form.get('VST') else 0
+
+        vstst = request.form.get('VSTST')
+
+        vstet = request.form.get('VSTET')
+
+        
+
+        vsn = 1 if request.form.get('VSN') else 0
+
+        vsnst = request.form.get('VSNST')
+
+        vsnet = request.form.get('VSNET')
 
 
 
-    all_groups = db.execute('SELECT DISTINCT VENGRP FROM VENUE WHERE VENGRP IS NOT NULL ORDER BY VENGRP ASC').fetchall()
+        # Execute the update query matching your schema columns
 
-    return render_template('venue_form.html', action='Edit', venue=venue, groups=all_groups)
+        cursor.execute("""
+
+            UPDATE VENUE SET
+
+                VENNAME = ?, VENGRP = ?, ISACTIVE = ?, VURL = ?, VINSTA = ?, VFB = ?,
+
+                VSTREET1 = ?, VSTREET2 = ?, VCITY = ?, VSTATE = ?, VZIP = ?, VENUELOC = ?,
+
+                VCONNAME = ?, VCONPHN = ?, VCONEMAIL = ?, VCONNOTE = ?,
+
+                VENDLINE = ?, VSDATE = ?, VEDATE = ?, VFEES = ?, VFEENOTE = ?, VMULTI = ?,
+
+                VCAMPAVA = ?, VCAMPED = ?, VCAMPFEE = ?, VCAMPNT = ?, VENNOTE = ?,
+
+                VM = ?, VMST = ?, VMET = ?,
+
+                VTE = ?, VTST = ?, VTET = ?,
+
+                VW = ?, VWST = ?, VWET = ?,
+
+                VR = ?, VRST = ?, VRET = ?,
+
+                VF = ?, VFST = ?, VFET = ?,
+
+                VST = ?, VSTST = ?, VSTET = ?,
+
+                VSN = ?, VSNST = ?, VSNET = ?
+
+            WHERE VENUEID = ?
+
+        """, (
+
+            venname, vengrp, isactive, vurl, vinsta, vfb,
+
+            vstreet1, vstreet2, vcity, vstate, vzip, venueloc,
+
+            vconname, vconphn, vconemail, vconnote,
+
+            vendline, vsdate, vedate, vfees, vfeenote, vmulti,
+
+            vcampava, vcamped, vcampfee, vcampnt, vennote,
+
+            vm, vmst, vmet,
+
+            vte, vtst, vtet,
+
+            vw, vwst, vwet,
+
+            vr, vrst, vret,
+
+            vf, vfst, vfet,
+
+            vst, vstst, vstet,
+
+            vsn, vsnst, vsnet,
+
+            venue_id
+
+        ))
+
+        
+
+        db.commit()
+
+        return redirect(url_for('venue_detail', venue_id=venue_id))
 
 
+
+    # GET request: fetch venue to populate form
+
+    cursor.execute("SELECT * FROM VENUE WHERE VENUEID = ?", (venue_id,))
+
+    venue = cursor.fetchone()
+
+    
+
+    return render_template('venue_form.html',action='EDIT', venue=venue)
 
 
 
