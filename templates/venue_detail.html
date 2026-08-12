@@ -1,641 +1,317 @@
 {% extends 'base.html' %}
 
-
-
 {% block content %}
-
 <div class="d-flex justify-content-between align-items-center mb-3">
-
     <div>
-
         <a href="{{ url_for('list_venues') }}" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Venues</a>
-
         <h2>Venue Details: {{ venue.VENNAME }}</h2>
-
     </div>
-
     <div>
-
         <a href="{{ url_for('edit_venue', venue_id=venue.VENUEID) }}" class="btn btn-primary">✏️ Edit Venue Details</a>
-
     </div>
-
 </div>
 
-
-
-<!-- Row 1: General Information (65%) | Address and Location (35%) -->
-
 <div class="row">
-
     <div class="col-lg-7 col-md-12">
-
         <div class="card shadow-sm mb-4">
-
             <div class="card-header bg-dark text-white">General Information</div>
-
             <div class="card-body">
-
                 <table class="table table-borderless mb-0">
-
                     <tbody>
-
                         <tr>
-
                             <th style="width: 30%;">Venue ID:</th>
-
                             <td>#{{ venue.VENUEID }}</td>
-
                         </tr>
-
                         <tr>
-
                             <th>Venue Name:</th>
-
                             <td>{{ venue.VENNAME or '—' }}</td>
-
                         </tr>
-
                         <tr>
-
                             <th>Venue Group:</th>
-
                             <td>
-
                                 {% if venue.VENGRP %}
-
                                     <a href="{{ url_for('list_venues', group=venue.VENGRP) }}" class="badge bg-secondary text-decoration-none" title="Filter by this venue group">
-
                                         {{ venue.VENGRP }}
-
                                     </a>
-
                                 {% else %}
-
                                     <span class="badge bg-secondary">Unassigned</span>
-
                                 {% endif %}
-
                             </td>
-
                         </tr>
-
                         <tr>
-
                             <th>Status:</th>
-
                             <td>
-
                                 {% if venue.ISACTIVE %}
-
                                     <span class="badge bg-success">Active</span>
-
                                 {% else %}
-
                                     <span class="badge bg-secondary">Inactive</span>
-
                                 {% endif %}
-
                             </td>
-
                         </tr>
-
                         <tr>
-
                             <th>Website URL:</th>
-
                             <td>
-
                                 {% if venue.VURL %}
-
                                     <a href="{{ venue.VURL }}" target="_blank" rel="noopener noreferrer">{{ venue.VURL }}</a>
-
                                 {% else %}
-
                                     —
-
                                 {% endif %}
-
                             </td>
-
                         </tr>
-
                         <tr>
-
                             <th>Instagram:</th>
-
                             <td>
-
                                 {% if venue.VINSTA %}
-
                                     <a href="https://instagram.com/{{ venue.VINSTA.lstrip('@') }}" target="_blank" rel="noopener noreferrer">{{ venue.VINSTA }}</a>
-
                                 {% else %}
-
                                     —
-
                                 {% endif %}
-
                             </td>
-
                         </tr>
-
                         <tr>
-
                             <th>Facebook:</th>
-
                             <td>
-
                                 {% if venue.VFB %}
-
                                     <a href="{{ venue.VFB }}" target="_blank" rel="noopener noreferrer">{{ venue.VFB }}</a>
-
                                 {% else %}
-
                                     —
-
                                 {% endif %}
-
                             </td>
-
                         </tr>
-
                     </tbody>
-
                 </table>
-
             </div>
-
         </div>
-
     </div>
 
-
-
     <div class="col-lg-5 col-md-12">
-
         <div class="card shadow-sm mb-4">
-
             <div class="card-header bg-dark text-white">Address & Location</div>
-
             <div class="card-body">
-
                 <table class="table table-borderless mb-0">
-
                     <tbody>
-
                         <tr>
-
                             <th style="width: 40%;">Street 1:</th>
-
                             <td>{{ venue.VSTREET1 or '—' }}</td>
-
                         </tr>
-
                         <tr>
-
                             <th>Street 2:</th>
-
                             <td>{{ venue.VSTREET2 or '—' }}</td>
-
                         </tr>
-
                         <tr>
-
                             <th>City:</th>
-
                             <td>{{ venue.VCITY or '—' }}</td>
-
                         </tr>
-
                         <tr>
-
                             <th>State:</th>
-
                             <td>{{ venue.VSTATE or '—' }}</td>
-
                         </tr>
-
                         <tr>
-
                             <th>Zip Code:</th>
-
                             <td>{{ venue.VZIP or '—' }}</td>
-
                         </tr>
-
                         <tr>
-
                             <th>Location Info:</th>
-
                             <td>{{ venue.VENUELOC or '—' }}</td>
-
                         </tr>
-
                     </tbody>
-
                 </table>
-
             </div>
-
         </div>
-
     </div>
-
 </div>
 
-
-
-<!-- Row 2: Remaining General Info / Additional Details (65%) | Contact Information (35%) -->
-
 <div class="row">
-
     <div class="col-lg-7 col-md-12">
-
         <div class="card shadow-sm mb-4">
-
             <div class="card-header bg-dark text-white">Additional Venue Details</div>
-
             <div class="card-body">
-
                 <p class="mb-1"><strong>General Notes:</strong></p>
-
                 <p class="text-muted">{{ venue.VENNOTE or 'No notes provided.' }}</p>
-
             </div>
-
         </div>
-
     </div>
 
-
-
     <div class="col-lg-5 col-md-12">
-
         <div class="card shadow-sm mb-4">
-
             <div class="card-header bg-dark text-white">Contact Information</div>
-
             <div class="card-body">
-
                 <table class="table table-borderless mb-0">
-
                     <tbody>
-
                         <tr>
-
                             <th style="width: 40%;">Contact Name:</th>
-
                             <td>{{ venue.VCONNAME or '—' }}</td>
-
                         </tr>
-
                         <tr>
-
                             <th>Phone Number:</th>
-
                             <td>
-
                                 {% if venue.VCONPHN %}
-
                                     <a href="tel:{{ venue.VCONPHN }}">{{ venue.VCONPHN }}</a>
-
                                 {% else %}
-
                                     —
-
                                 {% endif %}
-
                             </td>
-
                         </tr>
-
                         <tr>
-
                             <th>Email Address:</th>
-
                             <td>
-
                                 {% if venue.VCONEMAIL %}
-
                                     <a href="mailto:{{ venue.VCONEMAIL }}">{{ venue.VCONEMAIL }}</a>
-
                                 {% else %}
-
                                     —
-
                                 {% endif %}
-
                             </td>
-
                         </tr>
-
                         <tr>
-
                             <th>Contact Notes:</th>
-
                             <td>{{ venue.VCONNOTE or '—' }}</td>
-
                         </tr>
-
                     </tbody>
-
                 </table>
-
             </div>
-
         </div>
-
     </div>
-
 </div>
 
-
-
-<!-- Row 3: Daily Hours and Notes spanning full width (Horizontal Layout) -->
-
 <div class="row">
-
     <div class="col-12">
-
         <div class="card shadow-sm mb-4">
-
             <div class="card-header bg-dark text-white">Daily Hours & Schedule</div>
-
             <div class="card-body">
-
                 <div class="table-responsive">
-
                     <table class="table table-bordered text-center mb-0">
-
                         <thead class="table-light">
-
                             <tr>
-
                                 <th>Day</th>
-
                                 <th>Mon</th>
-
                                 <th>Tue</th>
-
                                 <th>Wed</th>
-
                                 <th>Thu</th>
-
                                 <th>Fri</th>
-
                                 <th>Sat</th>
-
                                 <th>Sun</th>
-
                             </tr>
-
                         </thead>
-
                         <tbody>
-
                             <tr>
-
                                 <th>Open</th>
-
                                 <td>{{ 'Yes' if venue.VM else 'No' }}</td>
-
                                 <td>{{ 'Yes' if venue.VTE else 'No' }}</td>
-
                                 <td>{{ 'Yes' if venue.VW else 'No' }}</td>
-
                                 <td>{{ 'Yes' if venue.VR else 'No' }}</td>
-
                                 <td>{{ 'Yes' if venue.VF else 'No' }}</td>
-
                                 <td>{{ 'Yes' if venue.VST else 'No' }}</td>
-
                                 <td>{{ 'Yes' if venue.VSN else 'No' }}</td>
-
                             </tr>
-
                             <tr>
-
                                 <th>Start Time</th>
-
                                 <td>{{ venue.VMST or '—' }}</td>
-
                                 <td>{{ venue.VTST or '—' }}</td>
-
                                 <td>{{ venue.VWST or '—' }}</td>
-
                                 <td>{{ venue.VRST or '—' }}</td>
-
                                 <td>{{ venue.VFST or '—' }}</td>
-
                                 <td>{{ venue.VSTST or '—' }}</td>
-
                                 <td>{{ venue.VSNST or '—' }}</td>
-
                             </tr>
-
                             <tr>
-
                                 <th>End Time</th>
-
                                 <td>{{ venue.VMET or '—' }}</td>
-
                                 <td>{{ venue.VTET or '—' }}</td>
-
                                 <td>{{ venue.VWET or '—' }}</td>
-
                                 <td>{{ venue.VRET or '—' }}</td>
-
                                 <td>{{ venue.VFET or '—' }}</td>
-
                                 <td>{{ venue.VSTET or '—' }}</td>
-
                                 <td>{{ venue.VSNET or '—' }}</td>
-
                             </tr>
-
                         </tbody>
-
                     </table>
-
                 </div>
-
             </div>
-
         </div>
-
     </div>
-
 </div>
 
-
-
-<!-- Row 4: Schedule & Financials (65%) | Camping Information (35%) -->
-
 <div class="row">
-
     <div class="col-lg-7 col-md-12">
-
         <div class="card shadow-sm mb-4">
-
             <div class="card-header bg-dark text-white">Schedule & Financials</div>
-
             <div class="card-body">
-
                 <table class="table table-borderless mb-0">
-
                     <tbody>
-
                         <tr>
-
                             <th style="width: 40%;">Application Deadline:</th>
-
                             <td>{{ venue.VENDLINE or '—' }}</td>
-
                         </tr>
-
                         <tr>
-
                             <th>Start Date:</th>
-
                             <td>{{ venue.VSDATE or '—' }}</td>
-
                         </tr>
-
                         <tr>
-
                             <th>End Date:</th>
-
                             <td>{{ venue.VEDATE or '—' }}</td>
-
                         </tr>
-
                         <tr>
-
                             <th>Vendor Fees:</th>
-
                             <td>${{ "%.2f"|format(venue.VFEES) if venue.VFEES is not none else '0.00' }}</td>
-
                         </tr>
-
                         <tr>
-
                             <th>Fee Notes:</th>
-
                             <td>{{ venue.VFEENOTE or '—' }}</td>
-
                         </tr>
-
                         <tr>
-
                             <th>Multi-Weekend:</th>
-
                             <td>
-
                                 {% if venue.VMULTI %}
-
                                     <span class="badge bg-info text-dark">Yes</span>
-
                                 {% else %}
-
                                     <span class="badge bg-secondary">No</span>
-
                                 {% endif %}
-
                             </td>
-
                         </tr>
-
                     </tbody>
-
                 </table>
-
             </div>
-
         </div>
-
     </div>
-
-
 
     <div class="col-lg-5 col-md-12">
-
         <div class="card shadow-sm mb-4">
-
             <div class="card-header bg-dark text-white">Camping Information</div>
-
             <div class="card-body">
-
                 <table class="table table-borderless mb-0">
-
                     <tbody>
-
                         <tr>
-
                             <th style="width: 40%;">Camping Available:</th>
-
                             <td>
-
                                 {% if venue.VCAMPAVA %}
-
                                     <span class="badge bg-success">Yes</span>
-
                                 {% else %}
-
                                     <span class="badge bg-secondary">No</span>
-
                                 {% endif %}
-
                             </td>
-
                         </tr>
-
                         <tr>
-
-                            <th>Camped Here Before:</th>
-
+                            <th>Camped Here:</th>
                             <td>
-
                                 {% if venue.VCAMPED %}
-
                                     <span class="badge bg-success">Yes</span>
-
                                 {% else %}
-
                                     <span class="badge bg-secondary">No</span>
-
                                 {% endif %}
-
                             </td>
-
                         </tr>
-
                         <tr>
-
                             <th>Camping Fee:</th>
-
                             <td>${{ "%.2f"|format(venue.VCAMPFEE) if venue.VCAMPFEE is not none else '0.00' }}</td>
-
                         </tr>
-
                         <tr>
-
                             <th>Camping Notes:</th>
-
                             <td>{{ venue.VCAMPNT or '—' }}</td>
-
                         </tr>
-
                     </tbody>
-
                 </table>
-
             </div>
-
         </div>
-
     </div>
-
 </div>
-
 {% endblock %}
