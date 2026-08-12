@@ -40,7 +40,6 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 os.makedirs(app.config['SVG_FOLDER'], exist_ok=True)
 
-
 def get_db():
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
