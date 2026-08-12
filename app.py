@@ -19,6 +19,21 @@ DATABASE = "inventory.db"
 
 app.jinja_env.filters['inch_format'] = format_fractional_inches
 
+@app.template_filter('datetimeformat')
+
+def datetimeformat(value, format='%m-%d-%y'):
+    if not value:
+        return ""
+    if isinstance(value, str):
+        # Parse standard YYYY-MM-DD or similar string formats from SQLite
+        for fmt in ('%Y-%m-%d', '%Y-%m-%d %H:%M:%S', '%m-%d-%y'):
+            try:
+                dt = datetime.strptime(value.split('T')[0], fmt if fmt != '%Y-%m-%d' else '%Y-%m-%d')
+                return dt.strftime(format)
+            except ValueError:
+                continue
+    return value
+
 # Ensure these directories exist in your project root
 UPLOAD_FOLDER_TEMPLATES = 'static/images/templates'
 UPLOAD_FOLDER_SVG = 'static/images/svg'
@@ -3608,7 +3623,7 @@ def list_venues():
 
     app_end = request.args.get('app_end', '').strip()
 
-    camping = request.args.get('camping', '').strip()
+    state = request.args.get('state', '').strip()  # Replaced camping with state
 
     min_fee = request.args.get('min_fee', '').strip()
 
@@ -3622,17 +3637,21 @@ def list_venues():
 
     is_active = request.args.get('is_active', '1').strip()
 
+    year = request.args.get('year', '').strip()
+
 
 
     allowed_sorts = {
-
-        'VENUEID': 'v.VENUEID',
 
         'VENNAME': 'v.VENNAME',
 
         'VENGRP': 'v.VENGRP',
 
         'VCITY': 'v.VCITY',
+
+        'VENSTATE': 'v.VENSTATE',
+
+        'VENSDATE': 'v.VENSDATE',
 
         'VFEES': 'v.VFEES',
 
@@ -3688,11 +3707,13 @@ def list_venues():
 
 
 
-    if camping:
+    # Replaced camping condition with state condition
 
-        where_clauses.append("v.VCAMPAVA = ?")
+    if state:
 
-        params.append(camping)
+        where_clauses.append("v.VSTATE = ?")
+
+        params.append(state)
 
 
 
@@ -3738,6 +3759,14 @@ def list_venues():
 
 
 
+    if year:
+
+        where_clauses.append("strftime('%Y', v.VSDATE) = ?")
+
+        params.append(year)
+
+
+
     where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
 
 
@@ -3760,6 +3789,16 @@ def list_venues():
 
     venue_groups = db.execute("SELECT DISTINCT VENGRP FROM VENUE WHERE VENGRP IS NOT NULL AND VENGRP != '' ORDER BY VENGRP").fetchall()
 
+    
+
+    # Fetch distinct states for the state filter dropdown
+
+    venue_states = [row[0] for row in db.execute("SELECT DISTINCT VSTATE FROM VENUE WHERE VSTATE IS NOT NULL AND VSTATE != '' ORDER BY VSTATE").fetchall() if row[0]]
+
+    
+
+    available_years = [row[0] for row in db.execute("SELECT DISTINCT strftime('%Y', VSDATE) FROM VENUE WHERE VSDATE IS NOT NULL ORDER BY VSDATE DESC").fetchall() if row[0]]
+
 
 
     return render_template(
@@ -3769,6 +3808,10 @@ def list_venues():
         venues=venues,
 
         venue_groups=venue_groups,
+
+        venue_states=venue_states,
+
+        available_years=available_years,
 
         current_sort=sort_by,
 
@@ -3784,7 +3827,7 @@ def list_venues():
 
             'app_end': app_end,
 
-            'camping': camping,
+            'state': state,  # Replaced camping with state
 
             'min_fee': min_fee,
 
@@ -3796,14 +3839,13 @@ def list_venues():
 
             'occ_end': occ_end,
 
-            'is_active': is_active
+            'is_active': is_active,
+
+            'year': year
 
         }
 
     )
-
-
-
 
 
 @app.route('/venue/new', methods=['GET', 'POST'])
@@ -3900,8 +3942,6 @@ def edit_venue(venue_id):
 
         venname = request.form.get('VENNAME')
 
-        vengrp = request.form.get('VENGRP')
-
         isactive = 1 if request.form.get('ISACTIVE') else 0
 
         vurl = request.form.get('VURL')
@@ -3910,6 +3950,17 @@ def edit_venue(venue_id):
 
         vfb = request.form.get('VFB')
 
+        vengrp = request.form.get('VENGRP') or None
+
+        new_vengrp = request.form.get('NEW_VENGRP')
+
+        
+
+        if new_vengrp and new_vengrp.strip():
+
+            vengrp = new_vengrp.strip()
+
+            db.execute("INSERT OR IGNORE INTO VGP (VENGRP, ISACTIVE) VALUES (?, 1)", (vengrp,))
         
 
         vstreet1 = request.form.get('VSTREET1')
@@ -4082,7 +4133,6 @@ def edit_venue(venue_id):
 
         ))
 
-        
 
         db.commit()
 
@@ -4096,9 +4146,10 @@ def edit_venue(venue_id):
 
     venue = cursor.fetchone()
 
-    
+    all_groups = db.execute('SELECT DISTINCT VENGRP FROM VGP WHERE ISACTIVE = 1 ORDER BY VENGRP ASC').fetchall()
 
-    return render_template('venue_form.html',action='EDIT', venue=venue)
+
+    return render_template('venue_form.html',action='EDIT', venue=venue, all_groups=all_groups)
 
 
 

@@ -20,7 +20,7 @@
 
             🔍 Filter Results
 
-            {% if filters.q or filters.ven_grp or filters.app_start or filters.app_end or filters.camping or filters.min_fee or filters.max_fee or filters.multi_wknd or filters.occ_start or filters.occ_end %}
+            {% if filters.q or filters.ven_grp or filters.app_start or filters.app_end or filters.state or filters.min_fee or filters.max_fee or filters.multi_wknd or filters.occ_start or filters.occ_end or filters.year %}
 
                 <span class="badge bg-primary rounded-pill">Active</span>
 
@@ -40,7 +40,7 @@
 
 
 
-{% if filters.q or filters.ven_grp or filters.app_start or filters.app_end or filters.camping or filters.min_fee or filters.max_fee or filters.multi_wknd or filters.occ_start or filters.occ_end %}
+{% if filters.q or filters.ven_grp or filters.app_start or filters.app_end or filters.state or filters.min_fee or filters.max_fee or filters.multi_wknd or filters.occ_start or filters.occ_end or filters.year %}
 
 <div class="alert alert-info py-2 px-3 d-flex align-items-center justify-content-between mb-3">
 
@@ -52,9 +52,11 @@
 
         {% if filters.ven_grp %}<span class="badge bg-light text-dark border">Group: {{ filters.ven_grp }}</span>{% endif %}
 
-        {% if filters.app_start or filters.app_end %}<span class="badge bg-light text-dark border">Deadline: {{ filters.app_start or 'Any' }} to {{ filters.app_end or 'Any' }}</span>{% endif %}
+        {% if filters.year %}<span class="badge bg-light text-dark border">Year: {{ filters.year }}</span>{% endif %}
 
-        {% if filters.camping %}<span class="badge bg-light text-dark border">Camping: {{ 'Yes' if filters.camping == '1' else 'No' }}</span>{% endif %}
+        {% if filters.state %}<span class="badge bg-light text-dark border">State: {{ filters.state }}</span>{% endif %}
+
+        {% if filters.app_start or filters.app_end %}<span class="badge bg-light text-dark border">Deadline: {{ filters.app_start or 'Any' }} to {{ filters.app_end or 'Any' }}</span>{% endif %}
 
         {% if filters.min_fee or filters.max_fee %}<span class="badge bg-light text-dark border">Fee: ${{ filters.min_fee or '0' }} - ${{ filters.max_fee or 'Any' }}</span>{% endif %}
 
@@ -108,21 +110,17 @@
 
                 <tr>
 
-                    <th>{{ sort_header('VENUEID', 'ID') }}</th>
-
                     <th>{{ sort_header('VENNAME', 'Venue Name') }}</th>
 
                     <th>{{ sort_header('VENGRP', 'Group') }}</th>
 
                     <th>{{ sort_header('VCITY', 'City') }}</th>
 
-                    <th>{{ sort_header('VENDLINE', 'App Deadline') }}</th>
+                    <th>{{ sort_header('VENSTATE', 'State') }}</th>
 
-                    <th>{{ sort_header('VFEES', 'Vendor Fees') }}</th>
+                    <th>{{ sort_header('VENSDATE', 'Dates') }}</th>
 
-                    <th>Camping</th>
-
-                    <th>Dates</th>
+                    <th class="text-center">Links</th>
 
                     <th class="text-end">Actions</th>
 
@@ -135,8 +133,6 @@
                 {% for venue in venues %}
 
                 <tr>
-
-                    <td><strong>#{{ venue.VENUEID }}</strong></td>
 
                     <td>
 
@@ -152,29 +148,61 @@
 
                     <td>{{ venue.VCITY or '—' }}</td>
 
-                    <td>{{ venue.VENDLINE or '—' }}</td>
+                    <td>{{ venue.VSTATE or '—' }}</td>
 
                     <td>
 
-                        {% if venue.VFEES is not none %}<strong class="text-success">${{ "%.2f"|format(venue.VFEES) }}</strong>{% else %}<span class="text-muted">Free / Unpriced</span>{% endif %}
+                        {% if venue.VSDATE %}
 
-                    </td>
-
-                    <td>
-
-                        {% if venue.VCAMPAVA %}
-
-                            <span class="badge bg-success">Yes</span>
+                            {{ venue.VSDATE | datetimeformat('%m-%d-%y') if venue.VSDATE is string and venue.VSDATE|length >= 10 else venue.VSDATE }}
 
                         {% else %}
 
-                            <span class="badge bg-secondary">No</span>
+                            —
+
+                        {% endif %}
+
+                        {% if venue.VEDATE %}
+
+                            to {{ venue.VEDATE | datetimeformat('%m-%d-%y') if venue.VEDATE is string and venue.VEDATE|length >= 10 else venue.VEDATE }}
 
                         {% endif %}
 
                     </td>
 
-                    <td>{{ venue.VSDATE or '—' }} to {{ venue.VEDATE or '—' }}</td>
+                    <td class="text-center">
+
+                        {% if venue.VURL %}
+
+                            <a href="{{ venue.VURL }}" target="_blank" title="Website" class="me-2 text-decoration-none text-secondary">
+
+                                <i class="fas fa-globe"></i>
+
+                            </a>
+
+                        {% endif %}
+
+                        {% if venue.VINSTA %}
+
+                            <a href="{{ venue.VINSTA }}" target="_blank" title="Instagram" class="me-2 text-decoration-none text-danger">
+
+                                <i class="fab fa-instagram"></i>
+
+                            </a>
+
+                        {% endif %}
+
+                        {% if venue.VFB %}
+
+                            <a href="{{ venue.VFB }}" target="_blank" title="Facebook" class="text-decoration-none text-primary">
+
+                                <i class="fab fa-facebook"></i>
+
+                            </a>
+
+                        {% endif %}
+
+                    </td>
 
                     <td class="text-end">
 
@@ -188,11 +216,11 @@
 
                 <tr>
 
-                    <td colspan="9" class="text-center py-5 text-muted">
+                    <td colspan="7" class="text-center py-5 text-muted">
 
                         No venues match your criteria.
 
-                        {% if filters.q or filters.ven_grp or filters.app_start or filters.app_end or filters.camping or filters.min_fee or filters.max_fee or filters.multi_wknd or filters.occ_start or filters.occ_end %}
+                        {% if filters.q or filters.ven_grp or filters.app_start or filters.app_end or filters.state or filters.min_fee or filters.max_fee or filters.multi_wknd or filters.occ_start or filters.occ_end or filters.year %}
 
                             <a href="{{ url_for('list_venues') }}">Reset filters</a>
 
@@ -274,15 +302,17 @@
 
                         <div class="col-md-6">
 
-                            <label class="form-label fw-bold">Camping Availability</label>
+                            <label class="form-label fw-bold">Year</label>
 
-                            <select name="camping" class="form-select">
+                            <select name="year" class="form-select">
 
-                                <option value="">-- Any --</option>
+                                <option value="">-- All Years --</option>
 
-                                <option value="1" {% if filters.camping == '1' %}selected{% endif %}>Yes</option>
+                                {% for y in available_years %}
 
-                                <option value="0" {% if filters.camping == '0' %}selected{% endif %}>No</option>
+                                    <option value="{{ y }}" {% if filters.year == y|string %}selected{% endif %}>{{ y }}</option>
+
+                                {% endfor %}
 
                             </select>
 
@@ -293,6 +323,24 @@
 
 
                     <div class="row mb-3">
+
+                        <div class="col-md-6">
+
+                            <label class="form-label fw-bold">State</label>
+
+                            <select name="state" class="form-select">
+
+                                <option value="">-- All States --</option>
+
+                                {% for s in venue_states %}
+
+                                    <option value="{{ s }}" {% if filters.state == s %}selected{% endif %}>{{ s }}</option>
+
+                                {% endfor %}
+
+                            </select>
+
+                        </div>
 
                         <div class="col-md-6">
 
@@ -310,7 +358,13 @@
 
                         </div>
 
-                        <div class="col-md-6">
+                    </div>
+
+
+
+                    <div class="row mb-3">
+
+                        <div class="col-md-12">
 
                             <label class="form-label fw-bold">Active Status</label>
 
