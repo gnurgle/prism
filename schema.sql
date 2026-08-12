@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS VGP (
 CREATE TABLE IF NOT EXISTS VENUE (
 
     VENUEID INTEGER PRIMARY KEY AUTOINCREMENT,	--Auto Venue ID
+    VENNAME TEXT,				--Venue Name
     VENGRP TEXT,				--Venue Group
     VENNOTE TEXT,				--Notes about Venue
     VENLOGO TEXT,				--Logo of Venue
