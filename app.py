@@ -3961,6 +3961,7 @@ def edit_venue(venue_id):
             vengrp = new_vengrp.strip()
 
             db.execute("INSERT OR IGNORE INTO VGP (VENGRP, ISACTIVE) VALUES (?, 1)", (vengrp,))
+
         
 
         vstreet1 = request.form.get('VSTREET1')
@@ -4071,8 +4072,6 @@ def edit_venue(venue_id):
 
 
 
-        # Execute the update query matching your schema columns
-
         cursor.execute("""
 
             UPDATE VENUE SET
@@ -4134,10 +4133,28 @@ def edit_venue(venue_id):
         ))
 
 
+
         db.commit()
 
         return redirect(url_for('venue_detail', venue_id=venue_id))
 
+
+
+    # GET request: fetch venue and groups to correctly populate form inputs and dropdowns
+
+    cursor.execute("SELECT * FROM VENUE WHERE VENUEID = ?", (venue_id,))
+
+    venue = cursor.fetchone()
+
+    
+
+    # Fetch active groups from VGP (or distinct venue groups) to display in the dropdown
+
+    groups = db.execute('SELECT DISTINCT VENGRP FROM VGP WHERE ISACTIVE = 1 ORDER BY VENGRP ASC').fetchall()
+
+
+
+    return render_template('venue_form.html', action='Edit', venue=venue, groups=groups)
 
 
     # GET request: fetch venue to populate form
@@ -4156,20 +4173,11 @@ def edit_venue(venue_id):
 @app.route('/venue/<int:venue_id>')
 
 def venue_detail(venue_id):
-
     db = get_db()
-
-    
-
     venue = db.execute('SELECT * FROM VENUE WHERE VENUEID = ?', (venue_id,)).fetchone()
-
     if not venue:
-
         flash('Venue record not found.', 'danger')
-
         return redirect(url_for('list_venues'))
-
-        
 
     return render_template('venue_detail.html', venue=venue)
 
