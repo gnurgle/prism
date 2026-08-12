@@ -170,23 +170,25 @@
         </div>
     </div>
 
-    <!-- COLUMN 4: OTHER -->
+<!-- COLUMN 4: VENUE & OTHER -->
     <div class="col-md-3">
         <div class="card shadow-sm h-100">
-            <div class="card-header bg-secondary text-white fw-bold">Other Routes</div>
+            <div class="card-header bg-secondary text-white fw-bold">Venue & Other Routes</div>
             <div class="card-body d-flex flex-column gap-3">
                 
-                <!-- Part A: Routes that need an input -->
+
+                <!-- Part A: Venue Routes that need an input -->
                 <div>
-                    <h6 class="text-muted border-bottom pb-1 small fw-bold">Needs Input</h6>
+                    <h6 class="text-muted border-bottom pb-1 small fw-bold">Venue Input</h6>
                     <div class="d-flex flex-column gap-2 mt-2">
-                        <!-- File/Test Input queries -->
-<!---
-                        <form action="{{ url_for('trace_outline') }}" method="GET" class="input-group input-group-sm">
-                            <input type="text" name="file" class="form-control" placeholder="SVG Filename" required>
-                            <button class="btn btn-outline-secondary" type="submit">Test SVG</button>
+                        <form action="" method="GET" class="input-group input-group-sm" onsubmit="this.action = '/venue/' + this.id_val.value; return true;">
+                            <input type="number" name="id_val" class="form-control" placeholder="Venue ID" required>
+                            <button class="btn btn-outline-secondary" type="submit">Detail</button>
                         </form>
---->
+                        <form action="" method="GET" class="input-group input-group-sm" onsubmit="this.action = '/venue/' + this.id_val.value + '/edit'; return true;">
+                            <input type="number" name="id_val" class="form-control" placeholder="Venue ID" required>
+                            <button class="btn btn-outline-secondary" type="submit">Edit</button>
+                        </form>
                     </div>
                 </div>
 
@@ -194,20 +196,20 @@
                 <div class="mt-auto">
                     <h6 class="text-muted border-bottom pb-1 small fw-bold">Static Routes</h6>
                     <div class="d-grid gap-1 mt-2">
+                        <a href="{{ url_for('list_venues') }}" class="btn btn-sm btn-light border text-start">List Venues</a>
+                        <a href="{{ url_for('create_venue') }}" class="btn btn-sm btn-light border text-start">Create Venue</a>
+                        <hr class="my-1">
                         <a href="{{ url_for('index') }}" class="btn btn-sm btn-light border text-start">Dashboard Home</a>
                         <a href="{{ url_for('upload_template') }}" class="btn btn-sm btn-light border text-start">Upload Template</a>
                         <a href="{{ url_for('inventory_status') }}" class="btn btn-sm btn-light border text-start">Inventory Status</a>
                         <a href="{{ url_for('list_sales') }}" class="btn btn-sm btn-light border text-start">List Sales</a>
                         <a href="{{ url_for('record_sale') }}" class="btn btn-sm btn-light border text-start">Record Sale</a>
-                        <a href="{{ url_for('trace_outline') }}" class="btn btn-sm btn-light border text-start">Trace Outline</a>
-                        <a href="{{ url_for('test_outline') }}" class="btn btn-sm btn-light border text-start">Test Outline</a>
                     </div>
                 </div>
 
             </div>
         </div>
     </div>
-
 </div>
 
 {% endblock %}

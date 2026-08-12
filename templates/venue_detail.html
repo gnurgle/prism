@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+
+
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+
+    <div>
+
+        <a href="{{ url_for('list_venues') }}" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Venues</a>
+
+        <h2>Venue Details: {{ venue.VENUENAME }}</h2>
+
+    </div>
+
+    <div>
+
+        <a href="{{ url_for('edit_venue', venue_id=venue.VENUEID) }}" class="btn btn-primary">✏️ Edit Venue Details</a>
+
+    </div>
+
+</div>
+
+
+
+<div class="row">
+
+    <div class="col-md-8">
+
+        <div class="card shadow-sm mb-4">
+
+            <div class="card-header bg-dark text-white">General Information</div>
+
+            <div class="card-body">
+
+                <table class="table table-borderless mb-0">
+
+                    <tbody>
+
+                        <tr>
+
+                            <th style="width: 35%;">Venue ID:</th>
+
+                            <td>#{{ venue.VENUEID }}</td>
+
+                        </tr>
+
+                        <tr>
+
+                            <th>Group:</th>
+
+                            <td><span class="badge bg-secondary">{{ venue.VENUEGRP or 'Unassigned' }}</span></td>
+
+                        </tr>
+
+                        <tr>
+
+                            <th>Location Info:</th>
+
+                            <td>{{ venue.VENUELOC or '—' }}</td>
+
+                        </tr>
+
+                        <tr>
+
+                            <th>Vendor Fee:</th>
+
+                            <td>${{ "%.2f"|format(venue.VENDPRICE) if venue.VENDPRICE is not none else '0.00' }}</td>
+
+                        </tr>
+
+                        <tr>
+
+                            <th>Application Deadline:</th>
+
+                            <td>{{ venue.APPDEADLINE or '—' }}</td>
+
+                        </tr>
+
+                        <tr>
+
+                            <th>Occurring Dates:</th>
+
+                            <td>{{ venue.STARTDATE or '—' }} to {{ venue.ENDDATE or '—' }}</td>
+
+                        </tr>
+
+                        <tr>
+
+                            <th>Camping Available:</th>
+
+                            <td>
+
+                                {% if venue.CAMPING %}
+
+                                    <span class="badge bg-success">Yes</span>
+
+                                {% else %}
+
+                                    <span class="badge bg-secondary">No</span>
+
+                                {% endif %}
+
+                            </td>
+
+                        </tr>
+
+                        <tr>
+
+                            <th>Single Weekend:</th>
+
+                            <td>
+
+                                {% if venue.SINGLEWKND %}
+
+                                    <span class="badge bg-info text-dark">Yes</span>
+
+                                {% else %}
+
+                                    <span class="badge bg-secondary">No</span>
+
+                                {% endif %}
+
+                            </td>
+
+                        </tr>
+
+                        <tr>
+
+                            <th>Status:</th>
+
+                            <td>
+
+                                {% if venue.ISACTIVE %}
+
+                                    <span class="badge bg-success">Active</span>
+
+                                {% else %}
+
+                                    <span class="badge bg-secondary">Inactive</span>
+
+                                {% endif %}
+
+                            </td>
+
+                        </tr>
+
+                        <tr>
+
+                            <th>Notes:</th>
+
+                            <td>{{ venue.VENUENOTE or 'No notes provided.' }}</td>
+
+                        </tr>
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

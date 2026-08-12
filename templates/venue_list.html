@@ -1,0 +1,407 @@
+{% extends 'base.html' %}
+
+
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+
+    <div>
+
+        <h2 class="mb-0">Venue Directory</h2>
+
+        <small class="text-muted">Showing {{ venues|length }} item(s)</small>
+
+    </div>
+
+    <div class="d-flex gap-2">
+
+        <button type="button" class="btn btn-outline-secondary d-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#filterModal">
+
+            🔍 Filter Results
+
+            {% if filters.q or filters.ven_grp or filters.app_start or filters.app_end or filters.camping or filters.min_fee or filters.max_fee or filters.multi_wknd or filters.occ_start or filters.occ_end %}
+
+                <span class="badge bg-primary rounded-pill">Active</span>
+
+            {% endif %}
+
+        </button>
+
+        <a href="{{ url_for('create_venue') }}" class="btn btn-primary">+ Add New Venue</a>
+
+    </div>
+
+</div>
+
+
+
+{# --- Active Filter Indicators --- #}
+
+
+
+{% if filters.q or filters.ven_grp or filters.app_start or filters.app_end or filters.camping or filters.min_fee or filters.max_fee or filters.multi_wknd or filters.occ_start or filters.occ_end %}
+
+<div class="alert alert-info py-2 px-3 d-flex align-items-center justify-content-between mb-3">
+
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+
+        <small class="fw-bold">Active Filters:</small>
+
+        {% if filters.q %}<span class="badge bg-light text-dark border">Search: "{{ filters.q }}"</span>{% endif %}
+
+        {% if filters.ven_grp %}<span class="badge bg-light text-dark border">Group: {{ filters.ven_grp }}</span>{% endif %}
+
+        {% if filters.app_start or filters.app_end %}<span class="badge bg-light text-dark border">Deadline: {{ filters.app_start or 'Any' }} to {{ filters.app_end or 'Any' }}</span>{% endif %}
+
+        {% if filters.camping %}<span class="badge bg-light text-dark border">Camping: {{ 'Yes' if filters.camping == '1' else 'No' }}</span>{% endif %}
+
+        {% if filters.min_fee or filters.max_fee %}<span class="badge bg-light text-dark border">Fee: ${{ filters.min_fee or '0' }} - ${{ filters.max_fee or 'Any' }}</span>{% endif %}
+
+        {% if filters.multi_wknd %}<span class="badge bg-light text-dark border">Multi-Weekend: {{ 'Yes' if filters.multi_wknd == '1' else 'No' }}</span>{% endif %}
+
+        {% if filters.occ_start or filters.occ_end %}<span class="badge bg-light text-dark border">Dates: {{ filters.occ_start or 'Any' }} to {{ filters.occ_end or 'Any' }}</span>{% endif %}
+
+    </div>
+
+    <a href="{{ url_for('list_venues') }}" class="btn btn-sm btn-link text-decoration-none p-0">Clear All</a>
+
+</div>
+
+{% endif %}
+
+
+
+{# Helper macro to generate clickable sortable table headers #}
+
+{% macro sort_header(col_key, label) %}
+
+    {% set new_order = 'desc' if current_sort == col_key and current_order == 'asc' else 'asc' %}
+
+    <a href="{{ url_for('list_venues', sort_by=col_key, order=new_order, **filters) }}" class="text-white text-decoration-none d-block">
+
+        {{ label }}
+
+        {% if current_sort == col_key %}
+
+            <small>{{ '▲' if current_order == 'asc' else '▼' }}</small>
+
+        {% else %}
+
+            <small class="text-muted" style="opacity: 0.4;">↕</small>
+
+        {% endif %}
+
+    </a>
+
+{% endmacro %}
+
+
+
+<div class="card shadow-sm">
+
+    <div class="card-body p-0">
+
+        <table class="table table-striped table-hover mb-0 align-middle">
+
+            <thead class="table-dark">
+
+                <tr>
+
+                    <th>{{ sort_header('VENUEID', 'ID') }}</th>
+
+                    <th>{{ sort_header('VENNAME', 'Venue Name') }}</th>
+
+                    <th>{{ sort_header('VENGRP', 'Group') }}</th>
+
+                    <th>{{ sort_header('VCITY', 'City') }}</th>
+
+                    <th>{{ sort_header('VENDLINE', 'App Deadline') }}</th>
+
+                    <th>{{ sort_header('VFEES', 'Vendor Fees') }}</th>
+
+                    <th>Camping</th>
+
+                    <th>Dates</th>
+
+                    <th class="text-end">Actions</th>
+
+                </tr>
+
+            </thead>
+
+            <tbody>
+
+                {% for venue in venues %}
+
+                <tr>
+
+                    <td><strong>#{{ venue.VENUEID }}</strong></td>
+
+                    <td>
+
+                        <a href="{{ url_for('venue_detail', venue_id=venue.VENUEID) }}" class="fw-bold text-decoration-none text-primary">
+
+                            {{ venue.VENNAME }}
+
+                        </a>
+
+                    </td>
+
+                    <td><span class="badge bg-secondary">{{ venue.VENGRP or 'Unassigned' }}</span></td>
+
+                    <td>{{ venue.VCITY or '—' }}</td>
+
+                    <td>{{ venue.VENDLINE or '—' }}</td>
+
+                    <td>
+
+                        {% if venue.VFEES is not none %}<strong class="text-success">${{ "%.2f"|format(venue.VFEES) }}</strong>{% else %}<span class="text-muted">Free / Unpriced</span>{% endif %}
+
+                    </td>
+
+                    <td>
+
+                        {% if venue.VCAMPAVA %}
+
+                            <span class="badge bg-success">Yes</span>
+
+                        {% else %}
+
+                            <span class="badge bg-secondary">No</span>
+
+                        {% endif %}
+
+                    </td>
+
+                    <td>{{ venue.VSDATE or '—' }} to {{ venue.VEDATE or '—' }}</td>
+
+                    <td class="text-end">
+
+                        <a href="{{ url_for('edit_venue', venue_id=venue.VENUEID) }}" class="btn btn-sm btn-outline-primary">Edit</a>
+
+                    </td>
+
+                </tr>
+
+                {% else %}
+
+                <tr>
+
+                    <td colspan="9" class="text-center py-5 text-muted">
+
+                        No venues match your criteria.
+
+                        {% if filters.q or filters.ven_grp or filters.app_start or filters.app_end or filters.camping or filters.min_fee or filters.max_fee or filters.multi_wknd or filters.occ_start or filters.occ_end %}
+
+                            <a href="{{ url_for('list_venues') }}">Reset filters</a>
+
+                        {% endif %}
+
+                    </td>
+
+                </tr>
+
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+
+
+<!-- Filter Modal Popup -->
+
+<div class="modal fade" id="filterModal" tabindex="-1" aria-labelledby="filterModalLabel" aria-hidden="true">
+
+    <div class="modal-dialog modal-dialog-centered">
+
+        <div class="modal-content">
+
+            <div class="modal-header bg-dark text-white">
+
+                <h5 class="modal-title" id="filterModalLabel">Filter Venue Directory</h5>
+
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+
+            </div>
+
+            <form action="{{ url_for('list_venues') }}" method="GET" id="venueFilterForm">
+
+                <input type="hidden" name="sort_by" value="{{ current_sort }}">
+
+                <input type="hidden" name="order" value="{{ current_order }}">
+
+                <input type="hidden" name="is_active" value="{{ filters.is_active }}">
+
+
+
+                <div class="modal-body">
+
+                    <div class="mb-3">
+
+                        <label class="form-label fw-bold">Search Name or Notes</label>
+
+                        <input type="text" name="q" class="form-control" value="{{ filters.q }}" placeholder="Keywords...">
+
+                    </div>
+
+
+
+                    <div class="row mb-3">
+
+                        <div class="col-md-6">
+
+                            <label class="form-label fw-bold">Venue Group</label>
+
+                            <select name="ven_grp" class="form-select">
+
+                                <option value="">-- All Groups --</option>
+
+                                {% for g in venue_groups %}
+
+                                    <option value="{{ g.VENGRP }}" {% if filters.ven_grp == g.VENGRP %}selected{% endif %}>{{ g.VENGRP }}</option>
+
+                                {% endfor %}
+
+                            </select>
+
+                        </div>
+
+                        <div class="col-md-6">
+
+                            <label class="form-label fw-bold">Camping Availability</label>
+
+                            <select name="camping" class="form-select">
+
+                                <option value="">-- Any --</option>
+
+                                <option value="1" {% if filters.camping == '1' %}selected{% endif %}>Yes</option>
+
+                                <option value="0" {% if filters.camping == '0' %}selected{% endif %}>No</option>
+
+                            </select>
+
+                        </div>
+
+                    </div>
+
+
+
+                    <div class="row mb-3">
+
+                        <div class="col-md-6">
+
+                            <label class="form-label fw-bold">Multi-Weekend</label>
+
+                            <select name="multi_wknd" class="form-select">
+
+                                <option value="">-- Any --</option>
+
+                                <option value="1" {% if filters.multi_wknd == '1' %}selected{% endif %}>Yes</option>
+
+                                <option value="0" {% if filters.multi_wknd == '0' %}selected{% endif %}>No</option>
+
+                            </select>
+
+                        </div>
+
+                        <div class="col-md-6">
+
+                            <label class="form-label fw-bold">Active Status</label>
+
+                            <select name="is_active" class="form-select">
+
+                                <option value="1" {% if filters.is_active == '1' %}selected{% endif %}>Active Only</option>
+
+                                <option value="0" {% if filters.is_active == '0' %}selected{% endif %}>Inactive Only</option>
+
+                                <option value="all" {% if filters.is_active == 'all' %}selected{% endif %}>Both</option>
+
+                            </select>
+
+                        </div>
+
+                    </div>
+
+
+
+                    <div class="mb-3">
+
+                        <label class="form-label fw-bold">Application Deadline Range</label>
+
+                        <div class="input-group">
+
+                            <input type="date" class="form-control" name="app_start" value="{{ filters.app_start }}">
+
+                            <span class="input-group-text">to</span>
+
+                            <input type="date" class="form-control" name="app_end" value="{{ filters.app_end }}">
+
+                        </div>
+
+                    </div>
+
+
+
+                    <div class="row mb-3">
+
+                        <div class="col-md-6">
+
+                            <label class="form-label fw-bold">Min Fee ($)</label>
+
+                            <input type="number" step="0.01" name="min_fee" class="form-control" value="{{ filters.min_fee }}" placeholder="0.00">
+
+                        </div>
+
+                        <div class="col-md-6">
+
+                            <label class="form-label fw-bold">Max Fee ($)</label>
+
+                            <input type="number" step="0.01" name="max_fee" class="form-control" value="{{ filters.max_fee }}" placeholder="500.00">
+
+                        </div>
+
+                    </div>
+
+
+
+                    <div class="mb-3">
+
+                        <label class="form-label fw-bold">Occurring Dates Range</label>
+
+                        <div class="input-group">
+
+                            <input type="date" class="form-control" name="occ_start" value="{{ filters.occ_start }}">
+
+                            <span class="input-group-text">to</span>
+
+                            <input type="date" class="form-control" name="occ_end" value="{{ filters.occ_end }}">
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="modal-footer justify-content-between">
+
+                    <a href="{{ url_for('list_venues') }}" class="btn btn-outline-secondary">Clear Filters</a>
+
+                    <button type="submit" class="btn btn-primary">Apply Filters</button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

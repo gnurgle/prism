@@ -1,0 +1,164 @@
+{% extends 'base.html' %}
+
+
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+
+    <div>
+
+        <a href="{{ url_for('list_venues') }}" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Venues</a>
+
+        <h2>{{ action }} Venue</h2>
+
+    </div>
+
+</div>
+
+
+
+<form method="POST" class="row g-3">
+
+    <div class="col-md-8">
+
+        <div class="card shadow-sm mb-4">
+
+            <div class="card-header bg-dark text-white">Venue Information</div>
+
+            <div class="card-body">
+
+                <div class="mb-3">
+
+                    <label for="VENNAME" class="form-label">Venue Name</label>
+
+                    <input type="text" class="form-control" id="VENNAME" name="VENNAME" value="{{ venue.VENNAME if venue else '' }}" required>
+
+                </div>
+
+
+
+                <div class="mb-3">
+
+                    <label for="VENGRP" class="form-label">Venue Group</label>
+
+                    <select class="form-select" id="VENGRP" name="VENGRP">
+
+                        <option value="">-- Select or Add Group --</option>
+
+                        {% for group in groups %}
+
+                            <option value="{{ group.VENGRP }}" {% if venue and venue.VENGRP == group.VENGRP %}selected{% endif %}>{{ group.VENGRP }}</option>
+
+                        {% endfor %}
+
+                    </select>
+
+                    <input type="text" class="form-control mt-2" id="NEW_VENGRP" name="NEW_VENGRP" placeholder="Or type a new group name...">
+
+                </div>
+
+
+
+                <div class="mb-3">
+
+                    <label for="VURL" class="form-label">URL to Venue Page</label>
+
+                    <input type="url" class="form-control" id="VURL" name="VURL" value="{{ venue.VURL if venue else '' }}" placeholder="https://...">
+
+                </div>
+
+
+
+                <div class="row mb-3">
+
+                    <div class="col-md-6">
+
+                        <label for="VINSTA" class="form-label">Instagram Link</label>
+
+                        <input type="text" class="form-control" id="VINSTA" name="VINSTA" value="{{ venue.VINSTA if venue else '' }}" placeholder="Instagram profile or URL">
+
+                    </div>
+
+                    <div class="col-md-6">
+
+                        <label for="VFB" class="form-label">Facebook Link</label>
+
+                        <input type="text" class="form-control" id="VFB" name="VFB" value="{{ venue.VFB if venue else '' }}" placeholder="Facebook profile or URL">
+
+                    </div>
+
+                </div>
+
+
+                <div class="row mb-3">
+
+                    <div class="col-md-6">
+
+                        <label for="VSDATE" class="form-label">Start Date</label>
+
+                        <input type="date" class="form-control" id="VSDATE" name="VSDATE" value="{{ venue.VSDATE if venue else '' }}">
+
+                    </div>
+
+                    <div class="col-md-6">
+
+                        <label for="VEDATE" class="form-label">End Date</label>
+
+                        <input type="date" class="form-control" id="VEDATE" name="VEDATE" value="{{ venue.VEDATE if venue else '' }}">
+
+                    </div>
+
+                </div>
+
+
+
+                <div class="row mb-3">
+
+                    <div class="col-md-6">
+
+                        <div class="form-check">
+
+                            <input class="form-check-input" type="checkbox" id="VCAMPAVA" name="VCAMPAVA" value="1" {% if venue and venue.VCAMPAVA %}checked{% endif %}>
+
+                            <label class="form-check-label" for="VCAMPAVA">Camping Availability</label>
+
+                        </div>
+
+                    </div>
+
+                    <div class="col-md-6">
+
+                        <div class="form-check">
+
+                            <input class="form-check-input" type="checkbox" id="VMULTI" name="VMULTI" value="1" {% if venue and venue.VMULTI %}checked{% endif %}>
+
+                            <label class="form-check-label" for="VMULTI">Multi-Weekend</label>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+
+                <div class="mb-3">
+
+                    <label for="VENNOTE" class="form-label">Notes</label>
+
+                    <textarea class="form-control" id="VENNOTE" name="VENNOTE" rows="3">{{ venue.VENNOTE if venue else '' }}</textarea>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <button type="submit" class="btn btn-success">Save Venue</button>
+
+    </div>
+
+</form>
+
+{% endblock %}

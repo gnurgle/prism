@@ -3582,6 +3582,395 @@ def settings():
 
     )
 
+@app.route('/venues')
+
+def list_venues():
+
+    db = get_db()
+
+
+
+    sort_by = request.args.get('sort_by', 'VENNAME')
+
+    order = request.args.get('order', 'asc').lower()
+
+    if order not in ['asc', 'desc']:
+
+        order = 'asc'
+
+
+
+    q = request.args.get('q', '').strip()
+
+    ven_grp = request.args.get('ven_grp', '').strip()
+
+    app_start = request.args.get('app_start', '').strip()
+
+    app_end = request.args.get('app_end', '').strip()
+
+    camping = request.args.get('camping', '').strip()
+
+    min_fee = request.args.get('min_fee', '').strip()
+
+    max_fee = request.args.get('max_fee', '').strip()
+
+    multi_wknd = request.args.get('multi_wknd', '').strip()
+
+    occ_start = request.args.get('occ_start', '').strip()
+
+    occ_end = request.args.get('occ_end', '').strip()
+
+    is_active = request.args.get('is_active', '1').strip()
+
+
+
+    allowed_sorts = {
+
+        'VENUEID': 'v.VENUEID',
+
+        'VENNAME': 'v.VENNAME',
+
+        'VENGRP': 'v.VENGRP',
+
+        'VCITY': 'v.VCITY',
+
+        'VFEES': 'v.VFEES',
+
+        'VENDLINE': 'v.VENDLINE'
+
+    }
+
+    sort_column = allowed_sorts.get(sort_by, 'v.VENNAME')
+
+
+
+    where_clauses = []
+
+    params = []
+
+
+
+    if is_active != 'all':
+
+        where_clauses.append("v.ISACTIVE = ?")
+
+        params.append(1 if is_active == '1' else 0)
+
+
+
+    if q:
+
+        where_clauses.append("(v.VENNAME LIKE ? OR v.VENNOTE LIKE ? OR v.VCITY LIKE ?)")
+
+        params.extend([f"%{q}%", f"%{q}%", f"%{q}%"])
+
+
+
+    if ven_grp:
+
+        where_clauses.append("v.VENGRP = ?")
+
+        params.append(ven_grp)
+
+
+
+    if app_start:
+
+        where_clauses.append("v.VENDLINE >= ?")
+
+        params.append(app_start)
+
+    if app_end:
+
+        where_clauses.append("v.VENDLINE <= ?")
+
+        params.append(app_end)
+
+
+
+    if camping:
+
+        where_clauses.append("v.VCAMPAVA = ?")
+
+        params.append(camping)
+
+
+
+    if min_fee:
+
+        where_clauses.append("v.VFEES >= ?")
+
+        params.append(min_fee)
+
+    if max_fee:
+
+        where_clauses.append("v.VFEES <= ?")
+
+        params.append(max_fee)
+
+
+
+    if multi_wknd:
+
+        where_clauses.append("v.VMULTI = ?")
+
+        params.append(multi_wknd)
+
+
+
+    if occ_start and occ_end:
+
+        where_clauses.append("v.VSDATE <= ? AND v.VEDATE >= ?")
+
+        params.extend([occ_end, occ_start])
+
+    elif occ_start:
+
+        where_clauses.append("v.VEDATE >= ?")
+
+        params.append(occ_start)
+
+    elif occ_end:
+
+        where_clauses.append("v.VSDATE <= ?")
+
+        params.append(occ_end)
+
+
+
+    where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+
+
+
+    query = f"""
+
+        SELECT v.* 
+
+        FROM VENUE v
+
+        {where_sql}
+
+        ORDER BY {sort_column} {order.upper()}
+
+    """
+
+    venues = db.execute(query, params).fetchall()
+
+
+
+    venue_groups = db.execute("SELECT DISTINCT VENGRP FROM VENUE WHERE VENGRP IS NOT NULL AND VENGRP != '' ORDER BY VENGRP").fetchall()
+
+
+
+    return render_template(
+
+        'venue_list.html',
+
+        venues=venues,
+
+        venue_groups=venue_groups,
+
+        current_sort=sort_by,
+
+        current_order=order,
+
+        filters={
+
+            'q': q,
+
+            'ven_grp': ven_grp,
+
+            'app_start': app_start,
+
+            'app_end': app_end,
+
+            'camping': camping,
+
+            'min_fee': min_fee,
+
+            'max_fee': max_fee,
+
+            'multi_wknd': multi_wknd,
+
+            'occ_start': occ_start,
+
+            'occ_end': occ_end,
+
+            'is_active': is_active
+
+        }
+
+    )
+
+
+
+
+
+@app.route('/venue/new', methods=['GET', 'POST'])
+
+def create_venue():
+
+    db = get_db()
+
+    
+
+    if request.method == 'POST':
+
+        venname = request.form.get('VENNAME')
+
+        vengrp = request.form.get('VENGRP') or None
+
+        vcity = request.form.get('VCITY')
+
+        vfees = request.form.get('VFEES') or None
+
+        vendline = request.form.get('VENDLINE') or None
+
+        vsdate = request.form.get('VSDATE') or None
+
+        vedate = request.form.get('VEDATE') or None
+
+        vcampava = 1 if request.form.get('VCAMPAVA') else 0
+
+        vmulti = 1 if request.form.get('VMULTI') else 0
+
+        vennote = request.form.get('VENNOTE')
+
+        isactive = 1
+
+
+
+        db.execute(
+
+            """
+
+            INSERT INTO VENUE (VENNAME, VENGRP, VCITY, VFEES, VENDLINE, VSDATE, VEDATE, VCAMPAVA, VMULTI, VENNOTE, ISACTIVE)
+
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+
+            """,
+
+            (venname, vengrp, vcity, vfees, vendline, vsdate, vedate, vcampava, vmulti, vennote, isactive)
+
+        )
+
+        db.commit()
+
+        
+
+        flash('Venue created successfully!', 'success')
+
+        return redirect(url_for('list_venues'))
+
+
+
+    all_groups = db.execute('SELECT DISTINCT VENGRP FROM VENUE WHERE VENGRP IS NOT NULL ORDER BY VENGRP ASC').fetchall()
+
+    return render_template('venue_form.html', action='Create', venue={}, groups=all_groups)
+
+
+
+
+
+@app.route('/venue/<int:venue_id>/edit', methods=['GET', 'POST'])
+
+def edit_venue(venue_id):
+
+    db = get_db()
+
+    
+
+    venue = db.execute('SELECT * FROM VENUE WHERE VENUEID = ?', (venue_id,)).fetchone()
+
+    if not venue:
+
+        flash('Venue record not found.', 'danger')
+
+        return redirect(url_for('list_venues'))
+
+
+
+    if request.method == 'POST':
+
+        venname = request.form.get('VENNAME')
+
+        vengrp = request.form.get('VENGRP') or None
+
+        vcity = request.form.get('VCITY')
+
+        vfees = request.form.get('VFEES') or None
+
+        vendline = request.form.get('VENDLINE') or None
+
+        vsdate = request.form.get('VSDATE') or None
+
+        vedate = request.form.get('VEDATE') or None
+
+        vcampava = 1 if request.form.get('VCAMPAVA') else 0
+
+        vmulti = 1 if request.form.get('VMULTI') else 0
+
+        vennote = request.form.get('VENNOTE')
+
+        isactive = 1 if request.form.get('ISACTIVE') else 0
+
+
+
+        db.execute(
+
+            """
+
+            UPDATE VENUE 
+
+            SET VENNAME = ?, VENGRP = ?, VCITY = ?, VFEES = ?, VENDLINE = ?, 
+
+                VSDATE = ?, VEDATE = ?, VCAMPAVA = ?, VMULTI = ?, VENNOTE = ?, ISACTIVE = ?
+
+            WHERE VENUEID = ?
+
+            """,
+
+            (venname, vengrp, vcity, vfees, vendline, vsdate, vedate, vcampava, vmulti, vennote, isactive, venue_id)
+
+        )
+
+        db.commit()
+
+        
+
+        flash('Venue updated successfully!', 'success')
+
+        return redirect(url_for('list_venues'))
+
+
+
+    all_groups = db.execute('SELECT DISTINCT VENGRP FROM VENUE WHERE VENGRP IS NOT NULL ORDER BY VENGRP ASC').fetchall()
+
+    return render_template('venue_form.html', action='Edit', venue=venue, groups=all_groups)
+
+
+
+
+
+@app.route('/venue/<int:venue_id>')
+
+def venue_detail(venue_id):
+
+    db = get_db()
+
+    
+
+    venue = db.execute('SELECT * FROM VENUE WHERE VENUEID = ?', (venue_id,)).fetchone()
+
+    if not venue:
+
+        flash('Venue record not found.', 'danger')
+
+        return redirect(url_for('list_venues'))
+
+        
+
+    return render_template('venue_detail.html', venue=venue)
 
 
 if __name__ == "__main__":
