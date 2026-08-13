@@ -1285,11 +1285,13 @@ def delete_price(item_id, price_id):
 # ============================================================================
 
 @app.route('/glass')
+
 def list_glass():
+
     db = get_db()
 
     # --- Capture Sort & Filter Parameters ---
-    sort_by = request.args.get('sort_by', 'GLASSID')
+    sort_by = request.args.get('sort_by', 'GLSNAME')
     order = request.args.get('order', 'asc').lower()
     if order not in ['asc', 'desc']:
         order = 'asc'
@@ -1301,8 +1303,9 @@ def list_glass():
     source = request.args.get('source', '').strip()
     min_price = request.args.get('min_price', '').strip()
     max_price = request.args.get('max_price', '').strip()
-
-    # Filter parameter for Glass active status (Defaults to showing active glass '1')
+    glsiri = request.args.get('glsiri')
+    glsopal = request.args.get('glsopal')
+    # Filter parameter for Glass active status (Defaults to showing active glass '1', cycles through 1, 0, all/both)
     is_active = request.args.get('is_active', '1').strip()
 
     item_id = request.args.get('item_id', '').strip()
@@ -1310,26 +1313,37 @@ def list_glass():
     active_only = request.args.get('active_only', '')  # '1' if active items only
 
     allowed_sorts = {
-        'GLASSID': 'g.GLASSID',
         'GLSNAME': 'g.GLSNAME',
         'GLSMANF': 'g.GLSMANF',
         'GLSTEX': 'g.GLSTEX',
         'COLOR': 'g.COLOR',
+        'COLOR_HSV': 'COLOR_HSV',
         'GLSOURCE': 'g.GLSOURCE',
         'GLSLEN': 'g.GLSLEN',
         'GLSPRICE': 'p.GLSPRICE'
     }
-    sort_column = allowed_sorts.get(sort_by, 'g.GLASSID')
+    
+    # If sorting by COLOR_HSV, fetch sorted by default/secondary column from SQL, then sort in Python like glass_inventory
+    sql_sort_column = 'g.GLSNAME' if sort_by == 'COLOR_HSV' else allowed_sorts.get(sort_by, 'g.GLSNAME')
 
     # Build dynamic WHERE clause for GSI table
     where_clauses = []
     params = []
 
-    # Filter Glass by ISACTIVE integer flag
+    # Filter Glass by ISACTIVE integer flag (supports 1, 0, or 'all')
     if is_active != 'all':
         where_clauses.append("g.ISACTIVE = ?")
         params.append(1 if is_active == '1' else 0)
 
+    # Handle GLSIRI / GLSOPAL filters with OR logic if both checked
+    iri_op_clauses = []
+    if glsiri == '1':
+        iri_op_clauses.append("g.GLSIRI = 1")
+    if glsopal == '1':
+        iri_op_clauses.append("g.GLSOPAL = 1")
+    
+    if iri_op_clauses:
+        where_clauses.append(f"({' OR '.join(iri_op_clauses)})")
     if q:
         where_clauses.append("(g.GLSNAME LIKE ? OR g.GLSMANF LIKE ? OR g.GLSNOTE LIKE ?)")
         params.extend([f"%{q}%", f"%{q}%", f"%{q}%"])
@@ -1361,7 +1375,7 @@ def list_glass():
         
     where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
 
-# Execute main query
+    # Execute main query
     query = f"""
         SELECT DISTINCT g.*, p.GLSPRICE, c.CHEX
         FROM GSI g
@@ -1369,22 +1383,78 @@ def list_glass():
         LEFT JOIN COLOR c ON g.COLOR = c.COLOR
         {join_igc}
         {where_sql}
-        ORDER BY {sort_column} {order.upper()}
+        ORDER BY {sql_sort_column} {order.upper()}
     """
-    glasses = db.execute(query, params).fetchall()
+    raw_glasses = db.execute(query, params).fetchall()
 
-    # --- Fetch Active Lookups for Modal Dropdowns ---
+    # Post-process glasses to attach HSV values for color sorting
+    glasses = []
+    for row in raw_glasses:
+        item_dict = dict(row)
+        hex_val = item_dict.get('CHEX')
+        
+        # hex_to_hsv returns a single float: (h * 1000) + (s * 100) + v
+        combined_val = hex_to_hsv(hex_val) if hex_val else 999999.0
+        item_dict['COLOR_HSV'] = combined_val
+        glasses.append(item_dict)
+
+    if sort_by == 'COLOR_HSV':
+
+        def color_sort_key(x):
+            val = x['COLOR_HSV']
+            if val >= 999999.0:
+                # Missing colors go last
+                return (1, 1.0, 0, val)
+                
+            # Reverse engineer approximate h, s, v from the returned float weight
+            # weight = (h * 1000) + (s * 100) + v
+            h = val // 1000
+            rem = val % 1000
+            s = rem // 100
+            v = rem % 100
+
+            # Treat low saturation (near 0) as greyscale
+            is_greyscale = 1 if s < 0.05 else 0
+            
+            if order == 'desc':
+                return (is_greyscale, -v if is_greyscale else -h, -s, -v)
+            else:
+                # Group 0: normal colors (H, S, V)
+                # Group 1: greyscale (sorted by V from white/1.0 to black/0.0)
+                return (is_greyscale, -v if is_greyscale else h, s, v)
+
+        glasses.sort(key=color_sort_key, reverse=(order == 'desc'))
+    # --- Fetch Active Lookups for Modal Dropdowns (in HSV order if color) ---
     textures = db.execute(
         "SELECT DISTINCT GLSTEX FROM GSI WHERE ISACTIVE = 1 AND GLSTEX IS NOT NULL AND GLSTEX != '' ORDER BY GLSTEX"
     ).fetchall()
     
-    colors = db.execute(
-        "SELECT * FROM COLOR ORDER BY COLOR"
+    raw_colors = db.execute(
+        "SELECT * FROM COLOR"
     ).fetchall()
     
+    # Sort color dropdown options: normal colors first, greyscale (s == 0) at the end (white to black)
+    colors = []
+    for col in raw_colors:
+        c_dict = dict(col)
+        hex_val = c_dict.get('CHEX')
+        combined_val = hex_to_hsv(hex_val) if hex_val else 999999.0
+        
+        # Extract components to check saturation
+        h = combined_val // 1000
+        rem = combined_val % 1000
+        s = rem // 100
+        v = rem % 100
+        
+        c_dict['COLOR_HSV'] = combined_val
+        c_dict['_sort_key'] = (1 if s < 0.05 else 0, -v if s < 0.05 else h, s, v)
+        colors.append(c_dict)
+        
+    colors.sort(key=lambda x: x['_sort_key'])
     sources = db.execute(
         "SELECT DISTINCT GLSOURCE FROM GSI WHERE ISACTIVE = 1 AND GLSOURCE IS NOT NULL AND GLSOURCE != '' ORDER BY GLSOURCE"
     ).fetchall()
+
     
     manufacturers = db.execute(
         "SELECT DISTINCT GLSMANF FROM GSI WHERE ISACTIVE = 1 AND GLSMANF IS NOT NULL AND GLSMANF != '' ORDER BY GLSMANF"
@@ -1435,9 +1505,12 @@ def list_glass():
             'is_active': is_active,
             'item_id': item_id, 
             'item_name': item_name, 
-            'active_only': active_only
+            'active_only': active_only,
+            'glsiri': glsiri,
+            'glsopal': glsopal
         }
     )
+
 @app.route("/glass/new", methods=["GET", "POST"])
 def create_glass():
 
@@ -3824,6 +3897,18 @@ def venue_detail(venue_id):
 
     return render_template('venue_detail.html', venue=venue)
 
+
+@app.route('/glass/toggle/<int:glass_id>')
+
+def toggle_glass_active(glass_id):
+
+    db = get_db()
+    current = db.execute("SELECT ISACTIVE FROM GSI WHERE GLASSID = ?", (glass_id,)).fetchone()
+    if current:
+        new_status = 0 if current['ISACTIVE'] == 1 else 1
+        db.execute("UPDATE GSI SET ISACTIVE = ? WHERE GLASSID = ?", (new_status, glass_id))
+        db.commit()
+    return redirect(request.referrer or url_for('list_glass'))
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=7665, debug=True)
