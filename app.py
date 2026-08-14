@@ -1745,11 +1745,8 @@ def delete_glass(glass_id):
     return redirect(url_for('list_glass'))
 
 @app.route('/glass/inventory', methods=['GET', 'POST'])
-@app.route('/glass/inventory', methods=['GET', 'POST'])
 
 def glass_inventory():
-
-
 
     db = get_db()
 
@@ -1813,7 +1810,7 @@ def glass_inventory():
 
     tex = request.args.get('tex', '').strip()
 
-    color = request.args.get('color', '').strip()  # Added color capture
+    color = request.args.get('color', '').strip()
 
     source = request.args.get('source', '').strip()
 
@@ -1831,13 +1828,19 @@ def glass_inventory():
 
     
 
-    # Added Active status filter parameter (defaults to '1' like glass_list)
+    # Active status filter parameter referencing schema.sql
 
     is_active = request.args.get('is_active', '1').strip()
 
     
 
-    # Added Item filter parameters
+    # Online only filter checkbox
+
+    online_only = 1 if request.args.get('online_only') == '1' else 0
+
+
+
+    # Item filter parameters
 
     item_id = request.args.get('item_id', '').strip()
 
@@ -1879,27 +1882,19 @@ def glass_inventory():
 
 
 
-    # Build dynamic WHERE clause for base query
+    # Build dynamic WHERE clause for base query referencing schema.sql columns
 
     where_clauses = []
+
+    params_active = [1 if is_active == '1' else 0] if is_active != 'all' else []
+
+    params = params_active
+
+    
 
     if is_active != 'all':
 
         where_clauses.append("g.ISACTIVE = ?")
-
-        params_active = [1 if is_active == '1' else 0]
-
-    else:
-
-        params_active = []
-
-
-
-    params = params_active
-
-    if is_active == 'all':
-
-        where_clauses = [] # reset if all
 
 
 
@@ -1921,7 +1916,7 @@ def glass_inventory():
 
         params.append(tex)
 
-    if color:  # Added color query binding
+    if color:
 
         where_clauses.append("g.COLOR = ?")
 
@@ -1956,6 +1951,14 @@ def glass_inventory():
         where_clauses.append("p.GLSPRICE <= ?")
 
         params.append(max_price)
+
+    
+
+    # Online-only filter rule checking GSL table via SRCWEB or GSI link presence
+
+    if online_only:
+
+        where_clauses.append("(l.SRCWEB = 1 OR (g.GLLINK IS NOT NULL AND g.GLLINK != ''))")
 
 
 
@@ -2099,13 +2102,11 @@ def glass_inventory():
 
 
 
-    # --- Fetch Lookups for Filter Dropdowns (matching glass_list) ---
+    # --- Fetch Lookups for Filter Dropdowns ---
 
     textures = db.execute("SELECT DISTINCT GLSTEX FROM GSI WHERE ISACTIVE = 1 AND GLSTEX IS NOT NULL AND GLSTEX != '' ORDER BY GLSTEX").fetchall()
 
     
-
-    # Sorted colors matching glass_list HSV configuration
 
     raw_colors = db.execute("SELECT * FROM COLOR").fetchall()
 
@@ -2146,8 +2147,6 @@ def glass_inventory():
     opalescent_options = db.execute("SELECT DISTINCT GLSOPAL FROM GSI WHERE ISACTIVE = 1 AND GLSOPAL = 1").fetchall()
 
 
-
-    # Fetch items list for the Item dropdown component
 
     item_where = "WHERE i.ISACTIVE = 1" if active_only == '1' else ""
 
@@ -2213,7 +2212,7 @@ def glass_inventory():
 
         opalescent_options=opalescent_options,
 
-        items=items, # Passed items list for dropdown
+        items=items,
 
         current_sort=sort_by,
 
@@ -2245,6 +2244,8 @@ def glass_inventory():
 
             'opalescent': request.args.get('opalescent', ''),
 
+            'online_only': online_only,
+
             'is_active': is_active,
 
             'item_id': item_id,
@@ -2256,6 +2257,7 @@ def glass_inventory():
         }
 
     )
+
 # ============================================================================
 # COMPONENTS
 # ============================================================================
