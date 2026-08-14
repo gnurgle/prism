@@ -50,7 +50,7 @@
 
         </button>
 
-        <a href="{{ url_for('list_glass') }}" class="btn btn-outline-secondary">← Back to Glass Directory</a>
+        <a href="{{ url_for('glass_bp.list_glass') }}" class="btn btn-outline-secondary">← Back to Glass Directory</a>
 
     </div>
 
@@ -108,7 +108,7 @@
 
     </div>
 
-    <a href="{{ url_for('glass_inventory') }}" class="btn btn-sm btn-link text-decoration-none p-0">Clear All</a>
+    <a href="{{ url_for('glass_bp.glass_inventory') }}" class="btn btn-sm btn-link text-decoration-none p-0">Clear All</a>
 
 </div>
 
@@ -122,7 +122,7 @@
 
     {% set new_order = 'desc' if current_sort == col_key and current_order == 'asc' else 'asc' %}
 
-    <a href="{{ url_for('glass_inventory', sort_by=col_key, order=new_order, **filters) }}" class="text-white text-decoration-none d-block">
+    <a href="{{ url_for('glass_bp.glass_inventory', sort_by=col_key, order=new_order, **filters) }}" class="text-white text-decoration-none d-block">
 
         {{ label }}
 
@@ -244,7 +244,7 @@
 
                     <td>
 
-                        <a href="{{ url_for('glass_detail', glass_id=item.GLASSID) }}" class="fw-bold text-decoration-none text-primary">
+                        <a href="{{ url_for('glass_bp.glass_detail', glass_id=item.GLASSID) }}" class="fw-bold text-decoration-none text-primary">
 
                             {{ item.GLSNAME }}
 
@@ -398,7 +398,7 @@
 
                         {% if filters.q or filters.manf or filters.tex or filters.color or filters.source or filters.min_price or filters.max_price or filters.stock_filter or filters.iridescent or filters.opalescent or filters.online_only or filters.is_active != '1' or filters.item_id %}
 
-                            <a href="{{ url_for('glass_inventory') }}">Reset filters</a>
+                            <a href="{{ url_for('glass_bp.glass_inventory') }}">Reset filters</a>
 
                         {% endif %}
 
@@ -486,7 +486,7 @@
 
             </div>
 
-            <form action="{{ url_for('glass_inventory') }}" method="GET" id="filterForm">
+            <form action="{{ url_for('glass_bp.glass_inventory') }}" method="GET" id="filterForm">
 
                 <input type="hidden" name="sort_by" value="{{ current_sort }}">
 
@@ -816,7 +816,7 @@
 
                 <div class="modal-footer justify-content-between">
 
-                    <a href="{{ url_for('glass_inventory') }}" class="btn btn-outline-secondary">Clear Filters</a>
+                    <a href="{{ url_for('glass_bp.glass_inventory') }}" class="btn btn-outline-secondary">Clear Filters</a>
 
                     <button type="submit" class="btn btn-primary">Apply Filters</button>
 
@@ -848,7 +848,7 @@
 
             </div>
 
-            <form action="{{ url_for('glass_inventory') }}" method="POST">
+            <form action="{{ url_for('glass_bp.glass_inventory') }}" method="POST">
 
                 <input type="hidden" name="GLASSID" id="modalGlassId">
 

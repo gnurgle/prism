@@ -13,7 +13,7 @@
                 <span class="badge bg-primary rounded-pill">Active</span>
             {% endif %}
         </button>
-        <a href="{{ url_for('create_glass') }}" class="btn btn-primary">+ Add New Glass Sheet</a>
+        <a href="{{ url_for('glass_bp.create_glass') }}" class="btn btn-primary">+ Add New Glass Sheet</a>
     </div>
 </div>
 
@@ -41,14 +41,14 @@
             <span class="badge bg-secondary text-white">All Active/Inactive</span>
         {% endif %}
     </div>
-    <a href="{{ url_for('list_glass') }}" class="btn btn-sm btn-link text-decoration-none p-0">Clear All</a>
+    <a href="{{ url_for('glass_bp.list_glass') }}" class="btn btn-sm btn-link text-decoration-none p-0">Clear All</a>
 </div>
 {% endif %}
 
 {# Helper macro to generate clickable sortable table headers #}
 {% macro sort_header(col_key, label) %}
     {% set new_order = 'desc' if current_sort == col_key and current_order == 'asc' else 'asc' %}
-    <a href="{{ url_for('list_glass', sort_by=col_key, order=new_order, **filters) }}" class="text-white text-decoration-none d-flex align-items-center justify-content-between px-1">
+    <a href="{{ url_for('glass_bp.list_glass', sort_by=col_key, order=new_order, **filters) }}" class="text-white text-decoration-none d-flex align-items-center justify-content-between px-1">
         {{ label }}
         {% if current_sort == col_key %}
             <small>{{ '▲' if current_order == 'asc' else '▼' }}</small>
@@ -78,7 +78,7 @@
                 {% for g in glasses %}
                 <tr>
                     <td>
-                        <a href="{{ url_for('glass_detail', glass_id=g.GLASSID) }}" class="fw-bold text-decoration-none text-primary">
+                        <a href="{{ url_for('glass_bp.glass_detail', glass_id=g.GLASSID) }}" class="fw-bold text-decoration-none text-primary">
                             {{ g.GLSNAME }}
                         </a>
                     </td>
@@ -131,7 +131,7 @@
                     <td colspan="10" class="text-center py-5 text-muted">
                         No glass sheets match your criteria.
                         {% if filters.q or filters.manf or filters.tex or filters.color or filters.source or filters.min_price or filters.max_price or filters.item_id %}
-                            <a href="{{ url_for('list_glass') }}">Reset filters</a>
+                            <a href="{{ url_for('glass_bp.list_glass') }}">Reset filters</a>
                         {% endif %}
                     </td>
                 </tr>
@@ -148,7 +148,7 @@
                 <h5 class="modal-title" id="filterModalLabel">Filter Glass Inventory</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form action="{{ url_for('list_glass') }}" method="GET" id="glassFilterForm">
+            <form action="{{ url_for('glass_bp.list_glass') }}" method="GET" id="glassFilterForm">
                 <input type="hidden" name="sort_by" value="{{ current_sort }}">
                 <input type="hidden" name="order" value="{{ current_order }}">
                 <input type="hidden" name="active_only" id="activeOnlyInput" value="{{ filters.active_only }}">
@@ -297,7 +297,7 @@
                     </div>
                 </div>
                 <div class="modal-footer justify-content-between">
-                    <a href="{{ url_for('list_glass') }}" class="btn btn-outline-secondary">Clear Filters</a>
+                    <a href="{{ url_for('glass_bp.list_glass') }}" class="btn btn-outline-secondary">Clear Filters</a>
                     <button type="submit" class="btn btn-primary">Apply Filters</button>
                 </div>
             </form>
