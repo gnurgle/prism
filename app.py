@@ -81,7 +81,7 @@ def init_db():
             "INSERT OR IGNORE INTO IGP (ITMGRP) VALUES ('Potions'), ('Fruit Slices'), ('Mushrooms')"
         )
         db.execute(
-            "INSERT OR IGNORE INTO COLOR (COLOR, CHEX) VALUES ('Red', 'FF0000'), ('Orange', 'FF8000'), ('Yellow', 'FFFF00'), ('Chartreuse Green', '80FF00'), ('Green', '00FF00'), ('Spring Green', '00FF80'), ('Azure', '0080FF'), ('Blue', '0000FF'), ('Violet', '8000FF'), ('Magenta', 'FF00FF'), ('Rose', 'FF0080'), ('White', 'FFFFFF'), ('Black', '000000'), ('Grey', '808080'), ('Transparent', 'FFFFFF')"
+            "INSERT OR IGNORE INTO COLOR (COLOR, CHEX) VALUES ('Black', '0E0E11'),( 'Dark Grey', '7D7D7D'),( 'Light Grey','BEBEBE'),( 'White', 'FFF8F1'),( 'Cerulean', '63CCFF'),( 'Blue', '2087F9'),( 'Cobolt', '1F4897'),( 'Emerald', '095337'),( 'Green', '2BD81A'),( 'Chartreuse', '8DFC00'),( 'Yellow', 'FFFD3B'),( 'Goldenrod', 'FED416'),( 'Orange', 'F17700'),( 'Red', 'E41F00'),( 'Burgundy', '7F0E21'),( 'Indigo', '401782'),( 'Amethyst', '7B35BD'),( 'Mauve', 'BE5ABF'),( 'Lavender', 'E69CE6'),( 'Raspberry', 'DE599B'),( 'Pink', 'FF7D93'),( 'Tan', 'B15223'),( 'Brown', '6B2A16'),( 'Transparent', 'FFFFFF')"
         )
         db.execute(
             "INSERT OR IGNORE INTO GTRNS (GTRNSN, GTRNSV) VALUES ('Clear', 35), ('Transparent', 60), ('Translucent', 75), ('Opaque', 95)"
@@ -132,11 +132,9 @@ def index():
     )
 
 @app.route('/item/<int:item_id>', methods=['GET'])
-
 def item_detail(item_id):
 
     """Display full details, pricing metrics, components, and group siblings using IMI mapping table."""
-
     db = get_db()
 
 
@@ -1747,196 +1745,517 @@ def delete_glass(glass_id):
     return redirect(url_for('list_glass'))
 
 @app.route('/glass/inventory', methods=['GET', 'POST'])
+@app.route('/glass/inventory', methods=['GET', 'POST'])
+
 def glass_inventory():
+
+
 
     db = get_db()
 
+
+
     if request.method == 'POST':
+
         glass_id = request.form.get('GLASSID')
+
         adjustment = request.form.get('GLSSTOCK')
+
         trans_date = request.form.get('TS') or date.today().isoformat()
 
+
+
         if glass_id and adjustment:
+
             db.execute(
+
                 """
+
                 INSERT INTO GLSINV (GLASSID, GLSSTOCK, TS)
+
                 VALUES (?, ?, ?)
+
                 """,
+
                 (glass_id, int(adjustment), trans_date)
+
             )
+
             db.commit()
+
             flash("Inventory level adjusted successfully!", "success")
+
         else:
+
             flash("Invalid input parameters for stock adjustment.", "danger")
+
             
+
         return redirect(url_for('glass_inventory'))
 
+
+
     # --- Capture Sort & Filter Parameters ---
+
     sort_by = request.args.get('sort_by', 'GLSNAME')
+
     order = request.args.get('order', 'asc').lower()
+
     if order not in ['asc', 'desc']:
+
         order = 'asc'
 
+
+
     q = request.args.get('q', '').strip()
+
     manf = request.args.get('manf', '').strip()
+
     tex = request.args.get('tex', '').strip()
-    color = request.args.get('color', '').strip()
+
+    color = request.args.get('color', '').strip()  # Added color capture
+
     source = request.args.get('source', '').strip()
+
     min_price = request.args.get('min_price', '').strip()
+
     max_price = request.args.get('max_price', '').strip()
+
     stock_filter = request.args.get('stock_filter', '').strip()
+
     iridescent_filter = request.args.get('iridescent')
+
     opalescent_filter = request.args.get('opalescent')
+
     stock_display_mode = request.args.get('stock_display', 'all')
 
-    allowed_sorts = {
-        'GLASSID': 'GLASSID',
-        'GLSNAME': 'GLSNAME',
-        'GLSMANF': 'GLSMANF',
-        'GLSTEX': 'GLSTEX',
-        'COLOR': 'COLOR',
-        'COLOR_HSV': 'COLOR_HSV',
-        'GLSIRI': 'GLSIRI',
-        'GLSOPAL': 'GLSOPAL',
-        'GLSLEN': 'GLSLEN',
-        'CURRENT_STOCK': 'CURRENT_STOCK',
-        'LAST_UPDATED': 'LAST_UPDATED'
-    }
     
-    # If sorting by COLOR_HSV, fetch sorted by secondary or default column from SQL, then sort in Python
+
+    # Added Active status filter parameter (defaults to '1' like glass_list)
+
+    is_active = request.args.get('is_active', '1').strip()
+
+    
+
+    # Added Item filter parameters
+
+    item_id = request.args.get('item_id', '').strip()
+
+    item_name = request.args.get('item_name', '').strip()
+
+    active_only = request.args.get('active_only', '')
+
+
+
+    allowed_sorts = {
+
+        'GLASSID': 'GLASSID',
+
+        'GLSNAME': 'GLSNAME',
+
+        'GLSMANF': 'GLSMANF',
+
+        'GLSTEX': 'GLSTEX',
+
+        'COLOR': 'COLOR',
+
+        'COLOR_HSV': 'COLOR_HSV',
+
+        'GLSIRI': 'GLSIRI',
+
+        'GLSOPAL': 'GLSOPAL',
+
+        'GLSLEN': 'GLSLEN',
+
+        'CURRENT_STOCK': 'CURRENT_STOCK',
+
+        'LAST_UPDATED': 'LAST_UPDATED'
+
+    }
+
+    
+
     sql_sort_column = 'GLSNAME' if sort_by == 'COLOR_HSV' else allowed_sorts.get(sort_by, 'GLSNAME')
 
+
+
     # Build dynamic WHERE clause for base query
-    where_clauses = ["g.ISACTIVE = 1"]
-    params = []
+
+    where_clauses = []
+
+    if is_active != 'all':
+
+        where_clauses.append("g.ISACTIVE = ?")
+
+        params_active = [1 if is_active == '1' else 0]
+
+    else:
+
+        params_active = []
+
+
+
+    params = params_active
+
+    if is_active == 'all':
+
+        where_clauses = [] # reset if all
+
+
 
     if q:
+
         where_clauses.append("(g.GLSNAME LIKE ? OR g.GLSMANF LIKE ? OR g.GLSNOTE LIKE ?)")
+
         params.extend([f"%{q}%", f"%{q}%", f"%{q}%"])
+
     if manf:
+
         where_clauses.append("g.GLSMANF = ?")
+
         params.append(manf)
+
     if tex:
+
         where_clauses.append("g.GLSTEX = ?")
+
         params.append(tex)
-    if color:
+
+    if color:  # Added color query binding
+
         where_clauses.append("g.COLOR = ?")
+
         params.append(color)
+
     if iridescent_filter:
+
         where_clauses.append("g.GLSIRI = ?")
+
         params.append(iridescent_filter)
+
     if opalescent_filter:
+
         where_clauses.append("g.GLSOPAL = ?")
+
         params.append(opalescent_filter)
+
     if source:
+
         where_clauses.append("g.GLSOURCE = ?")
+
         params.append(source)
+
     if min_price:
+
         where_clauses.append("p.GLSPRICE >= ?")
+
         params.append(min_price)
+
     if max_price:
+
         where_clauses.append("p.GLSPRICE <= ?")
+
         params.append(max_price)
 
-    where_sql = f"WHERE {' AND '.join(where_clauses)}"
+
+
+    # Handle Item join mapping if item_id is provided
+
+    join_igc = ""
+
+    if item_id:
+
+        join_igc = "INNER JOIN IGC c_item ON g.GLASSID = c_item.GLASSID"
+
+        where_clauses.append("c_item.ITEMID = ?")
+
+        params.append(item_id)
+
+
+
+    where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+
+
 
     having_conditions = []
+
     if stock_filter == 'out':
+
         having_conditions.append("CURRENT_STOCK = 0")
+
     elif stock_filter == 'low':
+
         having_conditions.append("CURRENT_STOCK = 1")
+
     elif stock_filter == 'in':
+
         having_conditions.append("CURRENT_STOCK > 1")
 
+
+
     if stock_display_mode == 'out':
+
         having_conditions.append("CURRENT_STOCK <= 0")
+
     elif stock_display_mode == 'hide':
+
         having_conditions.append("CURRENT_STOCK > 0")
 
-    # Add GROUP BY GLASSID so the HAVING clause is valid syntax in SQLite
+
+
     stock_having_sql = f"GROUP BY GLASSID HAVING {' AND '.join(having_conditions)}" if having_conditions else ""
 
+
+
     query = f"""
-        SELECT GLASSID, GLSNAME, GLSMANF, GLSLEN, GLSWID, GLSTHK, GLSTEX, 
+
+        SELECT DISTINCT GLASSID, GLSNAME, GLSMANF, GLSLEN, GLSWID, GLSTHK, GLSTEX, 
+
                GLSIRI, GLSOPAL, GLSOURCE, GLLINK, GLSIMG, GLSNOTE, COLOR, 
+
                ISACTIVE, CHEX, GLSPRICE, SRCWEB, CURRENT_STOCK, LAST_UPDATED
+
         FROM (
+
             SELECT g.GLASSID, g.GLSNAME, g.GLSMANF, g.GLSLEN, g.GLSWID, g.GLSTHK, 
+
                    g.GLSTEX, g.GLSIRI, g.GLSOPAL, g.GLSOURCE, g.GLLINK, g.GLSIMG, 
+
                    g.GLSNOTE, g.COLOR, g.ISACTIVE, c.CHEX, p.GLSPRICE, l.SRCWEB,
+
                    COALESCE((
+
                        SELECT i.GLSSTOCK 
+
                        FROM GLSINV i 
+
                        WHERE i.GLASSID = g.GLASSID 
+
                        ORDER BY i.TS DESC, i.GLSTRNID DESC 
+
                        LIMIT 1
+
                    ), 0) AS CURRENT_STOCK,
+
                    (
+
                        SELECT i.TS 
+
                        FROM GLSINV i 
+
                        WHERE i.GLASSID = g.GLASSID 
+
                        ORDER BY i.TS DESC, i.GLSTRNID DESC 
+
                        LIMIT 1
+
                    ) AS LAST_UPDATED
+
             FROM GSI g
+
             LEFT JOIN COLOR c ON g.COLOR = c.COLOR
+
             LEFT JOIN GPC p ON g.GLASSID = p.GLASSID
+
             LEFT JOIN GSL l ON g.GLSOURCE = l.GLSOURCE
+
+            {join_igc}
+
             {where_sql}
+
         ) sub
+
         {stock_having_sql}
+
         ORDER BY {sql_sort_column} {order.upper()}
+
     """
+
     raw_items = db.execute(query, params).fetchall()
 
-    # Post-process items to attach HSV values and handle numeric sort cleanly if requested
+
+
     inventory_items = []
+
     for row in raw_items:
+
         item = dict(row)
+
         item['COLOR_HSV'] = hex_to_hsv(item.get('CHEX'))
+
         inventory_items.append(item)
 
+
+
     if sort_by == 'COLOR_HSV':
+
         inventory_items.sort(
+
             key=lambda x: x['COLOR_HSV'],
+
             reverse=(order == 'desc')
+
         )
 
-    # --- Fetch Lookups for Filter Dropdowns ---
+
+
+    # --- Fetch Lookups for Filter Dropdowns (matching glass_list) ---
+
     textures = db.execute("SELECT DISTINCT GLSTEX FROM GSI WHERE ISACTIVE = 1 AND GLSTEX IS NOT NULL AND GLSTEX != '' ORDER BY GLSTEX").fetchall()
-    colors = db.execute("SELECT * FROM COLOR ORDER BY COLOR").fetchall()
+
+    
+
+    # Sorted colors matching glass_list HSV configuration
+
+    raw_colors = db.execute("SELECT * FROM COLOR").fetchall()
+
+    colors = []
+
+    for col in raw_colors:
+
+        c_dict = dict(col)
+
+        hex_val = c_dict.get('CHEX')
+
+        combined_val = hex_to_hsv(hex_val) if hex_val else 999999.0
+
+        h = combined_val // 1000
+
+        rem = combined_val % 1000
+
+        s = rem // 100
+
+        v = rem % 100
+
+        c_dict['COLOR_HSV'] = combined_val
+
+        c_dict['_sort_key'] = (1 if s < 0.05 else 0, -v if s < 0.05 else h, s, v)
+
+        colors.append(c_dict)
+
+    colors.sort(key=lambda x: x['_sort_key'])
+
+
+
     sources = db.execute("SELECT DISTINCT GLSOURCE FROM GSI WHERE ISACTIVE = 1 AND GLSOURCE IS NOT NULL AND GLSOURCE != '' ORDER BY GLSOURCE").fetchall()
+
     manufacturers = db.execute("SELECT DISTINCT GLSMANF FROM GSI WHERE ISACTIVE = 1 AND GLSMANF IS NOT NULL AND GLSMANF != '' ORDER BY GLSMANF").fetchall()
+
     iridescent_options = db.execute("SELECT DISTINCT GLSIRI FROM GSI WHERE ISACTIVE = 1 AND GLSIRI = 1").fetchall()
+
     opalescent_options = db.execute("SELECT DISTINCT GLSOPAL FROM GSI WHERE ISACTIVE = 1 AND GLSOPAL = 1").fetchall()
 
-    return render_template(
-        'glass_inventory.html',
-        inventory_items=inventory_items,
-        textures=textures,
-        colors=colors,
-        sources=sources,
-        manufacturers=manufacturers,
-        iridescent_options=iridescent_options,
-        opalescent_options=opalescent_options,
-        current_sort=sort_by,
-        current_order=order,
-        today_date=date.today().isoformat(),
-        filters={
-            'q': request.args.get('q', ''),
-            'manf': request.args.get('manf', ''),
-            'tex': request.args.get('tex', ''),
-            'color': request.args.get('color', ''),
-            'source': request.args.get('source', ''),
-            'min_price': request.args.get('min_price', ''),
-            'max_price': request.args.get('max_price', ''),
-            'stock_filter': request.args.get('stock_filter', ''),
-            'stock_display': stock_display_mode,
-            'iridescent': request.args.get('iridescent', ''),
-            'opalescent': request.args.get('opalescent', '')
-        }
-    )
 
+
+    # Fetch items list for the Item dropdown component
+
+    item_where = "WHERE i.ISACTIVE = 1" if active_only == '1' else ""
+
+    items_query = f"""
+
+        SELECT 
+
+            i.ITEMID, 
+
+            i.ITMNAME, 
+
+            i.ISACTIVE,
+
+            i.CURRENT,
+
+            g.ITMGRP,
+
+            COALESCE(NULLIF(g.ITMGRP, ''), i.ITMNAME) AS group_or_name
+
+        FROM ITM i
+
+        LEFT JOIN IGP g ON i.ITMGRP = g.ITMGRP
+
+        {item_where}
+
+        ORDER BY group_or_name ASC, i.ITMNAME ASC
+
+    """
+
+    items = db.execute(items_query).fetchall()
+
+
+
+    item_name = ""
+
+    if item_id:
+
+        for itm in items:
+
+            if str(itm['ITEMID']) == str(item_id):
+
+                item_name = itm['ITMNAME']
+
+                break
+
+
+
+    return render_template(
+
+        'glass_inventory.html',
+
+        inventory_items=inventory_items,
+
+        textures=textures,
+
+        colors=colors,
+
+        sources=sources,
+
+        manufacturers=manufacturers,
+
+        iridescent_options=iridescent_options,
+
+        opalescent_options=opalescent_options,
+
+        items=items, # Passed items list for dropdown
+
+        current_sort=sort_by,
+
+        current_order=order,
+
+        today_date=date.today().isoformat(),
+
+        filters={
+
+            'q': request.args.get('q', ''),
+
+            'manf': request.args.get('manf', ''),
+
+            'tex': request.args.get('tex', ''),
+
+            'color': color,
+
+            'source': request.args.get('source', ''),
+
+            'min_price': request.args.get('min_price', ''),
+
+            'max_price': request.args.get('max_price', ''),
+
+            'stock_filter': request.args.get('stock_filter', ''),
+
+            'stock_display': stock_display_mode,
+
+            'iridescent': request.args.get('iridescent', ''),
+
+            'opalescent': request.args.get('opalescent', ''),
+
+            'is_active': is_active,
+
+            'item_id': item_id,
+
+            'item_name': item_name,
+
+            'active_only': active_only
+
+        }
+
+    )
 # ============================================================================
 # COMPONENTS
 # ============================================================================
@@ -3387,38 +3706,52 @@ def update_components_batch():
 @app.route('/trace_outline', methods=['GET', 'POST'])
 def trace_outline():
     db = get_db()
+
     svg_content = None
     outline_content = None
     filled_content = None
     foil_content = None
+
     total_len = 0.0
     outline_len = 0.0
     foil_len = 0.0
+
     width_in = 10.0
     height_in = 10.0
     selected_item_id = None
 
     if request.method == 'POST':
         selected_item_id = request.form.get('item_id')
-        
+
         if selected_item_id:
-            item = db.execute('SELECT * FROM ITM WHERE ITEMID = ?', (selected_item_id,)).fetchone()
+            item = db.execute(
+                'SELECT * FROM ITM WHERE ITEMID = ?',
+                (selected_item_id,)
+            ).fetchone()
+
             if item and item['ITMPTRN']:
                 try:
                     width_in = float(item['ITMLEN']) if item['ITMLEN'] else 10.0
                     height_in = float(item['ITMWID']) if item['ITMWID'] else 10.0
                 except (ValueError, TypeError):
-                    width_in, height_in = 10.0, 10.0
+                    width_in = 10.0
+                    height_in = 10.0
 
-                img_path = os.path.join(app.root_path, 'static', item['ITMPTRN'])
+                img_path = os.path.join(
+                    app.root_path,
+                    'static',
+                    item['ITMPTRN']
+                )
+
                 if os.path.exists(img_path):
                     with open(img_path, 'rb') as f:
                         file_bytes = f.read()
 
-                   
-                    # Wrap bytes in a BytesIO stream for processing functions
                     from io import BytesIO
-                    
+
+                    # ---------------------------------------------------------
+                    # TRACE THE STENCIL
+                    # ---------------------------------------------------------
                     stream1 = BytesIO(file_bytes)
                     svg_content = trace_stencil_to_single_path_svg(stream1)
 
@@ -3428,45 +3761,279 @@ def trace_outline():
                     stream3 = BytesIO(file_bytes)
                     foil_content = trace_stencil_to_filled_outline_svg(stream3)
 
-                    total_len = compute_total_path_length(svg_content, width_in, height_in)
-                    outline_len = compute_total_path_length(outline_content, width_in, height_in)
-                    foil_len = compute_total_path_length(foil_content, width_in, height_in) - outline_len
+                    total_len = compute_total_path_length(
+                        svg_content,
+                        width_in,
+                        height_in
+                    )
 
-                    total_len = round_to_eighth(total_len)
-                    outline_len = round_to_eighth(outline_len)
-                    foil_len = round_to_eighth(foil_len)
-                    # Write the results to the DB
-                    db.execute('''
-                        UPDATE ITM 
-                        SET ITMSLDR = ?, ITMCAME = ?, ITMFOIL = ?
-                        WHERE ITEMID = ?
-                    ''', (total_len, outline_len, foil_len, selected_item_id))
-                    db.commit()
-                    flash('Outline trace measurements successfully updated!', 'success')
+                    outline_len = compute_total_path_length(
+                        outline_content,
+                        width_in,
+                        height_in
+                    )
 
-    # Fetch active items where ISACTIVE = 1 and ITMPTRN is not null/empty for the dropdown
-    items = db.execute('''
-        SELECT ITEMID, ITMNAME, ITMLEN, ITMWID, ITMPTRN 
-        FROM ITM 
-        WHERE ISACTIVE = 1 AND ITMPTRN IS NOT NULL AND ITMPTRN != ''
+                    foil_len = (
+                        compute_total_path_length(
+                            foil_content,
+                            width_in,
+                            height_in
+                        ) - outline_len
+                    )
+
+                    # ---------------------------------------------------------
+                    # SAVE TRACE RESULTS THROUGH IMI
+                    #
+                    # Do NOT write the calculated quantities into:
+                    #     ITMSLDR
+                    #     ITMFOIL
+                    #     ITMCAME
+                    #
+                    # Instead:
+                    #   1. Use the existing IMI ID stored on ITM when valid.
+                    #   2. Otherwise create a new IMI.
+                    #   3. Store the new IMI ID on ITM.
+                    #   4. Update IMIAMT on the IMI record.
+                    # ---------------------------------------------------------
+
+                    try:
+                        # Calculated quantities.
+                        #
+                        # Keep these assignments matching the existing
+                        # trace calculation semantics.
+                        solder_amount = total_len
+                        foil_amount = foil_len
+                        came_amount = outline_len
+
+                        supply_updates = [
+                            {
+                                'itm_column': 'IMISLDR',
+                                'msi_type': 'Solder',
+                                'amount': solder_amount
+                            },
+                            {
+                                'itm_column': 'IMIFOIL',
+                                'msi_type': 'Foil',
+                                'amount': foil_amount
+                            },
+                            {
+                                'itm_column': 'IMICAME',
+                                'msi_type': 'Came',
+                                'amount': came_amount
+                            }
+                        ]
+
+                        created_imi_ids = []
+                        updated_imi_ids = []
+
+                        for supply in supply_updates:
+                            itm_column = supply['itm_column']
+                            msi_type = supply['msi_type']
+                            amount = float(supply['amount'] or 0)
+
+                            # -------------------------------------------------
+                            # 1. Get the IMI ID currently stored on ITM
+                            # -------------------------------------------------
+                            current_imi_id = item[itm_column]
+
+                            imi_row = None
+
+                            if current_imi_id:
+                                imi_row = db.execute(
+                                    """
+                                    SELECT
+                                        i.IMIID,
+                                        i.ITEMID,
+                                        i.MSIID,
+                                        i.IMIAMT,
+                                        m.MSITYPE
+                                    FROM IMI i
+                                    JOIN MSI m
+                                      ON m.MSIID = i.MSIID
+                                    WHERE i.IMIID = ?
+                                      AND i.ITEMID = ?
+                                    """,
+                                    (
+                                        current_imi_id,
+                                        selected_item_id
+                                    )
+                                ).fetchone()
+
+                                # Do not reuse an IMI belonging to the wrong
+                                # material type.
+                                if (
+                                    not imi_row
+                                    or imi_row['MSITYPE'] != msi_type
+                                ):
+                                    imi_row = None
+
+                            # -------------------------------------------------
+                            # 2. If the ITM IMI ID is missing/invalid,
+                            #    find an existing IMI for this item/type.
+                            # -------------------------------------------------
+                            if not imi_row:
+                                imi_row = db.execute(
+                                    """
+                                    SELECT
+                                        i.IMIID,
+                                        i.ITEMID,
+                                        i.MSIID,
+                                        i.IMIAMT,
+                                        m.MSITYPE
+                                    FROM IMI i
+                                    JOIN MSI m
+                                      ON m.MSIID = i.MSIID
+                                    WHERE i.ITEMID = ?
+                                      AND m.MSITYPE = ?
+                                    ORDER BY i.IMIID
+                                    LIMIT 1
+                                    """,
+                                    (
+                                        selected_item_id,
+                                        msi_type
+                                    )
+                                ).fetchone()
+
+                            # -------------------------------------------------
+                            # 3. If no IMI exists, create one.
+                            #
+                            # Pick an active MSI of the required type.
+                            # -------------------------------------------------
+                            if not imi_row:
+                                msi_row = db.execute(
+                                    """
+                                    SELECT MSIID
+                                    FROM MSI
+                                    WHERE MSITYPE = ?
+                                      AND ISACTIVE = 1
+                                    ORDER BY MSIID
+                                    LIMIT 1
+                                    """,
+                                    (msi_type,)
+                                ).fetchone()
+
+                                if not msi_row:
+                                    flash(
+                                        f'No active MSI exists for '
+                                        f'{msi_type}. Trace result was not saved.',
+                                        'warning'
+                                    )
+                                    continue
+
+                                cursor = db.execute(
+                                    """
+                                    INSERT INTO IMI
+                                        (ITEMID, MSIID, IMIAMT)
+                                    VALUES
+                                        (?, ?, ?)
+                                    """,
+                                    (
+                                        selected_item_id,
+                                        msi_row['MSIID'],
+                                        amount
+                                    )
+                                )
+
+                                new_imi_id = cursor.lastrowid
+
+                                # -------------------------------------------------
+                                # Store the newly-created IMI ID on ITM.
+                                #
+                                # IMPORTANT:
+                                # This is the only ITM value being changed here.
+                                # The measurement columns themselves are NOT
+                                # updated.
+                                # -------------------------------------------------
+                                db.execute(
+                                    f"""
+                                    UPDATE ITM
+                                    SET {itm_column} = ?
+                                    WHERE ITEMID = ?
+                                    """,
+                                    (
+                                        new_imi_id,
+                                        selected_item_id
+                                    )
+                                )
+
+                                created_imi_ids.append(new_imi_id)
+
+                            else:
+                                # -------------------------------------------------
+                                # 4. Existing IMI: update its amount.
+                                # -------------------------------------------------
+                                db.execute(
+                                    """
+                                    UPDATE IMI
+                                    SET IMIAMT = ?
+                                    WHERE IMIID = ?
+                                      AND ITEMID = ?
+                                    """,
+                                    (
+                                        amount,
+                                        imi_row['IMIID'],
+                                        selected_item_id
+                                    )
+                                )
+
+                                updated_imi_ids.append(imi_row['IMIID'])
+
+                        db.commit()
+
+                        if created_imi_ids:
+                            flash(
+                                'Created IMI record(s): '
+                                + ', '.join(map(str, created_imi_ids)),
+                                'success'
+                            )
+
+                        if updated_imi_ids:
+                            flash(
+                                'Updated IMI record(s): '
+                                + ', '.join(map(str, updated_imi_ids)),
+                                'success'
+                            )
+
+                    except Exception as e:
+                        db.rollback()
+                        flash(
+                            f'Unable to save trace measurements: {e}',
+                            'danger'
+                        )
+
+    # -------------------------------------------------------------
+    # Existing item-selection list
+    # -------------------------------------------------------------
+    items = db.execute(
+        '''
+        SELECT
+            ITEMID,
+            ITMNAME,
+            ITMLEN,
+            ITMWID,
+            ITMPTRN
+        FROM ITM
+        WHERE ISACTIVE = 1
+          AND ITMPTRN IS NOT NULL
+          AND ITMPTRN != ''
         ORDER BY ITMNAME ASC
-    ''').fetchall()
+        '''
+    ).fetchall()
 
     return render_template(
         'trace_outline.html',
         items=items,
         selected_item_id=selected_item_id,
-        svg_content=svg_content, 
+        svg_content=svg_content,
         outline_content=outline_content,
         filled_content=filled_content,
         foil_content=foil_content,
-        total_len=total_len, 
+        total_len=total_len,
         outline_len=outline_len,
         foil_len=foil_len,
-        width_in=width_in, 
+        width_in=width_in,
         height_in=height_in
     )
-
 
 @app.route('/settings', methods=['GET', 'POST'])
 
