@@ -161,6 +161,61 @@
             </div>
         </div>
 
+        <!-- Current Stock Card -->
+
+        <div class="card shadow-sm mb-4">
+
+            <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+
+                <span>Current Stock</span>
+
+            </div>
+
+            <div class="card-body text-center">
+
+                {% set stock = glass.CURRENT_STOCK if glass.CURRENT_STOCK is not none else 0 %}
+
+                <div class="mb-3">
+
+                    {% if stock <= 0 %}
+
+                        <span class="badge bg-danger px-3 py-2 fs-6">Out of Stock (0)</span>
+
+                    {% elif stock == 1 %}
+
+                        <span class="badge bg-warning text-dark px-3 py-2 fs-6">Low Stock (1)</span>
+
+                    {% else %}
+
+                        <span class="badge bg-success px-3 py-2 fs-6">In Stock ({{ stock }})</span>
+
+                    {% endif %}
+
+                </div>
+
+                <button type="button" class="btn btn-sm btn-outline-primary adjust-btn w-100"
+
+                        data-bs-toggle="modal" 
+
+                        data-bs-target="#adjustModal"
+
+                        data-glassid="{{ glass.GLASSID }}"
+
+                        data-glassname="{{ glass.GLSNAME }}"
+
+                        data-currentstock="{{ stock }}">
+
+                    ± Adjust Stock
+
+                </button>
+
+            </div>
+
+        </div>
+
+
+
+
 {% if glass.GLSIMG %}
         <div class="card shadow-sm">
             <div class="card-header bg-dark text-white">Glass Image Sample</div>
@@ -175,6 +230,76 @@
         {% endif %}
     </div>
 </div>
+
+
+<div class="modal fade" id="adjustModal" tabindex="-1" aria-labelledby="adjustModalLabel" aria-hidden="true">
+
+    <div class="modal-dialog modal-dialog-centered">
+
+        <div class="modal-content">
+
+            <div class="modal-header bg-dark text-white">
+
+                <h5 class="modal-title" id="adjustModalLabel">Adjust Inventory Level</h5>
+
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+
+            </div>
+
+            <form id="adjustStockForm" method="POST">
+
+                <input type="hidden" name="GLASSID" id="modalGlassId">
+
+                <div class="modal-body">
+
+                    <div class="mb-3">
+
+                        <label class="form-label text-muted">Glass Sheet:</label>
+
+                        <h4 id="modalGlassName" class="text-primary fw-bold"></h4>
+
+                    </div>
+
+                    <div class="mb-3">
+
+                        <label class="form-label fw-bold">New Total Stock Level</label>
+
+                        <!-- Fixed Bug 1: Name attribute matches form handling so amount shows/saves correctly -->
+
+                        <input type="number" name="GLSSTOCK" id="modalStockInput" class="form-control" required min="0">
+
+                        <small class="text-muted">Enter the absolute physical count available.</small>
+
+                    </div>
+
+                    <div class="mb-3">
+
+                        <label class="form-label fw-bold">Adjustment Date</label>
+
+                        <input type="date" name="TS" class="form-control" value="{{ today_date }}" required>
+
+                        <small class="text-muted">Defaults to today's date automatically.</small>
+
+                    </div>
+
+                </div>
+
+                <div class="modal-footer">
+
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+
+                    <button type="submit" class="btn btn-primary">Save Adjustment</button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+</div>
+
 
 <script src="{{ url_for('static', filename='js/color_dropdown.js') }}"\></script>
 
@@ -288,5 +413,44 @@ document.addEventListener('DOMContentLoaded', function() {
 
 });
 
+document.addEventListener('DOMContentLoaded', function() {
+
+    const adjustModal = document.getElementById('adjustModal');
+
+    if (adjustModal) {
+
+        adjustModal.addEventListener('show.bs.modal', function (event) {
+
+            const button = event.relatedTarget;
+
+            const glassId = button.getAttribute('data-glassid');
+
+            const currentStock = button.getAttribute('data-currentstock');
+
+            const glassName = button.getAttribute('data-glassname');
+
+            
+
+            // Fixed Bug 3: Explicitly point action to this item's detail URL to prevent redirecting to glass_inventory
+
+            const form = document.getElementById('adjustStockForm');
+
+            form.action = "{{ url_for('glass_bp.glass_detail', glass_id=0) }}".replace('/0', '/' + glassId);
+
+
+
+            // Fixed Bug 1: Properly pass values into modal fields so current amount shows up
+
+            document.getElementById('modalGlassId').value = glassId;
+
+            document.getElementById('modalGlassName').textContent = glassName;
+
+            document.getElementById('modalStockInput').value = currentStock;
+
+        });
+
+    }
+
+});
 </script>
 {% endblock %}

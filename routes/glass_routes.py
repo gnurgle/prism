@@ -243,31 +243,101 @@ def create_glass():
         "glass_form.html", textures=textures, transparency=transparency, colors=colors, sources=sources
     )
 
-@glass_bp.route('/glass/<int:glass_id>')
+@glass_bp.route('/glass/<int:glass_id>', methods=['GET', 'POST'])
+
 def glass_detail(glass_id):
+
     db = get_db_from_app()
+
+    
+
+    # Handle stock adjustment submission on the same page
+
+    if request.method == 'POST':
+
+        glsstock = request.form.get('GLSSTOCK')
+
+        ts = request.form.get('TS', date.today().isoformat())
+
+        
+
+        if glsstock is not None:
+
+            try:
+
+                db.execute('''
+
+                    INSERT INTO GLSINV (GLASSID, GLSSTOCK, TS)
+
+                    VALUES (?, ?, ?)
+
+                ''', (glass_id, int(glsstock), ts))
+
+                db.commit()
+
+                flash('Stock level updated successfully!', 'success')
+
+            except Exception as e:
+
+                db.rollback()
+
+                flash(f'Error updating stock: {e}', 'danger')
+
+                
+
+        return redirect(url_for('glass_bp.glass_detail', glass_id=glass_id))
+
+
+
     glass = db.execute('''
-        SELECT g.*, p.GLSPRICE, s.SRCWEB, s.GLSLOGO, c.CHEX
+
+        SELECT g.*, p.GLSPRICE, s.SRCWEB, s.GLSLOGO, c.CHEX,
+
+               COALESCE((
+
+                   SELECT i.GLSSTOCK FROM GLSINV i 
+
+                   WHERE i.GLASSID = g.GLASSID 
+
+                   ORDER BY i.TS DESC, i.GLSTRNID DESC LIMIT 1
+
+               ), 0) AS CURRENT_STOCK
+
         FROM GSI g
+
         LEFT JOIN GPC p ON g.GLASSID = p.GLASSID
+
         LEFT JOIN GSL s ON g.GLSOURCE = s.GLSOURCE
+
         LEFT JOIN COLOR c ON g.COLOR = c.COLOR
+
         WHERE g.GLASSID = ?
+
     ''', (glass_id,)).fetchone()
 
+
+
     if not glass:
+
         flash('Glass sheet record not found.', 'danger')
+
         return redirect(url_for('glass_bp.list_glass'))
 
+
+
     components = db.execute('''
+
         SELECT c.*, i.ITMNAME 
+
         FROM IGC c
+
         JOIN ITM i ON c.ITEMID = i.ITEMID
+
         WHERE c.GLASSID = ?
+
     ''', (glass_id,)).fetchall()
 
-    return render_template('glass_detail.html', glass=glass, components=components)
-
+    return render_template('glass_detail.html', glass=glass, components=components, today_date=date.today().isoformat())
 @glass_bp.route('/glass/edit/<int:glass_id>', methods=['GET', 'POST'])
 def edit_glass(glass_id):
     db = get_db_from_app()
