@@ -84,7 +84,7 @@
                     </div>
 
                     <div class="d-flex justify-content-between align-items-center">
-                        <a href="{{ url_for('list_misc') }}" class="btn btn-secondary">Cancel</a>
+                        <a href="{{ url_for('misc_bp.list_misc') }}" class="btn btn-secondary">Cancel</a>
                         
                         <div>
                             {% if action == 'Edit' and misc %}
@@ -99,7 +99,7 @@
 
                 {% if action == 'Edit' and misc %}
                 <!-- Separate hidden form for deletion -->
-                <form id="delete-misc-form" action="{{ url_for('delete_misc', misc_id=misc.MSIID) }}" method="POST" style="display: none;"></form>
+                <form id="delete-misc-form" action="{{ url_for('misc_bp.delete_misc', misc_id=misc.MSIID) }}" method="POST" style="display: none;"></form>
                 {% endif %}
             </div>
         </div>

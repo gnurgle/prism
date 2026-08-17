@@ -4,12 +4,12 @@
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <div>
-        <a href="{{ url_for('list_misc') }}" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Misc Item List</a>
+        <a href="{{ url_for('misc_bp.list_misc') }}" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Misc Item List</a>
         <h2>Misc Item Details: {{ misc.MSINAME }}</h2>
     </div>
     <div>
         <!-- Edit Button -->
-        <a href="{{ url_for('edit_misc', misc_id=misc.MSIID) }}" class="btn btn-primary">✏️ Edit Misc Item Details</a>
+        <a href="{{ url_for('misc_bp.edit_misc', misc_id=misc.MSIID) }}" class="btn btn-primary">✏️ Edit Misc Item Details</a>
     </div>
 </div>
 

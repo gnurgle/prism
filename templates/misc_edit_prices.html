@@ -3,7 +3,7 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-        <a href="{{ url_for('misc_price_history', misc_id=misc.MSIID) }}" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Price History</a>
+        <a href="{{ url_for('misc_bp.misc_price_history', misc_id=misc.MSIID) }}" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Price History</a>
         <h2>Manage Prices: {{ misc.MSINAME }}</h2>
     </div>
     <div>
@@ -38,7 +38,7 @@
                         {% endif %}
                     </td>
                     <td class="text-end">
-                        <form action="{{ url_for('delete_misc_price', misc_id=misc.MSIID, price_id=p.rowid) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this price tier?');">
+                        <form action="{{ url_for('misc_bp.delete_misc_price', misc_id=misc.MSIID, price_id=p.rowid) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this price tier?');">
                             <button type="submit" class="btn btn-outline-danger btn-sm">Delete</button>
                         </form>
                     </td>

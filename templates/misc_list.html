@@ -13,7 +13,7 @@
                 <span class="badge bg-primary rounded-pill">Active</span>
             {% endif %}
         </button>
-        <a href="{{ url_for('create_misc') }}" class="btn btn-primary">+ Add New Misc Item</a>
+        <a href="{{ url_for('misc_bp.create_misc') }}" class="btn btn-primary">+ Add New Misc Item</a>
     </div>
 </div>
 
@@ -35,14 +35,14 @@
             <span class="badge bg-success text-white">Actively Used Items Only</span>
         {% endif %}
     </div>
-    <a href="{{ url_for('list_misc') }}" class="btn btn-sm btn-link text-decoration-none p-0">Clear All</a>
+    <a href="{{ url_for('misc_bp.list_misc') }}" class="btn btn-sm btn-link text-decoration-none p-0">Clear All</a>
 </div>
 {% endif %}
 
 {# Helper macro to generate clickable sortable table headers #}
 {% macro sort_header(col_key, label) %}
     {% set new_order = 'desc' if current_sort == col_key and current_order == 'asc' else 'asc' %}
-    <a href="{{ url_for('list_misc', sort_by=col_key, order=new_order, **filters) }}" class="text-white text-decoration-none d-block">
+    <a href="{{ url_for('misc_bp.list_misc', sort_by=col_key, order=new_order, **filters) }}" class="text-white text-decoration-none d-block">
         {{ label }}
         {% if current_sort == col_key %}
             <small>{{ '▲' if current_order == 'asc' else '▼' }}</small>
@@ -68,7 +68,7 @@
                 <tr>
                     <td><strong>#{{ m.MSIID }}</strong></td>
                     <td>
-                        <a href="{{ url_for('misc_detail', misc_id=m.MSIID) }}" class="fw-bold text-decoration-none text-primary">
+                        <a href="{{ url_for('misc_bp.misc_detail', misc_id=m.MSIID) }}" class="fw-bold text-decoration-none text-primary">
                             {{ m.MSINAME }}
                         </a>
                     </td>
@@ -82,7 +82,7 @@
                     <td colspan="8" class="text-center py-5 text-muted">
                         No items match your criteria.
                         {% if filters.q or filters.min_price or filters.max_price or filters.item_id %}
-                            <a href="{{ url_for('list_glass') }}">Reset filters</a>
+                            <a href="{{ url_for('glass_bp.list_glass') }}">Reset filters</a>
                         {% endif %}
                     </td>
                 </tr>
@@ -100,7 +100,7 @@
                 <h5 class="modal-title" id="filterModalLabel">Filter Misc Item Inventory</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form action="{{ url_for('list_misc') }}" method="GET" id="miscFilterForm">
+            <form action="{{ url_for('misc_bp.list_misc') }}" method="GET" id="miscFilterForm">
                 <input type="hidden" name="sort_by" value="{{ current_sort }}">
                 <input type="hidden" name="order" value="{{ current_order }}">
                 <input type="hidden" name="active_only" id="activeOnlyInput" value="{{ filters.active_only }}">
@@ -159,7 +159,7 @@
                     </div>
                 </div>
                 <div class="modal-footer justify-content-between">
-                    <a href="{{ url_for('list_misc') }}" class="btn btn-outline-secondary">Clear Filters</a>
+                    <a href="{{ url_for('misc_bp.list_misc') }}" class="btn btn-outline-secondary">Clear Filters</a>
                     <button type="submit" class="btn btn-primary">Apply Filters</button>
                 </div>
             </form>
