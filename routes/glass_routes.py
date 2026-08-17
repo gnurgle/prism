@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from datetime import date
 from utils import hex_to_hsv, process_and_save_image
+from datetime import datetime, date, timedelta
 
 glass_bp = Blueprint('glass_bp', __name__)
 
@@ -90,7 +91,11 @@ def list_glass():
     query = f"""
         SELECT DISTINCT g.*, p.GLSPRICE, c.CHEX
         FROM GSI g
-        LEFT JOIN GPC p ON g.GLASSID = p.GLASSID
+        LEFT JOIN (
+            SELECT GLASSID, GLSPRICE 
+            FROM GPC 
+            WHERE ENDDATE IS NULL OR ENDDATE >= DATE('now')
+        ) p ON g.GLASSID = p.GLASSID
         LEFT JOIN COLOR c ON g.COLOR = c.COLOR
         {join_igc}
         {where_sql}
@@ -552,3 +557,353 @@ def glass_inventory():
             'item_name': item_name, 'active_only': active_only
         }
     )
+
+@glass_bp.route('/glass/<int:glass_id>/history')
+
+def glass_price_history(glass_id):
+
+    """Display historical price list for glass in descending order with calculated price changes and durations."""
+
+    db = get_db_from_app()
+
+    glass = db.execute(
+
+        'SELECT * FROM GSI WHERE GLASSID = ?', (glass_id,)
+
+    ).fetchone()
+
+
+
+    if not glass:
+
+        flash('Glass sheet record not found.', 'danger')
+
+        return redirect(url_for('glass_bp.list_glass'))
+
+
+
+    # Fetch all prices ordered chronologically ascending to compute deltas and durations easily
+
+    rows = db.execute(
+
+        """
+
+        SELECT rowid, GLSPRICE, STDATE, ENDDATE FROM GPC 
+
+        WHERE GLASSID = ? 
+
+        ORDER BY STDATE ASC
+
+        """,
+
+        (glass_id,),
+
+    ).fetchall()
+
+
+
+    history_processed = []
+
+    prev_price = None
+
+
+
+    for row in rows:
+
+        price = row['GLSPRICE']
+
+        change = price - prev_price if prev_price is not None else None
+
+        prev_price = price
+
+
+
+        # Calculate duration
+
+        start_dt = (
+
+            datetime.strptime(row['STDATE'], '%Y-%m-%d').date()
+
+            if row['STDATE']
+
+            else None
+
+        )
+
+        end_dt = (
+
+            datetime.strptime(row['ENDDATE'], '%Y-%m-%d').date()
+
+            if row['ENDDATE']
+
+            else date.today()
+
+        )
+
+
+
+        duration_str = 'N/A'
+
+        if start_dt:
+
+            delta = end_dt - start_dt
+
+            days = delta.days
+
+            years = days // 365
+
+            rem_days = days % 365
+
+            if years > 0:
+
+                duration_str = f'{years} yr{"" if years == 1 else "s"} {rem_days} day{"" if rem_days == 1 else "s"}'
+
+            else:
+
+                duration_str = f'{days} day{"" if days == 1 else ""}'
+
+
+
+        history_processed.append({
+
+            'GLSPRICE': price,
+
+            'change': change,
+
+            'STDATE': row['STDATE'],
+
+            'ENDDATE': row['ENDDATE'],
+
+            'duration_str': duration_str,
+
+        })
+
+
+
+    # Reverse to have descending order starting from present
+
+    history_processed.reverse()
+
+
+
+    return render_template(
+
+        'glass_price_history.html', glass=glass, history=history_processed
+
+    )
+
+
+
+
+
+@glass_bp.route('/prices/glass/<int:glass_id>/edit', methods=['GET', 'POST'])
+
+def edit_glass_prices(glass_id):
+
+    """Manage and insert glass prices with automated date shuffling and interval overlap adjustments."""
+
+    db = get_db_from_app()
+
+    glass = db.execute(
+
+        'SELECT * FROM GSI WHERE GLASSID = ?', (glass_id,)
+
+    ).fetchone()
+
+
+
+    if not glass:
+
+        flash('Glass sheet record not found.', 'danger')
+
+        return redirect(url_for('glass_bp.list_glass'))
+
+
+
+    if request.method == 'POST':
+
+        try:
+
+            new_price = float(request.form.get('GLSPRICE'))
+
+        except (TypeError, ValueError):
+
+            flash('Invalid price value provided.', 'danger')
+
+            return redirect(url_for('glass_bp.edit_glass_prices', glass_id=glass_id))
+
+
+
+        new_st_str = request.form.get('STDATE')
+
+        is_current = 1 if request.form.get('is_current') else 0
+
+        new_end_str = None if is_current else request.form.get('ENDDATE')
+
+
+
+        new_st = datetime.strptime(new_st_str, '%Y-%m-%d').date()
+
+        new_end = (
+
+            datetime.strptime(new_end_str, '%Y-%m-%d').date()
+
+            if new_end_str
+
+            else None
+
+        )
+
+
+
+        if new_end and new_st > new_end:
+
+            flash('Start date cannot be after the end date.', 'danger')
+
+            return redirect(url_for('glass_bp.edit_glass_prices', glass_id=glass_id))
+
+
+
+        cursor = db.cursor()
+
+
+
+        # Fetch existing price intervals for this glass item
+
+        existing_prices = cursor.execute(
+
+            """
+
+            SELECT rowid, GLSPRICE, STDATE, ENDDATE FROM GPC 
+
+            WHERE GLASSID = ?
+
+            """,
+
+            (glass_id,),
+
+        ).fetchall()
+
+
+
+        # Process and adjust overlapping intervals
+
+        for row in existing_prices:
+
+            row_id = row['rowid']
+
+            ex_st_str = row['STDATE']
+
+            ex_end_str = row['ENDDATE']
+
+
+
+            ex_st = datetime.strptime(ex_st_str, '%Y-%m-%d').date() if ex_st_str else None
+
+            ex_end = datetime.strptime(ex_end_str, '%Y-%m-%d').date() if ex_end_str else None
+
+
+
+            # Case A: Existing range is completely inside the new range -> Delete it
+
+            if ex_st and new_st <= ex_st and (new_end is None or (ex_end and new_end >= ex_end)):
+
+                cursor.execute('DELETE FROM GPC WHERE rowid = ?', (row_id,))
+
+                continue
+
+
+
+            # Case B: New range is completely inside an existing range -> Split the existing range into two
+
+            if ex_st and ex_end and new_st > ex_st and new_end and new_end < ex_end:
+
+                split_end_date = (new_st - timedelta(days=1)).strftime('%Y-%m-%d')
+
+                cursor.execute(
+
+                    'UPDATE GPC SET ENDDATE = ? WHERE rowid = ?',
+
+                    (split_end_date, row_id)
+
+                )
+
+                tail_start_date = (new_end + timedelta(days=1)).strftime('%Y-%m-%d')
+
+                cursor.execute(
+
+                    'INSERT INTO GPC (GLASSID, GLSPRICE, STDATE, ENDDATE) VALUES (?, ?, ?, ?)',
+
+                    (glass_id, row['GLSPRICE'], tail_start_date, ex_end_str)
+
+                )
+
+                continue
+
+
+
+            # Case C: Overlap on the tail end of existing range
+
+            if ex_st and new_st > ex_st and (ex_end is None or new_st <= ex_end):
+
+                new_ex_end = (new_st - timedelta(days=1)).strftime('%Y-%m-%d')
+
+                cursor.execute(
+
+                    'UPDATE GPC SET ENDDATE = ? WHERE rowid = ?',
+
+                    (new_ex_end, row_id)
+
+                )
+
+
+
+            # Case D: Overlap on the front end of existing range
+
+            if new_end and ex_end and new_end >= ex_st and new_end < ex_end:
+                new_ex_st = (new_end + timedelta(days=1)).strftime('%Y-%m-%d')
+                cursor.execute(
+                    'UPDATE GPC SET STDATE = ? WHERE rowid = ?',
+                    (new_ex_st, row_id)
+                )
+
+            # Case E: If new range is ongoing (current), truncate any old ranges that overlap forward
+            if is_current and ex_st and ex_st >= new_st:
+                cursor.execute('DELETE FROM GPC WHERE rowid = ?', (row_id,))
+
+        # Insert the new price record cleanly
+        cursor.execute(
+            """
+            INSERT INTO GPC (GLASSID, GLSPRICE, STDATE, ENDDATE)
+            VALUES (?, ?, ?, ?)
+            """,
+            (glass_id, new_price, new_st_str, new_end_str),
+        )
+
+        db.commit()
+        flash('Glass price range successfully saved and overlapping intervals adjusted.', 'success')
+        return redirect(url_for('glass_bp.edit_glass_prices', glass_id=glass_id))
+
+    # GET Request: fetch all price rows ordered by start date descending
+    prices = db.execute(
+        """
+        SELECT rowid, GLSPRICE, STDATE, ENDDATE FROM GPC 
+        WHERE GLASSID = ? 
+        ORDER BY STDATE DESC
+        """,
+        (glass_id,),
+    ).fetchall()
+
+    return render_template(
+        'glass_edit_prices.html', glass=glass, prices=prices
+    )
+
+@glass_bp.route('/prices/glass/<int:glass_id>/delete/<int:price_id>', methods=['POST'])
+
+def delete_glass_price(glass_id, price_id):
+    """Delete a specific glass price entry row."""
+    db = get_db_from_app()
+    db.execute('DELETE FROM GPC WHERE rowid = ? AND GLASSID = ?', (price_id, glass_id))
+    db.commit()
+    flash('Glass price tier removed.', 'success')
+    return redirect(url_for('glass_bp.edit_glass_prices', glass_id=glass_id))

@@ -92,40 +92,93 @@
         </div>
     </div>
 
-    <!-- COLUMN 2: GLASS -->
-    <div class="col-md-3">
-        <div class="card shadow-sm h-100">
-            <div class="card-header bg-info text-white fw-bold">Glass Routes</div>
-            <div class="card-body d-flex flex-column gap-3">
-                
-                <!-- Part A: Routes that need an input -->
-                <div>
-                    <h6 class="text-muted border-bottom pb-1 small fw-bold">Needs Input</h6>
-                    <div class="d-flex flex-column gap-2 mt-2">
-                        <form action="" method="GET" class="input-group input-group-sm" onsubmit="this.action = '/glass/' + this.id_val.value; return true;">
-                            <input type="number" name="id_val" class="form-control" placeholder="Glass ID" required>
-                            <button class="btn btn-outline-info" type="submit">Detail</button>
-                        </form>
-                        <form action="" method="GET" class="input-group input-group-sm" onsubmit="this.action = '/glass/edit/' + this.id_val.value; return true;">
-                            <input type="number" name="id_val" class="form-control" placeholder="Glass ID" required>
-                            <button class="btn btn-outline-info" type="submit">Edit Glass</button>
-                        </form>
-                    </div>
-                </div>
+<!-- Updated Glass Routes Column -->
 
-                <!-- Part B: Static routes -->
-                <div class="mt-auto">
-                    <h6 class="text-muted border-bottom pb-1 small fw-bold">Static Routes</h6>
-                    <div class="d-grid gap-1 mt-2">
-                        <a href="{{ url_for('glass_bp.list_glass') }}" class="btn btn-sm btn-light border text-start">List Glass</a>
-                        <a href="{{ url_for('glass_bp.create_glass') }}" class="btn btn-sm btn-light border text-start">Create Glass</a>
-                        <a href="{{ url_for('glass_bp.glass_inventory') }}" class="btn btn-sm btn-light border text-start">Glass Inventory</a>
-                    </div>
+<div class="col-md-3">
+
+    <div class="card shadow-sm h-100">
+
+        <div class="card-header bg-info text-white fw-bold">Glass Routes</div>
+
+        <div class="card-body d-flex flex-column gap-3">
+
+            
+
+            <!-- Part A: Routes that need an input -->
+
+            <div>
+
+                <h6 class="text-muted border-bottom pb-1 small fw-bold">Needs Input</h6>
+
+                <div class="d-flex flex-column gap-2 mt-2">
+
+                    <form action="" method="GET" class="input-group input-group-sm" onsubmit="this.action = '/glass/' + this.id_val.value; return true;">
+
+                        <input type="number" name="id_val" class="form-control" placeholder="Glass ID" required>
+
+                        <button class="btn btn-outline-info" type="submit">Detail</button>
+
+                    </form>
+
+                    <form action="" method="GET" class="input-group input-group-sm" onsubmit="this.action = '/glass/edit/' + this.id_val.value; return true;">
+
+                        <input type="number" name="id_val" class="form-control" placeholder="Glass ID" required>
+
+                        <button class="btn btn-outline-info" type="submit">Edit Glass</button>
+
+                    </form>
+
+                    <!-- NEW ROUTES -->
+
+                    <form action="" method="GET" class="input-group input-group-sm" onsubmit="this.action = '/glass/' + this.id_val.value + '/history'; return true;">
+
+                        <input type="number" name="id_val" class="form-control" placeholder="Glass ID" required>
+
+                        <button class="btn btn-outline-info" type="submit">History</button>
+
+                    </form>
+
+                    <form action="" method="GET" class="input-group input-group-sm" onsubmit="this.action = '/prices/glass/' + this.id_val.value + '/edit'; return true;">
+
+                        <input type="number" name="id_val" class="form-control" placeholder="Glass ID" required>
+
+                        <button class="btn btn-outline-info" type="submit">Prices</button>
+
+                    </form>
+
                 </div>
 
             </div>
+
+
+
+            <!-- Part B: Static routes -->
+
+            <div class="mt-auto">
+
+                <h6 class="text-muted border-bottom pb-1 small fw-bold">Static Routes</h6>
+
+                <div class="d-grid gap-1 mt-2">
+
+                    <a href="{{ url_for('glass_bp.list_glass') }}" class="btn btn-sm btn-light border text-start">List Glass</a>
+
+                    <a href="{{ url_for('glass_bp.create_glass') }}" class="btn btn-sm btn-light border text-start">Create Glass</a>
+
+                    <a href="{{ url_for('glass_bp.glass_inventory') }}" class="btn btn-sm btn-light border text-start">Glass Inventory</a>
+
+                </div>
+
+            </div>
+
+
+
         </div>
+
     </div>
+
+</div>
+
+
 
     <!-- COLUMN 3: MISC ITEM -->
     <div class="col-md-3">
