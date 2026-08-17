@@ -84,16 +84,20 @@
                     </td>
                     <td>{{ g.GLSMANF or '—' }}</td>
                     <td><span class="badge bg-secondary">{{ g.GLSTEX or 'N/A' }}</span></td>
-                    <td>
+		    <td>
                         <div class="d-flex gap-1 flex-wrap">
                             {% if g.GLFINISH %}
                                 <span class="badge bg-info text-dark">{{ g.GLFINISH }}</span>
                             {% endif %}
                             {% if g.GLSIRI == 1 %}
-                                <span class="badge bg-warning text-dark" title="Iridescent">IRID</span>
+                                <span class="badge px-2 py-1" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 20%, #0f3460 40%, #e94560 60%, #00b4d8 80%, #90e0ef 100%); color: #fff !important; text-shadow: 0px 0px 3px rgba(0,0,0,0.9); font-weight: 600; border: 1px solid #00b4d8;" title="Iridescent">
+                                    Irid
+                                </span>
                             {% endif %}
                             {% if g.GLSOPAL == 1 %}
-                                <span class="badge bg-info text-dark" title="Opalescent">OPAL</span>
+                                <span class="badge px-2 py-1" style="background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 20%, #a1c4fd 40%, #c2e9fb 60%, #d4fc79 80%, #96e6a1 100%); color: #111 !important; text-shadow: 0px 0px 3px rgba(255,255,255,0.9); font-weight: 600; border: 1px solid #ff9a9e;" title="Opalescent">
+                                    Opal
+                                </span>
                             {% endif %}
                             {% if not g.GLFINISH and g.GLSIRI != 1 and g.GLSOPAL != 1 %}
                                 <span class="text-muted">—</span>
