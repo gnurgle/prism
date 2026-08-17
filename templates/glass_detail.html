@@ -52,7 +52,7 @@
                         </tr>
                         <tr>
                             <th>Supplier Source:</th>
-                            <td>{{ glass.GLSOURCE or 'None' }} {% if glass.SRCWEB %}<span class="badge bg-info text-dark ms-1">Online Vendor</span>{% endif %}</td>
+                            <td>{{ glass.GLSOURCE or 'None' }} {% if glass.SRCWEB %}<span class="badge bg-secondary text-light ms-1"><i class="fa fa-globe text-light ms-1"></i> Online Vendor</span>{% endif %}</td>
                         </tr>
                         <tr>
                             <th>Physical Dimensions:</th>
@@ -67,8 +67,25 @@
                         <tr>
                             <th>Visual Properties:</th>
                             <td>
-                                {% if glass.GLSIRI %}<span class="badge bg-warning text-dark me-1">Iridescent</span>{% endif %}
-                                {% if glass.GLSOPAL %}<span class="badge bg-info text-dark me-1">Opalescent</span>{% endif %}
+				{% if glass.GLSIRI %}
+
+                                <span class="badge px-2 py-1" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 20%, #0f3460 40%, #e94560 60%, #00b4d8 80%, #90e0ef 100%); color: #fff !important; text-shadow: 0px 0px 3px rgba(0,0,0,0.9); font-weight: 600; border: 1px solid #00b4d8;">
+
+                                    Iridescent
+
+                                </span>
+
+                            {% endif %}
+
+                            {% if glass.GLSOPAL %}
+
+                                <span class="badge px-2 py-1" style="background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 20%, #a1c4fd 40%, #c2e9fb 60%, #d4fc79 80%, #96e6a1 100%); color: #111 !important; text-shadow: 0px 0px 3px rgba(255,255,255,0.9); font-weight: 600; border: 1px solid #ff9a9e;">
+
+                                    Opalescent
+
+                                </span>
+
+                            {% endif %}
                                 {% if not glass.GLSIRI and not glass.GLSOPAL %}<span class="text-muted">Standard Finish</span>{% endif %}
                             </td>
                         </tr>
@@ -90,37 +107,189 @@
                 </table>
             </div>
         </div>
+<!-- Pattern Dependencies -->
 
-        <!-- Pattern Dependencies -->
         <div class="card shadow-sm">
-            <div class="card-header bg-dark text-white">Item Patterns Using This Glass (`IGC`)</div>
-            <div class="card-body p-0">
-                <table class="table table-sm table-striped mb-0">
-                    <thead>
-                        <tr>
-                            <th>Item Name</th>
-                            <th>Component #</th>
-                            <th>Bounding Box (L×W)</th>
-                            <th>Component Notes</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for comp in components %}
-                        <tr>
-                            <td><strong>{{ comp.ITMNAME }}</strong></td>
-                            <td>#{{ comp.COMPNUM }}</td>
-                            <td>{{ comp.COMPLEN or '—' }}" × {{ comp.COMPWID or '—' }}"</td>
-                            <td>{{ comp.COMPNOTE or '' }}</td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="4" class="text-center py-3 text-muted">No item patterns currently reference this glass type.</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+
+                <span>Items Using This Glass</span>
+
             </div>
+
+            <div class="card-body p-0">
+
+                <table class="table table-sm table-striped mb-0 align-middle">
+
+                    <thead>
+
+                        <tr>
+
+                            <th style="width: 40%;">Item</th>
+
+                            <th style="width: 25%;">Amount</th>
+
+                            <th style="width: 25%;">Price</th>
+
+                            <th style="width: 10%; text-align: center;">Expand</th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody>
+
+                        {% set total_glass_sqin = (glass.GLSLEN * glass.GLSWID) if (glass.GLSLEN and glass.GLSWID and glass.GLSLEN > 0 and glass.GLSWID > 0) else 0 %}
+
+                        {% set price_per_sqin = (glass.GLSPRICE / total_glass_sqin) if (glass.GLSPRICE and total_glass_sqin > 0) else 0 %}
+
+                        
+
+                        {# Group components by ITEMID to aggregate values per item #}
+
+                        {% set item_groups = {} %}
+
+                        {% for comp in components %}
+
+                            {% if comp.ITEMID not in item_groups %}
+
+                                {% set _ = item_groups.update({comp.ITEMID: {'ITMNAME': comp.ITMNAME, 'ITEMID': comp.ITEMID, 'comps': [], 'total_sqin': 0.0}}) %}
+
+                            {% endif %}
+
+                            {% set comp_sqin = (comp.COMPLEN or 0) * (comp.COMPWID or 0) %}
+
+                            {% set _ = item_groups[comp.ITEMID]['comps'].append(comp) %}
+
+                            {% set _ = item_groups[comp.ITEMID].update({'total_sqin': item_groups[comp.ITEMID]['total_sqin'] + comp_sqin}) %}
+
+                        {% endfor %}
+
+
+
+                        {% for item_id, data in item_groups.items() %}
+
+                            {% set item_sqin = data.total_sqin %}
+
+                            {% set item_pct = ((item_sqin / total_glass_sqin) * 100) if total_glass_sqin > 0 else 0 %}
+
+                            {% set item_price = item_sqin * price_per_sqin %}
+
+                            
+
+                            <!-- Main Item Row -->
+
+                            <tr>
+
+                                <td>
+
+                                    <a href="{{ url_for('item_detail', item_id=data.ITEMID) }}" class="fw-bold text-decoration-none">
+
+                                        {{ data.ITMNAME }}
+
+                                    </a>
+
+                                </td>
+
+                                <td>
+
+                                    {{ "%.0f"|format(item_sqin) }} sqin <span class="text-muted small">({{ "%.0f"|format(item_pct) }}%)</span>
+
+                                </td>
+
+                                <td>
+
+                                    ${{ "%.2f"|format(item_price) }}
+
+                                </td>
+
+                                <td class="text-center">
+
+                                    <button class="btn btn-sm btn-outline-secondary toggle-expand-btn" type="button" data-bs-toggle="collapse" data-bs-target="#collapseItem{{ item_id }}" aria-expanded="false" aria-controls="collapseItem{{ item_id }}">
+
+                                        <span class="expand-icon">➕</span>
+
+                                    </button>
+
+                                </td>
+
+                            </tr>
+
+                            
+
+                            <!-- Collapsible Component Sub-Rows -->
+
+                            <tr>
+
+                                <td colspan="4" class="p-0 border-0">
+
+                                    <div class="collapse bg-light" id="collapseItem{{ item_id }}">
+
+                                        <div class="p-2 border-top border-bottom">
+
+                                            <table class="table table-sm mb-0 bg-white border">
+
+                                                <thead class="table-light">
+
+                                                    <tr>
+
+                                                        <th>Component #</th>
+
+                                                        <th>Bounding Box (L×W)</th>
+
+                                                        <th>Component Notes</th>
+
+                                                    </tr>
+
+                                                </thead>
+
+                                                <tbody>
+
+                                                    {% for comp in data.comps %}
+
+                                                    <tr>
+
+                                                        <td>#{{ comp.COMPNUM }}</td>
+
+                                                        <td>{{ comp.COMPLEN or '—' }}" × {{ comp.COMPWID or '—' }}"</td>
+
+                                                        <td>{{ comp.COMPNOTE or '' }}</td>
+
+                                                    </tr>
+
+                                                    {% endfor %}
+
+                                                </tbody>
+
+                                            </table>
+
+                                        </div>
+
+                                    </div>
+
+                                </td>
+
+                            </tr>
+
+                        {% else %}
+
+                        <tr>
+
+                            <td colspan="4" class="text-center py-3 text-muted">No item patterns currently reference this glass type.</td>
+
+                        </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
         </div>
+
+
     </div>
 
     <!-- Pricing & Visual Sidebar -->
@@ -145,7 +314,7 @@
                                     <small class="text-muted" style="font-size: 0.75rem;">per sq ft</small>
                                 </div>
                                 <div class="col-6 py-2">
-                                    <div class="fw-bold text-dark">${{ "%.4f"|format(price_per_sqin) }}</div>
+                                    <div class="fw-bold text-dark">${{ "%.2f"|format(price_per_sqin) }}</div>
                                     <small class="text-muted" style="font-size: 0.75rem;">per sq in</small>
                                 </div>
                             </div>
@@ -158,6 +327,14 @@
                 {% else %}
                     <p class="text-muted mb-0">No active price set for this sheet.</p>
                 {% endif %}
+<br>
+                            <div class="row g-0 rounded bg-light border text-center overflow-hidden"></div>
+
+		<div class="mt-4 mb-3 d-flex justify-content-center">
+		    <a href="{{ url_for('glass_bp.glass_price_history', glass_id=glass.GLASSID) }}" class="btn btn-outline-secondary d-flex align-items-center gap-1">
+		        📈 Historical Pricing
+		    </a>
+		</div>
             </div>
         </div>
 
@@ -450,6 +627,56 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
     }
+
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+
+    const collapseElements = document.querySelectorAll('.collapse');
+
+    
+
+    collapseElements.forEach(collapseEl => {
+
+        collapseEl.addEventListener('show.bs.collapse', function(event) {
+
+            // Prevent event bubbling issues and close all other open collapses
+
+            collapseElements.forEach(otherEl => {
+
+                if (otherEl !== collapseEl && otherEl.classList.contains('show')) {
+
+                    const otherCollapse = bootstrap.Collapse.getInstance(otherEl) || new bootstrap.Collapse(otherEl, { toggle: false });
+
+                    otherCollapse.hide();
+
+                }
+
+            });
+
+        });
+
+
+
+        collapseEl.addEventListener('show.bs.collapse', function() {
+
+            const btn = document.querySelector(`[data-bs-target="#${this.id}"]`);
+
+            if (btn) btn.innerHTML = '<span class="expand-icon">➖</span>';
+
+        });
+
+
+
+        collapseEl.addEventListener('hide.bs.collapse', function() {
+
+            const btn = document.querySelector(`[data-bs-target="#${this.id}"]`);
+
+            if (btn) btn.innerHTML = '<span class="expand-icon">➕</span>';
+
+        });
+
+    });
 
 });
 </script>
