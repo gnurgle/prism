@@ -53,45 +53,126 @@
 {% endmacro %}
 
 <div class="card shadow-sm">
-    <div class="card-body p-0">
-        <table class="table table-striped table-hover mb-0 align-middle">
-            <thead class="table-dark">
-                <tr>
-                    <th>{{ sort_header('MSIID', 'ID') }}</th>
-                    <th>{{ sort_header('MSINAME', 'Name') }}</th>
-                    <th>{{ sort_header('MSITYPE', 'Category') }}</th>
-                    <th>{{ sort_header('MSIPRICE', 'Price') }}</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for m in misc_items %}
-                <tr>
-                    <td><strong>#{{ m.MSIID }}</strong></td>
-                    <td>
-                        <a href="{{ url_for('misc_bp.misc_detail', misc_id=m.MSIID) }}" class="fw-bold text-decoration-none text-primary">
-                            {{ m.MSINAME }}
-                        </a>
-                    </td>
-		    <td>{{ m.MSITYPE }}</td>
-                    <td>
-                        {% if m.MSIPRICE %}<strong class="text-success">${{ "%.2f"|format(m.MSIPRICE) }}</strong>{% else %}<span class="text-muted">Unpriced</span>{% endif %}
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="8" class="text-center py-5 text-muted">
-                        No items match your criteria.
-                        {% if filters.q or filters.min_price or filters.max_price or filters.item_id %}
-                            <a href="{{ url_for('glass_bp.list_glass') }}">Reset filters</a>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
 
+    <div class="card-body p-0">
+
+        <table class="table table-striped table-hover mb-0 align-middle">
+
+            <thead class="table-dark">
+
+                <tr>
+
+                    <th style="width: 80px;" class="text-center">Image</th>
+
+                    <th>{{ sort_header('MSINAME', 'Name') }}</th>
+
+                    <th>{{ sort_header('MSITYPE', 'Category') }}</th>
+
+                    <th>{{ sort_header('UNTS', 'Units') }}</th>
+
+                    <th>{{ sort_header('MSIPRICE', 'Price') }}</th>
+
+                </tr>
+
+            </thead>
+
+            <tbody>
+
+                {% for m in misc_items %}
+
+                {% set img_src = m.MSIIMG %}
+
+                {% if img_src and not img_src.startswith('http') and not img_src.startswith('/') and not img_src.startswith('static/') %}
+
+                    {% set img_src = 'static/' + img_src %}
+
+                {% endif %}
+
+                <tr>
+
+                    <td class="text-center">
+
+                        {% if img_src %}
+
+                            {% set resolved_img_url = url_for('static', filename=img_src.replace('static/', '')) if img_src.startswith('static/') else img_src %}
+
+                            <button type="button" class="btn btn-sm btn-light border p-0 shadow-sm"
+
+                                    data-bs-toggle="modal" 
+
+                                    data-bs-target="#imagePreviewModal"
+
+                                    data-imgsrc="{{ resolved_img_url }}"
+
+                                    data-glassname="{{ m.MSINAME }}"
+
+                                    style="width: 42px; height: 42px;">
+
+                                <img src="{{ resolved_img_url }}" class="thumb-view rounded" style="width: 40px; height: 40px; object-fit: cover;" alt="thumb">
+
+                            </button>
+
+                        {% else %}
+
+                            <div class="bg-secondary text-white rounded d-inline-flex align-items-center justify-content-center p-1" 
+
+                                 style="width: 36px; height: 36px; font-size: 8px;" title="No image exists">
+
+                                no image
+
+                            </div>
+
+                        {% endif %}
+
+                    </td>
+
+                    <td>
+
+                        <a href="{{ url_for('misc_bp.misc_detail', misc_id=m.MSIID) }}" class="fw-bold text-decoration-none text-primary">
+
+                            {{ m.MSINAME }}
+
+                        </a>
+
+                    </td>
+
+                    <td>{{ m.MSITYPE }}</td>
+
+                    <td>
+
+                        {{ m.MSIUNIT }} {{ m.UNTTYPE if m.UNTTYPE else '' }}
+
+                    </td>
+
+                    <td>
+
+                        {% if m.MSIPRICE %}<strong class="text-success">${{ "%.2f"|format(m.MSIPRICE) }}</strong>{% else %}<span class="text-muted">Unpriced</span>{% endif %}
+
+                    </td>
+
+                </tr>
+
+                {% else %}
+
+                <tr>
+
+                    <td colspan="6" class="text-center py-5 text-muted">
+
+                        No items match your criteria.
+
+                    </td>
+
+                </tr>
+
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
 <!-- Filter Modal Popup -->
 <div class="modal fade" id="filterModal" tabindex="-1" aria-labelledby="filterModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">

@@ -26,7 +26,7 @@ def list_misc():
 
 
 
-    sort_by = request.args.get('sort_by', 'MSIID')
+    sort_by = request.args.get('sort_by', 'MSITYPE')
 
     order = request.args.get('order', 'asc').lower()
 
@@ -62,11 +62,13 @@ def list_misc():
 
         'MSIPRICE': 'p.MSIPRICE',
 
-        'MSITYPE': 'm.MSITYPE'
+        'MSITYPE': 'm.MSITYPE',
+
+        'UNTS': 'm.MSIUNIT'
 
     }
 
-    sort_column = allowed_sorts.get(sort_by, 'm.MSIID')
+    sort_column = allowed_sorts.get(sort_by, 'm.MSITYPE')
 
 
 
@@ -114,7 +116,9 @@ def list_misc():
 
     if item_id:
 
-        join_igc = "INNER JOIN MSL l ON m.MSIID = l.MSIID"
+        # Use the IMI table (Item to Misc Item Link) which contains ITEMID and MSIID
+
+        join_igc = "INNER JOIN IMI l ON m.MSIID = l.MSIID"
 
         where_clauses.append("l.ITEMID = ?")
 
@@ -128,11 +132,13 @@ def list_misc():
 
     query = f"""
 
-        SELECT DISTINCT m.*, p.MSIPRICE 
+        SELECT DISTINCT m.*, p.MSIPRICE, u.UNTTYPE AS UNIT_LABEL 
 
         FROM MSI m
 
         LEFT JOIN MSP p ON m.MSIID = p.MSIID
+
+        LEFT JOIN UNTS u ON m.UNTTYPE = u.UNTTYPE
 
         {join_igc}
 
@@ -144,9 +150,21 @@ def list_misc():
 
     misc_items = db.execute(query, params).fetchall()
 
-
-
     misc_types = db.execute('SELECT * FROM MST').fetchall()
+
+
+
+    # Fetch items list for the filter modal dropdown (matching glass inventory implementation)
+
+    items = db.execute("""
+
+        SELECT ITEMID, ITMNAME, ITMGRP AS itmgrp, CURRENT 
+
+        FROM ITM 
+
+        ORDER BY ITMGRP ASC, ITMNAME ASC
+
+    """).fetchall()
 
 
 
@@ -161,6 +179,8 @@ def list_misc():
         current_order=order,
 
         misc_types=misc_types,
+
+        items=items,
 
         filters={
 
@@ -183,7 +203,6 @@ def list_misc():
         }
 
     )
-
 
 
 @misc_bp.route("/misc_items/new", methods=["GET", "POST"])
