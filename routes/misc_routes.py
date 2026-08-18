@@ -331,6 +331,12 @@ def misc_detail(misc_id):
 
 
 
+    SOLDER_CONVERSION = 0.3776
+
+    CAME_CONVERSION = 0.1652
+
+
+
     misc = db.execute('''
 
         SELECT m.*, u.UNTTYPE, u.CFACTOR
@@ -353,9 +359,9 @@ def misc_detail(misc_id):
 
 
 
-    items = db.execute('''
+    raw_items = db.execute('''
 
-        SELECT m.*, i.IMIAMT, t.ITMNAME, i.ITEMID
+        SELECT m.*, i.IMIAMT, t.ITMNAME, t.ITEMID
 
         FROM MSI m
 
@@ -387,7 +393,7 @@ def misc_detail(misc_id):
 
     ).fetchone()
 
-  
+
 
     lowest_price = db.execute(
 
@@ -405,7 +411,7 @@ def misc_detail(misc_id):
 
     ).fetchone()
 
-  
+
 
     highest_price = db.execute(
 
@@ -423,7 +429,77 @@ def misc_detail(misc_id):
 
     ).fetchone()
 
-  
+
+
+    unit_price = float(current_price['PRICE']) if current_price and current_price['PRICE'] else 0.0
+
+    cfactor = float(misc['CFACTOR']) if misc['CFACTOR'] and float(misc['CFACTOR']) > 0 else 1.0
+
+    msiunit = float(misc['MSIUNIT']) if misc['MSIUNIT'] is not None and float(misc['MSIUNIT']) > 0 else 1.0
+
+    divisor = cfactor * msiunit
+
+
+
+    items = []
+
+    for row in raw_items:
+
+        item = dict(row)
+
+        raw_amt = float(item['IMIAMT']) if item['IMIAMT'] is not None else 0.0
+
+
+
+        if misc['MSITYPE'] == 'Solder':
+
+            # Look up associated came amount for this specific item if available
+
+            came_row = db.execute('''
+
+                SELECT i.IMIAMT 
+
+                FROM IMI i 
+
+                JOIN MSI m ON i.MSIID = m.MSIID 
+
+                WHERE i.ITEMID = ? AND m.MSITYPE = 'Came'
+
+            ''', (item['ITEMID'],)).fetchone()
+
+            raw_came = float(came_row['IMIAMT']) if came_row and came_row['IMIAMT'] is not None else 0.0
+
+
+
+            calc_amt = (raw_amt * SOLDER_CONVERSION * 2) + (raw_came * CAME_CONVERSION * 2)
+
+        elif misc['MSITYPE'] == 'Came':
+
+            calc_amt = raw_amt * CAME_CONVERSION * 2
+
+        else:
+
+            calc_amt = raw_amt
+
+
+
+        item['CALC_AMT'] = calc_amt
+
+
+
+        if divisor > 0 and unit_price > 0:
+
+            item['CALC_PRICE'] = calc_amt * (unit_price / divisor)
+
+        else:
+
+            item['CALC_PRICE'] = 0.0
+
+
+
+        items.append(item)
+
+
 
     return render_template(
 
@@ -432,8 +508,6 @@ def misc_detail(misc_id):
         highest_price=highest_price
 
     )
-
-
 
 @misc_bp.route('/misc_items/edit/<int:misc_id>', methods=['GET', 'POST'])
 

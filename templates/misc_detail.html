@@ -130,7 +130,7 @@
 
                     </thead>
 
-                    <tbody>
+<tbody>
 
                         {% for i in items %}
 
@@ -148,9 +148,7 @@
 
                             <td>
 
-                                {% set amt = i.IMIAMT | float(0) %}
-
-                                {{ "%.2f"|format(amt) }} 
+                                {{ "%.2f"|format(i.CALC_AMT) }} 
 
                                 {% if misc.UNTTYPE == 'pounds' %}g
 
@@ -162,23 +160,7 @@
 
                             <td>
 
-                                {% set cfactor = misc.CFACTOR | float(1) %}
-
-                                {% set msiunit = misc.MSIUNIT | float(1) %}
-
-                                {% set divisor = (cfactor if cfactor > 0 else 1.0) * (msiunit if msiunit > 0 else 1.0) %}
-
-                                {% set unit_price = current_price.PRICE | float(0) if current_price else 0.0 %}
-
-                                {% if divisor > 0 and unit_price > 0 %}
-
-                                    ${{ "%.2f"|format(amt * (unit_price / divisor)) }}
-
-                                {% else %}
-
-                                    $0.00
-
-                                {% endif %}
+                                ${{ "%.2f"|format(i.CALC_PRICE) }}
 
                             </td>
 
@@ -195,7 +177,6 @@
                         {% endfor %}
 
                     </tbody>
-
                 </table>
 
             </div>
