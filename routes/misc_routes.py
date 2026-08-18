@@ -1156,3 +1156,121 @@ def delete_misc_price(misc_id, price_id):
     flash('Misc price tier removed.', 'success')
 
     return redirect(url_for('misc_bp.edit_misc_prices', misc_id=misc_id))
+
+@misc_bp.route('/misc_items/<int:misc_id>/history')
+
+def misc_price_history(misc_id):
+
+    db = get_db_from_app()
+
+    
+
+    misc = db.execute('SELECT * FROM MSI WHERE MSIID = ?', (misc_id,)).fetchone()
+
+    if not misc:
+
+        flash('Misc Item record not found.', 'danger')
+
+        return redirect(url_for('misc_bp.list_misc'))
+
+
+
+    prices = db.execute(
+
+        """
+
+        SELECT rowid, MSIPRICE, STDATE, ENDDATE 
+
+        FROM MSP 
+
+        WHERE MSIID = ? 
+
+        ORDER BY STDATE DESC, rowid DESC
+
+        """,
+
+        (misc_id,),
+
+    ).fetchall()
+
+
+
+    history = []
+
+    prices_list = [dict(p) for p in prices]
+
+    
+
+    # Calculate price changes and durations for display
+
+    for i, current in enumerate(prices_list):
+
+        current_price = float(current['MSIPRICE'])
+
+        
+
+        # Find the previous chronological price for comparison (since list is ordered DESC)
+
+        change = None
+
+        if i < len(prices_list) - 1:
+
+            older_price = float(prices_list[i + 1]['MSIPRICE'])
+
+            change = current_price - older_price
+
+
+
+        current['change'] = change
+
+
+
+        # Calculate duration string
+
+        st_date_str = current['STDATE']
+
+        end_date_str = current['ENDDATE']
+
+        
+
+        if st_date_str:
+
+            st_date = datetime.strptime(st_date_str, '%Y-%m-%d').date()
+
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date() if end_date_str else date.today()
+
+            days = (end_date - st_date).days
+
+            
+
+            if days < 0:
+
+                current['duration_str'] = 'Invalid range'
+
+            elif days == 0:
+
+                current['duration_str'] = '1 day'
+
+            else:
+
+                current['duration_str'] = f"{days} days"
+
+        else:
+
+            current['duration_str'] = 'N/A'
+
+
+
+        history.append(current)
+
+
+
+    return render_template(
+
+        'misc_price_history.html', 
+
+        misc=misc, 
+
+        history=history
+
+    )
