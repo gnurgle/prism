@@ -290,6 +290,26 @@ CREATE TABLE IF NOT EXISTS ICC (
 
 );
 
+--Item Historical State
+CREATE TABLE IF NOT EXISTS IHS (
+
+    IHSID INTEGER PRIMARY KEY AUTOINCREMENT,	--Item Historical State ID
+    IPID INTEGER,				--Item State ID
+    ITEMID INTEGER,				--Item ID
+    IHSCUT INTEGER,				--Item num in Cut State
+    IHSGRND INTEGER,				--Item num in Grind State
+    IHSWASH INTEGER,				--Item num in Wash State
+    IHSFOIL INTEGER,				--Item num in Foil State
+    IHSSLDR INTEGER,				--Item num in Solder State
+    IHSPOLISH INTEGER,				--Item num in Polish State
+    IHSDONE INTEGER,				--Item num in Finished State
+    IHSTS TEXT,					--Item state time stamp
+
+    FOREIGN KEY (ITEMID) REFERENCES ITM(ITEMID) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (IPID) REFERENCES ICC(IPID) ON DELETE CASCADE ON UPDATE CASCADE
+
+);
+
 --Item State Hours Taken
 CREATE TABLE IF NOT EXISTS ITH (
 
@@ -351,5 +371,15 @@ CREATE TABLE IF NOT EXISTS MSIINV (
     TS TEXT,					--Time Stamp
 
     FOREIGN KEY (MSIID) REFERENCES MSI(MSIID) ON DELETE SET NULL ON UPDATE CASCADE
+);
+
+--Item Inventory
+CREATE TABLE IF NOT EXISTS ITMINV (
+    ITMTRNID INTEGER PRIMARY KEY AUTOINCREMENT,	--Item Inventory ID
+    ITEMID INTEGER,				--Item ID
+    ITMSTOCK INTEGER,				--Item current Stock
+    TS TEXT,					--Time Stamp
+
+    FOREIGN KEY (ITEMID) REFERENCES ITM(ITEMID) ON DELETE SET NULL ON UPDATE CASCADE
 );
 
