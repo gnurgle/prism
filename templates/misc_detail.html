@@ -56,7 +56,7 @@
 
                             <th>Stock:</th>
 
-                            <td>{{ misc.MSISTOCK or 'None' }}</td>
+                            <td>{{ misc.CURRENT_STOCK if misc.CURRENT_STOCK is not none else 'None' }}</td>
 
                         </tr>
 
@@ -130,41 +130,59 @@
 
                     </thead>
 
-<tbody>
+                    <tbody>
 
-                        {% for i in items %}
+                        {% if items %}
 
-                        <tr>
+                            {% for i in items %}
 
-                            <td>
+                            <tr>
 
-                                <a href="{{ url_for('item_detail', item_id=i.ITEMID) }}">
+                                <td>
 
-                                    <strong>{{ i.ITMNAME }}</strong>
+                                    <a href="{{ url_for('item_detail', item_id=i.ITEMID) }}">
 
-                                </a>
+                                        <strong>{{ i.ITMNAME }}</strong>
 
-                            </td>
+                                    </a>
 
-                            <td>
+                                </td>
 
-                                {{ "%.2f"|format(i.CALC_AMT) }} 
+                                <td>
 
-                                {% if misc.UNTTYPE == 'pounds' %}g
+                                    {% set unit_label %}
 
-                                {% elif misc.UNTTYPE in ['inches', 'feet', 'yards'] %}in
+                                        {% if misc.UNTTYPE == 'pounds' %}g
 
-                                {% else %}units{% endif %}
+                                        {% elif misc.UNTTYPE in ['inches', 'feet', 'yards'] %}in
 
-                            </td>
+                                        {% else %}units{% endif %}
 
-                            <td>
+                                    {% endset %}
 
-                                ${{ "%.2f"|format(i.CALC_PRICE) }}
 
-                            </td>
 
-                        </tr>
+                                    {% if unit_label | trim == 'in' %}
+
+                                        {{ format_fractional_inches(i.CALC_AMT) }}
+
+                                    {% else %}
+
+                                        {{ "%.2f"|format(i.CALC_AMT) }} {{ unit_label | trim }}
+
+                                    {% endif %}
+
+                                </td>
+
+                                <td>
+
+                                    ${{ "%.2f"|format(i.CALC_PRICE) }}
+
+                                </td>
+
+                            </tr>
+
+                            {% endfor %}
 
                         {% else %}
 
@@ -174,9 +192,10 @@
 
                         </tr>
 
-                        {% endfor %}
+                        {% endif %}
 
                     </tbody>
+
                 </table>
 
             </div>
@@ -187,7 +206,7 @@
 
 
 
-    <!-- Right Column: Pricing Summary and Image Box (Fixed Overlap) -->
+    <!-- Right Column: Pricing Summary, Inventory, and Image Box -->
 
     <div class="col-md-4">
 
@@ -249,6 +268,60 @@
 
 
 
+        <!-- Current Stock Card -->
+
+        <div class="card shadow-sm mb-4">
+
+            <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+
+                <span>Current Stock</span>
+
+            </div>
+
+            <div class="card-body text-center">
+
+                {% set stock = misc.CURRENT_STOCK if misc.CURRENT_STOCK is not none else 0 %}
+
+                <div class="mb-3">
+
+                    {% if stock <= 0 %}
+
+                        <span class="badge bg-danger px-3 py-2 fs-6">Out of Stock (0)</span>
+
+                    {% elif stock == 1 %}
+
+                        <span class="badge bg-warning text-dark px-3 py-2 fs-6">Low Stock (1)</span>
+
+                    {% else %}
+
+                        <span class="badge bg-success px-3 py-2 fs-6">In Stock ({{ stock }})</span>
+
+                    {% endif %}
+
+                </div>
+
+                <button type="button" class="btn btn-sm btn-outline-primary adjust-btn w-100"
+
+                        data-bs-toggle="modal" 
+
+                        data-bs-target="#adjustModal"
+
+                        data-msiid="{{ misc.MSIID }}"
+
+                        data-msiname="{{ misc.MSINAME }}"
+
+                        data-currentstock="{{ stock }}">
+
+                    ± Adjust Stock
+
+                </button>
+
+            </div>
+
+        </div>
+
+
+
         <!-- Misc Item Image Box -->
 
         {% if misc.MSIIMG %}
@@ -274,6 +347,76 @@
         </div>
 
         {% endif %}
+
+    </div>
+
+</div>
+
+
+
+<!-- Stock Adjustment Modal -->
+
+<div class="modal fade" id="adjustModal" tabindex="-1" aria-labelledby="adjustModalLabel" aria-hidden="true">
+
+    <div class="modal-dialog modal-dialog-centered">
+
+        <div class="modal-content">
+
+            <div class="modal-header bg-dark text-white">
+
+                <h5 class="modal-title" id="adjustModalLabel">Adjust Inventory Level</h5>
+
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+
+            </div>
+
+            <form id="adjustStockForm" method="POST">
+
+                <input type="hidden" name="MSIID" id="modalMsiId">
+
+                <div class="modal-body">
+
+                    <div class="mb-3">
+
+                        <label class="form-label text-muted">Misc Item:</label>
+
+                        <h4 id="modalMsiName" class="text-primary fw-bold"></h4>
+
+                    </div>
+
+                    <div class="mb-3">
+
+                        <label class="form-label fw-bold">New Total Stock Level</label>
+
+                        <input type="number" name="MSISTOCK" id="modalStockInput" class="form-control" required min="0">
+
+                        <small class="text-muted">Enter the absolute physical count available.</small>
+
+                    </div>
+
+                    <div class="mb-3">
+
+                        <label class="form-label fw-bold">Adjustment Date</label>
+
+                        <input type="date" name="TS" class="form-control" value="{{ today_date }}" required>
+
+                        <small class="text-muted">Defaults to today's date automatically.</small>
+
+                    </div>
+
+                </div>
+
+                <div class="modal-footer">
+
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+
+                    <button type="submit" class="btn btn-primary">Save Adjustment</button>
+
+                </div>
+
+            </form>
+
+        </div>
 
     </div>
 
@@ -322,6 +465,40 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
     });
+
+
+
+    const adjustModal = document.getElementById('adjustModal');
+
+    if (adjustModal) {
+
+        adjustModal.addEventListener('show.bs.modal', function (event) {
+
+            const button = event.relatedTarget;
+
+            const msiId = button.getAttribute('data-msiid');
+
+            const currentStock = button.getAttribute('data-currentstock');
+
+            const msiName = button.getAttribute('data-msiname');
+
+            
+
+            const form = document.getElementById('adjustStockForm');
+
+            form.action = "{{ url_for('misc_bp.misc_detail', misc_id=0) }}".replace('/0', '/' + msiId);
+
+
+
+            document.getElementById('modalMsiId').value = msiId;
+
+            document.getElementById('modalMsiName').textContent = msiName;
+
+            document.getElementById('modalStockInput').value = currentStock;
+
+        });
+
+    }
 
 });
 

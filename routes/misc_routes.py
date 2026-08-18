@@ -2,12 +2,16 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash
 
 from datetime import date, datetime, timedelta
 
-from utils import process_and_save_image
+from utils import process_and_save_image, format_fractional_inches
 
 
 
 misc_bp = Blueprint('misc_bp', __name__)
+@misc_bp.context_processor
 
+def inject_utils():
+
+    return dict(format_fractional_inches=format_fractional_inches)
 
 
 def get_db_from_app():
@@ -322,8 +326,7 @@ def create_misc():
     )
 
 
-
-@misc_bp.route('/misc_item/<int:misc_id>')
+@misc_bp.route('/misc_item/<int:misc_id>', methods=['GET', 'POST'])
 
 def misc_detail(misc_id):
 
@@ -331,19 +334,65 @@ def misc_detail(misc_id):
 
 
 
-    SOLDER_CONVERSION = 0.3776
+    if request.method == 'POST':
 
-    CAME_CONVERSION = 0.1652
+        adjustment = request.form.get('MSISTOCK')
+
+        trans_date = request.form.get('TS') or date.today().isoformat()
+
+
+
+        if adjustment is not None:
+
+            db.execute(
+
+                """
+
+                INSERT INTO MSIINV (MSIID, MSISTOCK, TS)
+
+                VALUES (?, ?, ?)
+
+                """,
+
+                (misc_id, int(adjustment), trans_date)
+
+            )
+
+            db.commit()
+
+            flash("Inventory level adjusted successfully!", "success")
+
+        else:
+
+            flash("Invalid input parameters for stock adjustment.", "danger")
+
+            
+
+        return redirect(url_for('misc_bp.misc_detail', misc_id=misc_id))
 
 
 
     misc = db.execute('''
 
-        SELECT m.*, u.UNTTYPE, u.CFACTOR
+        SELECT m.*, u.UNTTYPE, u.CFACTOR,
+
+               COALESCE((
+
+                   SELECT i.MSISTOCK 
+
+                   FROM MSIINV i 
+
+                   WHERE i.MSIID = m.MSIID 
+
+                   ORDER BY i.TS DESC, i.MSITRNID DESC 
+
+                   LIMIT 1
+
+               ), 0) AS CURRENT_STOCK
 
         FROM MSI m
 
-        JOIN UNTS u ON m.UNTTYPE = u.UNTTYPE
+        LEFT JOIN UNTS u ON m.UNTTYPE = u.UNTTYPE
 
         WHERE m.MSIID = ?
 
@@ -445,6 +494,10 @@ def misc_detail(misc_id):
 
     for row in raw_items:
 
+        if row['ITEMID'] is None:
+
+            continue
+
         item = dict(row)
 
         raw_amt = float(item['IMIAMT']) if item['IMIAMT'] is not None else 0.0
@@ -452,8 +505,6 @@ def misc_detail(misc_id):
 
 
         if misc['MSITYPE'] == 'Solder':
-
-            # Look up associated came amount for this specific item if available
 
             came_row = db.execute('''
 
@@ -471,11 +522,11 @@ def misc_detail(misc_id):
 
 
 
-            calc_amt = (raw_amt * SOLDER_CONVERSION * 2) + (raw_came * CAME_CONVERSION * 2)
+            calc_amt = (raw_amt * 0.3776 * 2) + (raw_came * 0.1652 * 2)
 
         elif misc['MSITYPE'] == 'Came':
 
-            calc_amt = raw_amt * CAME_CONVERSION * 2
+            calc_amt = raw_amt * 0.1652 * 2
 
         else:
 
@@ -505,9 +556,10 @@ def misc_detail(misc_id):
 
         'misc_detail.html', misc=misc, items=items, current_price=current_price, lowest_price=lowest_price,
 
-        highest_price=highest_price
+        highest_price=highest_price, today_date=date.today().isoformat()
 
     )
+
 
 @misc_bp.route('/misc_items/edit/<int:misc_id>', methods=['GET', 'POST'])
 
