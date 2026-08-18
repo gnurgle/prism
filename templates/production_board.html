@@ -1,0 +1,977 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="row mb-4 align-items-center">
+
+    <div class="col">
+
+        <h2 class="mb-1"><i class="fas fa-industry me-2"></i> Production Workflow</h2>
+
+        <p class="text-muted mb-0">Manage items across stages. Switch views, drag cards between columns, or use buttons to update quantities seamlessly[cite: 1].</p>
+
+    </div>
+
+    <div class="col-auto d-flex gap-2 align-items-center">
+
+        <!-- Layout Switcher Toggle Group -->
+
+        <div class="btn-group" role="group" aria-label="Board Layout Switcher">
+
+            <button type="button" class="btn btn-outline-secondary btn-sm active" id="layoutBtnHorizontal" title="Horizontal Layout">
+
+                <i class="fas fa-columns"></i> Horizontal
+
+            </button>
+
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="layoutBtnVertical" title="Vertical Layout">
+
+                <i class="fas fa-stream"></i> Vertical
+
+            </button>
+
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="layoutBtnGrid" title="Grid Layout">
+
+                <i class="fas fa-th"></i> Grid
+
+            </button>
+
+        </div>
+
+
+
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addItemModal">
+
+            <i class="fas fa-plus me-1"></i> Add Item to Stage
+
+        </button>
+
+    </div>
+
+</div>
+
+
+
+<!-- Summary Quick-Glance Cards -->
+
+<div class="row text-center mb-4 g-2" id="summary-cards">
+
+    <div class="col"><div class="card shadow-sm border-primary"><div class="card-body p-2"><span class="text-muted small">Cut</span><h4 class="mb-0 text-primary" id="sum-cut">{{ summary.total_cut or 0 }}</h4></div></div></div>
+
+    <div class="col"><div class="card shadow-sm border-secondary"><div class="card-body p-2"><span class="text-muted small">Grind</span><h4 class="mb-0 text-secondary" id="sum-grind">{{ summary.total_grind or 0 }}</h4></div></div></div>
+
+    <div class="col"><div class="card shadow-sm border-info"><div class="card-body p-2"><span class="text-muted small">Wash</span><h4 class="mb-0 text-info" id="sum-wash">{{ summary.total_wash or 0 }}</h4></div></div></div>
+
+    <div class="col"><div class="card shadow-sm border-warning"><div class="card-body p-2"><span class="text-muted small">Foil</span><h4 class="mb-0 text-warning" id="sum-foil">{{ summary.total_foil or 0 }}</h4></div></div></div>
+
+    <div class="col"><div class="card shadow-sm border-danger"><div class="card-body p-2"><span class="text-muted small">Solder</span><h4 class="mb-0 text-danger" id="sum-solder">{{ summary.total_solder or 0 }}</h4></div></div></div>
+
+    <div class="col"><div class="card shadow-sm border-dark"><div class="card-body p-2"><span class="text-muted small">Polish</span><h4 class="mb-0 text-dark" id="sum-polish">{{ summary.total_polish or 0 }}</h4></div></div></div>
+
+    <div class="col"><div class="card shadow-sm border-success"><div class="card-body p-2"><span class="text-muted small">Done</span><h4 class="mb-0 text-success" id="sum-done">{{ summary.total_done or 0 }}</h4></div></div></div>
+
+</div>
+
+
+
+<!-- Kanban Board Container (Dynamic Layout Class applied via JS) -->
+
+<div id="kanbanBoardContainer" class="kanban-layout-horizontal pb-3">
+
+    {% set stages = [
+
+        ('cut', 'Cut', 'primary', 'IPCUT'),
+
+        ('grnd', 'Grind', 'secondary', 'IPGRND'),
+
+        ('wash', 'Wash', 'info', 'IPWASH'),
+
+        ('foil', 'Foil', 'warning', 'IPFOIL'),
+
+        ('sldr', 'Solder', 'danger', 'IPSLDR'),
+
+        ('polish', 'Polish', 'dark', 'IPPOLISH'),
+
+        ('done', 'Done', 'success', 'IPDONE')
+
+    ] %}
+
+
+
+{% for key, label, color, col_field in stages %}
+
+    <div class="kanban-column-wrapper">
+
+        <div class="card bg-light border-{{ color }} h-100">
+
+            <div class="card-header bg-{{ color }} text-white d-flex justify-content-between align-items-center py-2">
+
+                <strong>{{ label }}</strong>
+
+                {% if key == 'done' %}
+
+                <button class="btn btn-light btn-sm py-0 px-2 text-success fw-bold" id="saveFinishedGlobalBtn" style="font-size: 0.75rem;" title="Save All Finished Items to Inventory">
+
+                    <i class="fas fa-save me-1"></i> Save Finished
+
+                </button>
+
+                {% endif %}
+
+            </div>
+
+            <div class="card-body p-2 kanban-stage" data-stage="{{ key }}" data-stage-label="{{ label }}" style="min-height: 400px; max-height: 65vh; overflow-y: auto;">
+
+                {% for item in items %}
+
+                    {% set count = item[col_field] %}
+
+                    {% if count and count > 0 %}
+
+                    <div class="card mb-2 shadow-sm item-card" draggable="true" data-item-id="{{ item.ITEMID }}" data-item-name="{{ item.ITMNAME }}" data-current-stage="{{ key }}" data-available-qty="{{ count }}">
+
+                        <div class="card-body p-2">
+
+                            <div class="d-flex align-items-center mb-1">
+
+                                {% if item.ITMIMG %}
+
+                                    <img src="{{ url_for('static', filename=item.ITMIMG) }}" class="rounded me-2" width="32" height="32" style="object-fit: cover;">
+
+                                {% else %}
+
+                                    <div class="bg-secondary rounded me-2 d-flex align-items-center justify-content-center text-white" style="width: 32px; height: 32px; font-size: 12px;"><i class="fas fa-cube"></i></div>
+
+                                {% endif %}
+
+                                <div class="flex-grow-1 overflow-hidden">
+
+                                    <h6 class="card-title mb-0 text-truncate" style="font-size: 0.9rem;">
+
+                                        <a href="{{ url_for('item_detail', item_id=item.ITEMID) }}" class="text-decoration-none text-dark" title="{{ item.ITMNAME }}">{{ item.ITMNAME }}</a>
+
+                                    </h6>
+
+                                    <small class="text-muted" style="font-size: 0.75rem;">Qty: <span class="item-qty">{{ count }}</span></small>
+
+                                </div>
+
+                            </div>
+
+                            <div class="d-flex justify-content-between align-items-center mt-2">
+
+                                <button class="btn btn-outline-secondary btn-sm py-0 px-1 qty-decrease" style="font-size: 0.75rem;" title="Decrease Quantity"><i class="fas fa-minus"></i></button>
+
+                                <span class="badge bg-light text-dark border">{{ item.ITMGRP or 'General' }}</span>
+
+                                <button class="btn btn-outline-secondary btn-sm py-0 px-1 qty-increase" style="font-size: 0.75rem;" title="Increase Quantity"><i class="fas fa-plus"></i></button>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    {% endif %}
+
+                {% endfor %}
+
+            </div>
+
+        </div>
+
+    </div>
+
+    {% endfor %}
+</div>
+
+
+
+<!-- Layout Dynamic Styling Rules -->
+
+<!-- Layout Dynamic Styling Rules -->
+
+<style>
+
+    /* Horizontal Layout (Adjusted to fit all columns without horizontal scrolling) */
+
+    #kanbanBoardContainer.kanban-layout-horizontal {
+
+        display: flex;
+
+        flex-direction: row;
+
+        flex-wrap: nowrap;
+
+        overflow-x: visible; /* Prevents scrollbar trigger */
+
+        gap: 0.5rem;
+
+    }
+
+    #kanbanBoardContainer.kanban-layout-horizontal .kanban-column-wrapper {
+
+        flex: 1 1 0; /* Distributes available width evenly across all columns */
+
+        min-width: 0; /* Allows text truncation to function correctly inside flex items */
+
+    }
+
+
+
+    /* Vertical Layout (Stacked Columns) */
+
+    #kanbanBoardContainer.kanban-layout-vertical {
+
+        display: flex;
+
+        flex-direction: column;
+
+        gap: 1rem;
+
+    }
+
+    #kanbanBoardContainer.kanban-layout-vertical .kanban-column-wrapper {
+
+        width: 100%;
+
+    }
+
+
+
+    /* Grid Layout (Multi-column responsive grid) */
+
+    #kanbanBoardContainer.kanban-layout-grid {
+
+        display: grid;
+
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+
+        gap: 1rem;
+
+    }
+
+    #kanbanBoardContainer.kanban-layout-grid .kanban-column-wrapper {
+
+        width: 100%;
+
+    }
+
+</style>
+
+
+<!-- Add Item Modal -->
+
+<div class="modal fade" id="addItemModal" tabindex="-1" aria-hidden="true">
+
+    <div class="modal-dialog">
+
+        <div class="modal-content">
+
+            <div class="modal-header">
+
+                <h5 class="modal-title"><i class="fas fa-plus-circle me-1"></i> Add Item to Production Stage</h5>
+
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+
+            </div>
+
+            <div class="modal-body">
+
+                <form id="addItemForm">
+
+                    <div class="row g-2 mb-3">
+
+                        <div class="col-md-6">
+
+                            <label class="form-label small">Filter Group</label>
+
+                            <select id="filterGroup" class="form-select form-select-sm">
+
+                                <option value="">All Groups</option>
+
+                                {% for g in item_groups %}
+
+                                    <option value="{{ g.ITMGRP }}">{{ g.ITMGRP }}</option>
+
+                                {% endfor %}
+
+                            </select>
+
+                        </div>
+
+                        <div class="col-md-6">
+
+                            <label class="form-label small">Selling Status</label>
+
+                            <select id="filterCurrent" class="form-select form-select-sm">
+
+                                <option value="">Any Status</option>
+
+                                <option value="1">Currently Being Sold</option>
+
+                                <option value="0">Not Current</option>
+
+                            </select>
+
+                        </div>
+
+                    </div>
+
+                    <div class="mb-3">
+
+                        <label class="form-label">Select Base Item</label>
+
+                        <select id="baseItemSelect" class="form-select" required>
+
+                            <option value="" disabled selected>-- Choose Item --</option>
+
+                            {% for m in master_items %}
+
+                                {% if not m.PARENT %}
+
+                                <option value="{{ m.ITEMID }}" data-group="{{ m.ITMGRP or '' }}" data-current="{{ m.CURRENT if m.CURRENT is not none else '' }}">
+
+                                    {{ m.ITMNAME }}
+
+                                </option>
+
+                                {% endif %}
+
+                            {% endfor %}
+
+                        </select>
+
+                    </div>
+
+                    <div class="mb-3" id="variantWrapper" style="display: none;">
+
+                        <label class="form-label">Select Variant</label>
+
+                        <select id="variantItemSelect" class="form-select">
+
+                            <option value="">-- Base Item --</option>
+
+                            {% for m in master_items %}
+
+                                {% if m.PARENT %}
+
+                                <option value="{{ m.ITEMID }}" data-parent="{{ m.PARENT }}">{{ m.ITMNAME }}</option>
+
+                                {% endif %}
+
+                            {% endfor %}
+
+                        </select>
+
+                    </div>
+
+                    <div class="mb-3">
+
+                        <label class="form-label">Production Stage</label>
+
+                        <select id="targetStageSelect" class="form-select" required>
+
+                            <option value="cut">Cut</option>
+
+                            <option value="grnd">Grind</option>
+
+                            <option value="wash">Wash</option>
+
+                            <option value="foil">Foil</option>
+
+                            <option value="sldr">Solder</option>
+
+                            <option value="polish">Polish</option>
+
+                            <option value="done">Done</option>
+
+                        </select>
+
+                    </div>
+
+                    <div class="mb-3">
+
+                        <label class="form-label">Quantity</label>
+
+                        <input type="number" id="addItemQty" class="form-control" value="1" min="1" required>
+
+                    </div>
+
+                    <div class="text-end">
+
+                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+
+                        <button type="submit" class="btn btn-success btn-sm">Add</button>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<!-- Move Quantity Confirmation Modal -->
+
+<div class="modal fade" id="moveModal" tabindex="-1" aria-hidden="true">
+
+    <div class="modal-dialog modal-sm">
+
+        <div class="modal-content">
+
+            <div class="modal-header py-2">
+
+                <h6 class="modal-title"><i class="fas fa-exchange-alt me-1"></i> Move Item Stage</h6>
+
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+
+            </div>
+
+            <div class="modal-body">
+
+                <form id="moveForm">
+
+                    <p class="small mb-2 text-muted">Moving <strong id="moveItemName" class="text-dark"></strong> to <strong id="moveStageLabel" class="text-dark"></strong>[cite: 1].</p>
+
+                    <div class="mb-3">
+
+                        <label class="form-label small">Quantity to Move (Max: <span id="moveMaxQty"></span>)</label>
+
+                        <input type="number" id="moveQuantityInput" class="form-control form-control-sm" min="1" required>
+
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-1">
+
+                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+
+                        <button type="submit" class="btn btn-primary btn-sm">Confirm Move</button>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<!-- JavaScript for Layout Toggle, Drag & Drop, and Modals -->
+
+<script>
+
+document.addEventListener("DOMContentLoaded", () => {
+
+    // --- Layout Switcher Handler ---
+
+    const boardContainer = document.getElementById('kanbanBoardContainer');
+
+    const btnHorizontal = document.getElementById('layoutBtnHorizontal');
+
+    const btnVertical = document.getElementById('layoutBtnVertical');
+
+    const btnGrid = document.getElementById('layoutBtnGrid');
+
+
+
+    function setLayout(layoutType) {
+
+        // Clear active classes
+
+        boardContainer.classList.remove('kanban-layout-horizontal', 'kanban-layout-vertical', 'kanban-layout-grid');
+
+        btnHorizontal.classList.remove('active');
+
+        btnVertical.classList.remove('active');
+
+        btnGrid.classList.remove('active');
+
+
+
+        if (layoutType === 'vertical') {
+
+            boardContainer.classList.add('kanban-layout-vertical');
+
+            btnVertical.classList.add('active');
+
+            localStorage.setItem('kanban_layout', 'vertical');
+
+        } else if (layoutType === 'grid') {
+
+            boardContainer.classList.add('kanban-layout-grid');
+
+            btnGrid.classList.add('active');
+
+            localStorage.setItem('kanban_layout', 'grid');
+
+        } else {
+
+            boardContainer.classList.add('kanban-layout-horizontal');
+
+            btnHorizontal.classList.add('active');
+
+            localStorage.setItem('kanban_layout', 'horizontal');
+
+        }
+
+    }
+
+
+
+    // Restore preference if available
+
+    const savedLayout = localStorage.getItem('kanban_layout') || 'horizontal';
+
+    setLayout(savedLayout);
+
+
+
+    btnHorizontal.addEventListener('click', () => setLayout('horizontal'));
+
+    btnVertical.addEventListener('click', () => setLayout('vertical'));
+
+    btnGrid.addEventListener('click', () => setLayout('grid'));
+
+
+
+    // --- Drag and Drop & Modal State Handlers ---
+
+    let draggedCard = null;
+
+    let targetStageKey = null;
+
+
+
+    document.querySelectorAll('.item-card').forEach(card => {
+
+        card.addEventListener('dragstart', (e) => {
+
+            draggedCard = card;
+
+            e.dataTransfer.setData('text/plain', card.getAttribute('data-item-id'));
+
+            card.classList.add('opacity-50');
+
+        });
+
+        card.addEventListener('dragend', () => card.classList.remove('opacity-50'));
+
+    });
+
+
+
+    document.querySelectorAll('.kanban-stage').forEach(stageContainer => {
+
+        stageContainer.addEventListener('dragover', (e) => e.preventDefault());
+
+        stageContainer.addEventListener('drop', (e) => {
+
+            e.preventDefault();
+
+            if (!draggedCard) return;
+
+
+
+            targetStageKey = stageContainer.getAttribute('data-stage');
+
+            const targetStageLabel = stageContainer.getAttribute('data-stage-label');
+
+            const sourceStageKey = draggedCard.getAttribute('data-current-stage');
+
+
+
+            if (targetStageKey === sourceStageKey) return;
+
+
+
+            const itemName = draggedCard.getAttribute('data-item-name');
+
+            const maxQty = parseInt(draggedCard.getAttribute('data-available-qty')) || 1;
+
+
+
+            document.getElementById('moveItemName').innerText = itemName;
+
+            document.getElementById('moveStageLabel').innerText = targetStageLabel;
+
+            document.getElementById('moveMaxQty').innerText = maxQty;
+
+            
+
+            const qtyInput = document.getElementById('moveQuantityInput');
+
+            qtyInput.value = maxQty;
+
+            qtyInput.max = maxQty;
+
+
+
+            const moveModal = new bootstrap.Modal(document.getElementById('moveModal'));
+
+            moveModal.show();
+
+        });
+
+    });
+
+
+
+    document.getElementById('moveForm').addEventListener('submit', (e) => {
+
+        e.preventDefault();
+
+        const itemId = draggedCard.getAttribute('data-item-id');
+
+        const sourceStage = draggedCard.getAttribute('data-current-stage');
+
+        const moveQty = parseInt(document.getElementById('moveQuantityInput').value);
+
+        const maxQty = parseInt(draggedCard.getAttribute('data-available-qty'));
+
+
+
+        if (isNaN(moveQty) || moveQty <= 0) {
+
+            alert('Please enter a valid positive quantity.');
+
+            return;
+
+        }
+
+        if (moveQty > maxQty) {
+
+            alert('Cannot move more than the available quantity (' + maxQty + ').');
+
+            return;
+
+        }
+
+
+
+        Promise.all([
+
+            fetch('/production/update', {
+
+                method: 'POST',
+
+                headers: { 'Content-Type': 'application/json' },
+
+                body: JSON.stringify({ item_id: itemId, stage: sourceStage, delta: -moveQty })
+
+            }).then(res => res.json()),
+
+            
+
+            fetch('/production/update', {
+
+                method: 'POST',
+
+                headers: { 'Content-Type': 'application/json' },
+
+                body: JSON.stringify({ item_id: itemId, stage: targetStageKey, delta: moveQty })
+
+            }).then(res => res.json())
+
+        ])
+
+        .then(([sourceRes, targetRes]) => {
+
+            if (sourceRes.success && targetRes.success) {
+
+                window.location.reload();
+
+            } else {
+
+                alert('Error completing the move operation.');
+
+            }
+
+        });
+
+    });
+
+
+
+    document.querySelectorAll('.qty-increase, .qty-decrease').forEach(btn => {
+
+        btn.addEventListener('click', () => {
+
+            const card = btn.closest('.item-card');
+
+            const itemId = card.getAttribute('data-item-id');
+
+            const stage = card.closest('.kanban-stage').getAttribute('data-stage');
+
+            const delta = btn.classList.contains('qty-increase') ? 1 : -1;
+
+            
+
+            if (delta === -1) {
+
+                const currentQty = parseInt(card.getAttribute('data-available-qty')) || 0;
+
+                if (currentQty <= 1) {
+
+                    if (!confirm('Reducing quantity to 0 will remove this item entry from the stage. Proceed?')) {
+
+                        return;
+
+                    }
+
+                }
+
+            }
+
+
+
+            fetch('/production/update', {
+
+                method: 'POST',
+
+                headers: { 'Content-Type': 'application/json' },
+
+                body: JSON.stringify({ item_id: itemId, stage: stage, delta: delta })
+
+            })
+
+            .then(res => res.json())
+
+            .then(data => {
+
+                if (data.success) window.location.reload();
+
+            });
+
+        });
+
+    });
+
+
+
+    // --- Modal Filters & Submission Handling ---
+
+    const filterGroup = document.getElementById('filterGroup');
+
+    const filterCurrent = document.getElementById('filterCurrent');
+
+    const baseItemSelect = document.getElementById('baseItemSelect');
+
+    const variantWrapper = document.getElementById('variantWrapper');
+
+    const variantItemSelect = document.getElementById('variantItemSelect');
+
+
+
+    function filterBaseItems() {
+
+        const gVal = filterGroup.value;
+
+        const cVal = filterCurrent.value;
+
+        Array.from(baseItemSelect.options).forEach(opt => {
+
+            if (!opt.value) return;
+
+            const group = opt.getAttribute('data-group');
+
+            const current = opt.getAttribute('data-current');
+
+            let match = true;
+
+            if (gVal && group !== gVal) match = false;
+
+            if (cVal && current !== cVal) match = false;
+
+            opt.style.display = match ? '' : 'none';
+
+        });
+
+    }
+
+
+
+    if(filterGroup) filterGroup.addEventListener('change', filterBaseItems);
+
+    if(filterCurrent) filterCurrent.addEventListener('change', filterBaseItems);
+
+
+
+    if(baseItemSelect) {
+
+        baseItemSelect.addEventListener('change', () => {
+
+            const selectedId = baseItemSelect.value;
+
+            let hasVariants = false;
+
+            variantItemSelect.querySelectorAll('option').forEach(vOpt => {
+
+                if (!vOpt.value) return;
+
+                if (vOpt.getAttribute('data-parent') === selectedId) {
+
+                    vOpt.style.display = '';
+
+                    hasVariants = true;
+
+                } else {
+
+                    vOpt.style.display = 'none';
+
+                }
+
+            });
+
+            variantItemSelect.value = "";
+
+            variantWrapper.style.display = hasVariants ? 'block' : 'none';
+
+        });
+
+    }
+
+
+
+    const addItemForm = document.getElementById('addItemForm');
+
+    if(addItemForm) {
+
+        addItemForm.addEventListener('submit', (e) => {
+
+            e.preventDefault();
+
+            const finalItemId = variantItemSelect.value || baseItemSelect.value;
+
+            const stage = document.getElementById('targetStageSelect').value;
+
+            const quantity = parseInt(document.getElementById('addItemQty').value) || 1;
+
+
+
+            fetch('/production/add-item', {
+
+                method: 'POST',
+
+                headers: { 'Content-Type': 'application/json' },
+
+                body: JSON.stringify({ item_id: finalItemId, stage: stage, quantity: quantity })
+
+            })
+
+            .then(res => res.json())
+
+            .then(data => {
+
+                if (data.success) window.location.reload();
+
+            });
+
+        });
+
+    }
+
+});
+
+// --- Save Finished Action Handler ---
+
+    const saveFinishedBtn = document.getElementById('saveFinishedGlobalBtn');
+
+    if (saveFinishedBtn) {
+
+        saveFinishedBtn.addEventListener('click', () => {
+
+            // Find all item cards currently sitting in the 'done' stage column
+
+            const doneStageContainer = document.querySelector('.kanban-stage[data-stage="done"]');
+
+            if (!doneStageContainer) return;
+
+
+
+            const finishedCards = doneStageContainer.querySelectorAll('.item-card');
+
+            if (finishedCards.length === 0) {
+
+                alert('There are no items in the Done stage to save.');
+
+                return;
+
+            }
+
+
+
+            if (!confirm('This will move all finished items into item inventory (ITMINV) with cumulative stock counts and reset their Done stage amounts to zero. Proceed?')) {
+
+                return;
+
+            }
+
+
+
+            // Map and execute sequential or parallel save requests for all items in Done
+
+            let promises = Array.from(finishedCards).map(card => {
+
+                const itemId = card.getAttribute('data-item-id');
+
+                return fetch('/production/save-finished', {
+
+                    method: 'POST',
+
+                    headers: { 'Content-Type': 'application/json' },
+
+                    body: JSON.stringify({ item_id: itemId })
+
+                }).then(res => res.json());
+
+            });
+
+
+
+            Promise.all(promises)
+
+                .then(results => {
+
+                    const allSuccess = results.every(r => r.success);
+
+                    if (allSuccess) {
+
+                        window.location.reload();
+
+                    } else {
+
+                        alert('Some items failed to process completely.');
+
+                        window.location.reload();
+
+                    }
+
+                })
+
+                .catch(err => {
+
+                    console.error('Save finished error:', err);
+
+                    alert('An error occurred while saving finished items.');
+
+                });
+
+        });
+
+    }
+
+</script>
+
+{% endblock %}

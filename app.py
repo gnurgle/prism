@@ -13,6 +13,7 @@ from flask import Flask, flash, redirect, render_template, request, url_for, ren
 from datetime import date, datetime, timedelta
 from routes.glass_routes import glass_bp
 from routes.misc_routes import misc_bp
+from routes.production_routes import production_bp
 
 
 app = Flask(__name__, static_folder='static')
@@ -120,6 +121,7 @@ init_db()
 
 app.register_blueprint(glass_bp)
 app.register_blueprint(misc_bp)
+app.register_blueprint(production_bp)
 
 
 
