@@ -1,136 +1,308 @@
 {% extends 'base.html' %}
 
+
+
 {% block content %}
 
+
+
 <div class="d-flex justify-content-between align-items-center mb-3">
+
     <div>
+
         <a href="{{ url_for('misc_bp.list_misc') }}" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Misc Item List</a>
+
         <h2>Misc Item Details: {{ misc.MSINAME }}</h2>
+
     </div>
+
     <div>
+
         <!-- Edit Button -->
+
         <a href="{{ url_for('misc_bp.edit_misc', misc_id=misc.MSIID) }}" class="btn btn-primary">✏️ Edit Misc Item Details</a>
+
     </div>
+
 </div>
 
+
+
 <div class="row">
+
     <!-- Main Attributes Summary -->
+
     <div class="col-md-8">
+
         <div class="card shadow-sm mb-4">
+
             <div class="card-header bg-dark text-white">General Information</div>
+
             <div class="card-body">
+
                 <table class="table table-borderless mb-0">
+
                     <tbody>
+
                         <tr>
+
                             <th style="width: 30%;">Misc Item ID:</th>
+
                             <td>#{{ misc.MSIID }}</td>
+
                         </tr>
+
                         <tr>
+
                             <th>Stock:</th>
+
                             <td>{{ misc.MSISTOCK or 'None' }}</td>
+
                         </tr>
+
                         <tr>
+
                             <th>Unit Amount:</th>
+
                             <td>{{ misc.MSIUNIT or 'None' }} {{ misc.UNTTYPE or '' }}</td>
+
                         </tr>
+
                         <tr>
+
                             <th>Web Link:</th>
+
                             <td>
+
                                 {% if misc.MSIURL %}
+
                                     <a href="{{ misc.MSIURL }}" target="_blank" rel="noopener">{{ misc.MSIURL }}</a>
+
                                 {% else %}
+
                                     <span class="text-muted">None</span>
+
                                 {% endif %}
+
                             </td>
+
                         </tr>
+
                         <tr>
+
                             <th>Notes:</th>
+
                             <td>{{ misc.MSINOTE or 'No notes provided.' }}</td>
+
                         </tr>
+
                     </tbody>
+
                 </table>
+
             </div>
+
         </div>
 
+
+
         <!-- Pattern Dependencies -->
+
         <div class="card shadow-sm">
+
             <div class="card-header bg-dark text-white">Items Using This</div>
+
             <div class="card-body p-0">
+
                 <table class="table table-sm table-striped mb-0">
+
                     <thead>
+
                         <tr>
+
                             <th>Item Name</th>
+
                             <th>Amount Used</th>
+
+                            <th>Calculated Price</th>
+
                         </tr>
+
                     </thead>
+
                     <tbody>
+
                         {% for i in items %}
 
                         <tr>
-                            <td><strong>{{ i.ITMNAME }}</strong></td>
-                            <td>#{{ i.IMIAMT }}</td>
+
+                            <td>
+
+                                <a href="{{ url_for('item_detail', item_id=i.ITEMID) }}">
+
+                                    <strong>{{ i.ITMNAME }}</strong>
+
+                                </a>
+
+                            </td>
+
+                            <td>
+
+                                {% set amt = i.IMIAMT | float(0) %}
+
+                                {{ "%.2f"|format(amt) }} 
+
+                                {% if misc.UNTTYPE == 'pounds' %}g
+
+                                {% elif misc.UNTTYPE in ['inches', 'feet', 'yards'] %}in
+
+                                {% else %}units{% endif %}
+
+                            </td>
+
+                            <td>
+
+                                {% set cfactor = misc.CFACTOR | float(1) %}
+
+                                {% set msiunit = misc.MSIUNIT | float(1) %}
+
+                                {% set divisor = (cfactor if cfactor > 0 else 1.0) * (msiunit if msiunit > 0 else 1.0) %}
+
+                                {% set unit_price = current_price.PRICE | float(0) if current_price else 0.0 %}
+
+                                {% if divisor > 0 and unit_price > 0 %}
+
+                                    ${{ "%.2f"|format(amt * (unit_price / divisor)) }}
+
+                                {% else %}
+
+                                    $0.00
+
+                                {% endif %}
+
+                            </td>
 
                         </tr>
+
                         {% else %}
+
                         <tr>
-                            <td colspan="4" class="text-center py-3 text-muted">No item patterns currently reference this glass type.</td>
+
+                            <td colspan="3" class="text-center py-3 text-muted">No item patterns currently reference this misc item.</td>
+
                         </tr>
+
                         {% endfor %}
+
                     </tbody>
+
                 </table>
+
             </div>
-         <div>
-     </div>
-</div>
-</div>
-    <!-- Right Column: Pricing and SVG Pattern -->
-<div class="col-md-4">
-        <!-- Pricing Summary Box -->
-        <div class="card shadow-sm mb-4 text-center">
-            <div class="card-header bg-dark text-white">Pricing Summary</div>
-            <div class="card-body">
-                <div class="mb-3">
-                    <span class="text-muted small d-block">CURRENT PRICE</span>
-                    <h2 class="display-5 fw-bold text-success mb-0">
-                        ${% if current_price %}{{ "%.2f"|format(current_price.PRICE) }}{% else %}0.00{% endif %}
-                    </h2>
-                </div>
-                <div class="row border-top pt-2 text-muted small">
-                    <div class="col-6 border-end">
-                        <span class="d-block fw-bold text-dark">Lowest</span>
-                        <span>${% if lowest_price %}{{ "%.2f"|format(lowest_price.PRICE) }}{% else %}0.00{% endif %}</span>
-                        <div class="text-xs text-secondary">
-                            {% if lowest_price %}{{ lowest_price.START_DATE }} {% if lowest_price.END_DATE %}to {{ lowest_price.END_DATE }}{% endif %}{% else %}N/A{% endif %}
-                        </div>
-                    </div>
-                    <div class="col-6">
-                        <span class="d-block fw-bold text-dark">Highest</span>
-                        <span>${% if highest_price %}{{ "%.2f"|format(highest_price.PRICE) }}{% else %}0.00{% endif %}</span>
-                        <div class="text-xs text-secondary">
-                            {% if highest_price %}{{ highest_price.START_DATE }} {% if highest_price.END_DATE %}to {{ highest_price.END_DATE }}{% endif %}{% else %}N/A{% endif %}
-                        </div>
-                    </div>
-                </div>
-</div>
-	{% if misc.MSIIMG %}
-        <div class="card shadow-sm">
-            <div class="card-header bg-dark text-white">Misc Item Image </div>
-            <div class="card-body text-center">
-                {% if misc.MSIIMG.startswith('http://') or misc.MSIIMG.startswith('https://') %}
-                    <img src="{{ misc.MSIIMG }}" alt="{{ misc.MSINAME }}" class="img-fluid rounded border" style="max-height: 250px;">
-                {% else %}
-                    <img src="{{ url_for('static', filename=misc.MSIIMG.lstrip('/')) }}" alt="{{ misc.MSINAME }}" class="img-fluid rounded border" style="max-height: 250px;">
-                {% endif %}
-            </div>
+
         </div>
-        {% endif %}
+
     </div>
+
+
+
+    <!-- Right Column: Pricing Summary and Image Box (Fixed Overlap) -->
+
+    <div class="col-md-4">
+
+        <!-- Pricing Summary Box -->
+
+        <div class="card shadow-sm mb-4 text-center">
+
+            <div class="card-header bg-dark text-white">Pricing Summary</div>
+
+            <div class="card-body">
+
+                <div class="mb-3">
+
+                    <span class="text-muted small d-block">CURRENT PRICE</span>
+
+                    <h2 class="display-5 fw-bold text-success mb-0">
+
+                        ${% if current_price %}{{ "%.2f"|format(current_price.PRICE) }}{% else %}0.00{% endif %}
+
+                    </h2>
+
+                </div>
+
+                <div class="row border-top pt-2 text-muted small">
+
+                    <div class="col-6 border-end">
+
+                        <span class="d-block fw-bold text-dark">Lowest</span>
+
+                        <span>${% if lowest_price %}{{ "%.2f"|format(lowest_price.PRICE) }}{% else %}0.00{% endif %}</span>
+
+                        <div class="text-xs text-secondary">
+
+                            {% if lowest_price %}{{ lowest_price.START_DATE }} {% if lowest_price.END_DATE %}to {{ lowest_price.END_DATE }}{% endif %}{% else %}N/A{% endif %}
+
+                        </div>
+
+                    </div>
+
+                    <div class="col-6">
+
+                        <span class="d-block fw-bold text-dark">Highest</span>
+
+                        <span>${% if highest_price %}{{ "%.2f"|format(highest_price.PRICE) }}{% else %}0.00{% endif %}</span>
+
+                        <div class="text-xs text-secondary">
+
+                            {% if highest_price %}{{ highest_price.START_DATE }} {% if highest_price.END_DATE %}to {{ highest_price.END_DATE }}{% endif %}{% else %}N/A{% endif %}
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- Misc Item Image Box -->
+
+        {% if misc.MSIIMG %}
+
+        <div class="card shadow-sm mb-4">
+
+            <div class="card-header bg-dark text-white">Misc Item Image</div>
+
+            <div class="card-body text-center">
+
+                {% if misc.MSIIMG.startswith('http://') or misc.MSIIMG.startswith('https://') %}
+
+                    <img src="{{ misc.MSIIMG }}" alt="{{ misc.MSINAME }}" class="img-fluid rounded border" style="max-height: 250px;">
+
+                {% else %}
+
+                    <img src="{{ url_for('static', filename=misc.MSIIMG.lstrip('/')) }}" alt="{{ misc.MSINAME }}" class="img-fluid rounded border" style="max-height: 250px;">
+
+                {% endif %}
+
+            </div>
+
+        </div>
+
+        {% endif %}
+
+    </div>
+
 </div>
+
+
+
 <script>
 
 document.addEventListener('DOMContentLoaded', function() {
-
-    // 1. Dynamic Font Color Contrast Calculation for Badges
 
     function getContrastColor(hexColor) {
 
@@ -140,15 +312,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (hex.length !== 6) return '#000000';
 
-        
-
         const r = parseInt(hex.substring(0, 2), 16);
 
         const g = parseInt(hex.substring(2, 4), 16);
 
         const b = parseInt(hex.substring(4, 6), 16);
-
-        
 
         const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
 
@@ -174,67 +342,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     });
 
-
-
-    // 2. Active Filter Button Toggle logic
-
-    const toggleBtn = document.getElementById('toggleActiveBtn');
-
-    const activeInput = document.getElementById('activeOnlyInput');
-
-    const itemSelect = document.getElementById('itemSelect');
-
-
-
-    if (toggleBtn) {
-
-        toggleBtn.addEventListener('click', function() {
-
-            const isCurrentlyActive = activeInput.value === '1';
-
-            
-
-            if (isCurrentlyActive) {
-
-                activeInput.value = '0';
-
-                toggleBtn.className = 'btn btn-sm btn-outline-secondary';
-
-                toggleBtn.textContent = 'Show Currently Selling Only';
-
-                Array.from(itemSelect.options).forEach(opt => opt.style.display = '');
-
-            } else {
-
-                activeInput.value = '1';
-
-                toggleBtn.className = 'btn btn-sm btn-success';
-
-                toggleBtn.textContent = '✓ Currently Selling Only';
-
-                Array.from(itemSelect.options).forEach(opt => {
-
-                    if (opt.value && opt.getAttribute('data-active') === '0') {
-
-                        opt.style.display = 'none';
-
-                        if (opt.selected) {
-
-                            itemSelect.value = '';
-
-                        }
-
-                    }
-
-                });
-
-            }
-
-        });
-
-    }
-
 });
 
 </script>
+
 {% endblock %}

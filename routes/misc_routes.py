@@ -355,7 +355,7 @@ def misc_detail(misc_id):
 
     items = db.execute('''
 
-        SELECT m.*, i.IMIAMT, t.ITMNAME
+        SELECT m.*, i.IMIAMT, t.ITMNAME, i.ITEMID
 
         FROM MSI m
 
