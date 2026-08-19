@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 
+
+
 {% block content %}
+
+
 
 <div class="row mb-4 align-items-center">
 
@@ -74,9 +78,11 @@
 
 
 
-<!-- Kanban Board Container (Dynamic Layout Class applied via JS) -->
+<!-- Kanban Board Container -->
 
 <div id="kanbanBoardContainer" class="kanban-layout-horizontal pb-3">
+
+
 
     {% set stages = [
 
@@ -120,7 +126,7 @@
 
             </div>
 
-            <div class="card-body p-2 kanban-stage" data-stage="{{ key }}" data-stage-label="{{ label }}" style="min-height: 400px; max-height: 65vh; overflow-y: auto;">
+            <div class="card-body p-2 kanban-stage" data-stage="{{ key }}" data-stage-index="{{ loop.index0 }}" data-stage-label="{{ label }}" style="min-height: 400px; max-height: 65vh; overflow-y: auto;">
 
                 {% for item in items %}
 
@@ -128,7 +134,7 @@
 
                     {% if count and count > 0 %}
 
-                    <div class="card mb-2 shadow-sm item-card" draggable="true" data-item-id="{{ item.ITEMID }}" data-item-name="{{ item.ITMNAME }}" data-current-stage="{{ key }}" data-available-qty="{{ count }}">
+                    <div class="card mb-2 shadow-sm item-card" draggable="true" data-item-id="{{ item.ITEMID }}" data-item-name="{{ item.ITMNAME }}" data-current-stage="{{ key }}" data-current-index="{{ loop.index0 }}" data-available-qty="{{ count }}">
 
                         <div class="card-body p-2">
 
@@ -158,13 +164,27 @@
 
                             </div>
 
-                            <div class="d-flex justify-content-between align-items-center mt-2">
+                            
 
-                                <button class="btn btn-outline-secondary btn-sm py-0 px-1 qty-decrease" style="font-size: 0.75rem;" title="Decrease Quantity"><i class="fas fa-minus"></i></button>
+                            <!-- Group Name on its own truncated line -->
 
-                                <span class="badge bg-light text-dark border">{{ item.ITMGRP or 'General' }}</span>
+                            <div class="mb-2 text-truncate">
 
-                                <button class="btn btn-outline-secondary btn-sm py-0 px-1 qty-increase" style="font-size: 0.75rem;" title="Increase Quantity"><i class="fas fa-plus"></i></button>
+                                <span class="badge bg-light text-dark border w-100 text-truncate" style="font-size: 0.7rem;" title="{{ item.ITMGRP or 'General' }}">{{ item.ITMGRP or 'General' }}</span>
+
+                            </div>
+
+
+
+                            <!-- Controls: Move directional buttons & custom Qty adjustment modal trigger -->
+
+                            <div class="d-flex justify-content-between align-items-center mt-1">
+
+                                <button class="btn btn-outline-secondary btn-sm py-0 px-1 move-backward-btn" style="font-size: 0.75rem;" title="Move Backward"><i class="fas fa-arrow-left move-icon-h"></i><i class="fas fa-arrow-up move-icon-v" style="display:none;"></i></button>
+
+                                <button class="btn btn-outline-secondary btn-sm py-0 px-1 qty-adjust-modal-btn" style="font-size: 0.75rem;" title="Adjust Quantity"><i class="fas fa-plus-minus"></i></button>
+
+                                <button class="btn btn-outline-secondary btn-sm py-0 px-1 move-forward-btn" style="font-size: 0.75rem;" title="Move Forward"><i class="fas fa-arrow-right move-icon-h"></i><i class="fas fa-arrow-down move-icon-v" style="display:none;"></i></button>
 
                             </div>
 
@@ -183,17 +203,14 @@
     </div>
 
     {% endfor %}
+
 </div>
 
 
 
 <!-- Layout Dynamic Styling Rules -->
 
-<!-- Layout Dynamic Styling Rules -->
-
 <style>
-
-    /* Horizontal Layout (Adjusted to fit all columns without horizontal scrolling) */
 
     #kanbanBoardContainer.kanban-layout-horizontal {
 
@@ -203,7 +220,7 @@
 
         flex-wrap: nowrap;
 
-        overflow-x: visible; /* Prevents scrollbar trigger */
+        overflow-x: visible;
 
         gap: 0.5rem;
 
@@ -211,15 +228,11 @@
 
     #kanbanBoardContainer.kanban-layout-horizontal .kanban-column-wrapper {
 
-        flex: 1 1 0; /* Distributes available width evenly across all columns */
+        flex: 1 1 0;
 
-        min-width: 0; /* Allows text truncation to function correctly inside flex items */
+        min-width: 0;
 
     }
-
-
-
-    /* Vertical Layout (Stacked Columns) */
 
     #kanbanBoardContainer.kanban-layout-vertical {
 
@@ -236,10 +249,6 @@
         width: 100%;
 
     }
-
-
-
-    /* Grid Layout (Multi-column responsive grid) */
 
     #kanbanBoardContainer.kanban-layout-grid {
 
@@ -258,6 +267,7 @@
     }
 
 </style>
+
 
 
 <!-- Add Item Modal -->
@@ -438,7 +448,7 @@
 
                 <form id="moveForm">
 
-                    <p class="small mb-2 text-muted">Moving <strong id="moveItemName" class="text-dark"></strong> to <strong id="moveStageLabel" class="text-dark"></strong>[cite: 1].</p>
+                    <p class="small mb-2 text-muted">Moving <strong id="moveItemName" class="text-dark"></strong> to <strong id="moveStageLabel" class="text-dark"></strong>.</p>
 
                     <div class="mb-3">
 
@@ -468,11 +478,67 @@
 
 
 
-<!-- JavaScript for Layout Toggle, Drag & Drop, and Modals -->
+<!-- Quantity Adjustment Modal -->
+
+<div class="modal fade" id="qtyAdjustModal" tabindex="-1" aria-hidden="true">
+
+    <div class="modal-dialog modal-sm">
+
+        <div class="modal-content">
+
+            <div class="modal-header py-2">
+
+                <h6 class="modal-title"><i class="fas fa-plus-minus me-1"></i> Adjust Quantity</h6>
+
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+
+            </div>
+
+            <div class="modal-body">
+
+                <form id="qtyAdjustForm">
+
+                    <p class="small mb-2 text-muted">Item: <strong id="adjItemName" class="text-dark"></strong></p>
+
+                    <div class="mb-3">
+
+                        <label class="form-label small">New Quantity</label>
+
+                        <input type="number" id="adjQuantityInput" class="form-control form-control-sm" min="0" required>
+
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-1">
+
+                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+
+                        <button type="submit" class="btn btn-primary btn-sm">Save Quantity</button>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<!-- JavaScript for Layout Toggle, Drag & Drop, Directional Arrows, and Modals -->
 
 <script>
 
 document.addEventListener("DOMContentLoaded", () => {
+
+    // Exact column stage order matching the rendered Kanban columns
+
+    const stagesList = ['cut', 'grnd', 'wash', 'foil', 'sldr', 'polish', 'done'];
+
+
 
     // --- Layout Switcher Handler ---
 
@@ -486,9 +552,27 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
-    function setLayout(layoutType) {
+    function updateArrowIcons(layoutType) {
 
-        // Clear active classes
+        const isHorizontal = (layoutType === 'horizontal');
+
+        document.querySelectorAll('.item-card').forEach(card => {
+
+            const hIcons = card.querySelectorAll('.move-icon-h');
+
+            const vIcons = card.querySelectorAll('.move-icon-v');
+
+            hIcons.forEach(el => el.style.display = isHorizontal ? 'inline-block' : 'none');
+
+            vIcons.forEach(el => el.style.display = isHorizontal ? 'none' : 'inline-block');
+
+        });
+
+    }
+
+
+
+    function setLayout(layoutType) {
 
         boardContainer.classList.remove('kanban-layout-horizontal', 'kanban-layout-vertical', 'kanban-layout-grid');
 
@@ -526,11 +610,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
         }
 
+        updateArrowIcons(layoutType);
+
+        updateArrowStates();
+
     }
 
 
-
-    // Restore preference if available
 
     const savedLayout = localStorage.getItem('kanban_layout') || 'horizontal';
 
@@ -543,6 +629,60 @@ document.addEventListener("DOMContentLoaded", () => {
     btnVertical.addEventListener('click', () => setLayout('vertical'));
 
     btnGrid.addEventListener('click', () => setLayout('grid'));
+
+
+
+    // --- Arrow State Greying ---
+
+    function updateArrowStates() {
+
+        document.querySelectorAll('.item-card').forEach(card => {
+
+            const stageKey = card.getAttribute('data-current-stage');
+
+            const stageIndex = stagesList.indexOf(stageKey);
+
+            const backBtn = card.querySelector('.move-backward-btn');
+
+            const fwdBtn = card.querySelector('.move-forward-btn');
+
+
+
+            if (stageIndex <= 0) {
+
+                backBtn.classList.add('disabled', 'opacity-50');
+
+                backBtn.style.pointerEvents = 'none';
+
+            } else {
+
+                backBtn.classList.remove('disabled', 'opacity-50');
+
+                backBtn.style.pointerEvents = 'auto';
+
+            }
+
+
+
+            if (stageIndex >= stagesList.length - 1 || stageIndex === -1) {
+
+                fwdBtn.classList.add('disabled', 'opacity-50');
+
+                fwdBtn.style.pointerEvents = 'none';
+
+            } else {
+
+                fwdBtn.classList.remove('disabled', 'opacity-50');
+
+                fwdBtn.style.pointerEvents = 'auto';
+
+            }
+
+        });
+
+    }
+
+    updateArrowStates();
 
 
 
@@ -660,6 +800,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
+        executeMove(itemId, sourceStage, targetStageKey, moveQty);
+
+    });
+
+
+
+    function executeMove(itemId, sourceStage, targetStage, moveQty) {
+
         Promise.all([
 
             fetch('/production/update', {
@@ -680,7 +828,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 headers: { 'Content-Type': 'application/json' },
 
-                body: JSON.stringify({ item_id: itemId, stage: targetStageKey, delta: moveQty })
+                body: JSON.stringify({ item_id: itemId, stage: targetStage, delta: moveQty })
 
             }).then(res => res.json())
 
@@ -700,59 +848,145 @@ document.addEventListener("DOMContentLoaded", () => {
 
         });
 
-    });
+    }
 
 
 
-    document.querySelectorAll('.qty-increase, .qty-decrease').forEach(btn => {
+    // --- Arrow Button Stage Navigation ---
+
+    document.querySelectorAll('.move-forward-btn, .move-backward-btn').forEach(btn => {
 
         btn.addEventListener('click', () => {
 
             const card = btn.closest('.item-card');
 
+            const sourceStage = card.getAttribute('data-current-stage');
+
+            const currentIndex = stagesList.indexOf(sourceStage);
+
+            const direction = btn.classList.contains('move-forward-btn') ? 1 : -1;
+
+            const targetIndex = currentIndex + direction;
+
+
+
+            if (targetIndex < 0 || targetIndex >= stagesList.length) return;
+
+
+
             const itemId = card.getAttribute('data-item-id');
 
-            const stage = card.closest('.kanban-stage').getAttribute('data-stage');
+            const targetStage = stagesList[targetIndex];
 
-            const delta = btn.classList.contains('qty-increase') ? 1 : -1;
+            const maxQty = parseInt(card.getAttribute('data-available-qty')) || 1;
 
-            
 
-            if (delta === -1) {
 
-                const currentQty = parseInt(card.getAttribute('data-available-qty')) || 0;
+            executeMove(itemId, sourceStage, targetStage, maxQty);
 
-                if (currentQty <= 1) {
+        });
 
-                    if (!confirm('Reducing quantity to 0 will remove this item entry from the stage. Proceed?')) {
+    });
 
-                        return;
 
-                    }
 
-                }
+    // --- Quantity Modal Trigger Handler ---
+
+    let activeQtyCard = null;
+
+    document.querySelectorAll('.qty-adjust-modal-btn').forEach(btn => {
+
+        btn.addEventListener('click', () => {
+
+            activeQtyCard = btn.closest('.item-card');
+
+            const itemName = activeQtyCard.getAttribute('data-item-name');
+
+            const currentQty = activeQtyCard.getAttribute('data-available-qty');
+
+
+
+            document.getElementById('adjItemName').innerText = itemName;
+
+            const qtyInput = document.getElementById('adjQuantityInput');
+
+            qtyInput.value = currentQty;
+
+
+
+            const adjustModal = new bootstrap.Modal(document.getElementById('qtyAdjustModal'));
+
+            adjustModal.show();
+
+        });
+
+    });
+
+
+
+    document.getElementById('qtyAdjustForm').addEventListener('submit', (e) => {
+
+        e.preventDefault();
+
+        if (!activeQtyCard) return;
+
+
+
+        const itemId = activeQtyCard.getAttribute('data-item-id');
+
+        const stage = activeQtyCard.getAttribute('data-current-stage');
+
+        const currentQty = parseInt(activeQtyCard.getAttribute('data-available-qty')) || 0;
+
+        const newQty = parseInt(document.getElementById('adjQuantityInput').value);
+
+
+
+        if (isNaN(newQty) || newQty < 0) {
+
+            alert('Please enter a valid quantity.');
+
+            return;
+
+        }
+
+
+
+        const delta = newQty - currentQty;
+
+        if (delta === 0) {
+
+            bootstrap.Modal.getInstance(document.getElementById('qtyAdjustModal')).hide();
+
+            return;
+
+        }
+
+
+
+        fetch('/production/update', {
+
+            method: 'POST',
+
+            headers: { 'Content-Type': 'application/json' },
+
+            body: JSON.stringify({ item_id: itemId, stage: stage, delta: delta })
+
+        })
+
+        .then(res => res.json())
+
+        .then(data => {
+
+            if (data.success) {
+
+                window.location.reload();
+
+            } else {
+
+                alert('Failed to update quantity.');
 
             }
-
-
-
-            fetch('/production/update', {
-
-                method: 'POST',
-
-                headers: { 'Content-Type': 'application/json' },
-
-                body: JSON.stringify({ item_id: itemId, stage: stage, delta: delta })
-
-            })
-
-            .then(res => res.json())
-
-            .then(data => {
-
-                if (data.success) window.location.reload();
-
-            });
 
         });
 
@@ -884,93 +1118,91 @@ document.addEventListener("DOMContentLoaded", () => {
 
 });
 
+
+
 // --- Save Finished Action Handler ---
 
-    const saveFinishedBtn = document.getElementById('saveFinishedGlobalBtn');
+const saveFinishedBtn = document.getElementById('saveFinishedGlobalBtn');
 
-    if (saveFinishedBtn) {
+if (saveFinishedBtn) {
 
-        saveFinishedBtn.addEventListener('click', () => {
+    saveFinishedBtn.addEventListener('click', () => {
 
-            // Find all item cards currently sitting in the 'done' stage column
+        const doneStageContainer = document.querySelector('.kanban-stage[data-stage="done"]');
 
-            const doneStageContainer = document.querySelector('.kanban-stage[data-stage="done"]');
-
-            if (!doneStageContainer) return;
+        if (!doneStageContainer) return;
 
 
 
-            const finishedCards = doneStageContainer.querySelectorAll('.item-card');
+        const finishedCards = doneStageContainer.querySelectorAll('.item-card');
 
-            if (finishedCards.length === 0) {
+        if (finishedCards.length === 0) {
 
-                alert('There are no items in the Done stage to save.');
+            alert('There are no items in the Done stage to save.');
 
-                return;
+            return;
 
-            }
-
-
-
-            if (!confirm('This will move all finished items into item inventory (ITMINV) with cumulative stock counts and reset their Done stage amounts to zero. Proceed?')) {
-
-                return;
-
-            }
+        }
 
 
 
-            // Map and execute sequential or parallel save requests for all items in Done
+        if (!confirm('This will move all finished items into item inventory (ITMINV) with cumulative stock counts and reset their Done stage amounts to zero. Proceed?')) {
 
-            let promises = Array.from(finishedCards).map(card => {
+            return;
 
-                const itemId = card.getAttribute('data-item-id');
-
-                return fetch('/production/save-finished', {
-
-                    method: 'POST',
-
-                    headers: { 'Content-Type': 'application/json' },
-
-                    body: JSON.stringify({ item_id: itemId })
-
-                }).then(res => res.json());
-
-            });
+        }
 
 
 
-            Promise.all(promises)
+        let promises = Array.from(finishedCards).map(card => {
 
-                .then(results => {
+            const itemId = card.getAttribute('data-item-id');
 
-                    const allSuccess = results.every(r => r.success);
+            return fetch('/production/save-finished', {
 
-                    if (allSuccess) {
+                method: 'POST',
 
-                        window.location.reload();
+                headers: { 'Content-Type': 'application/json' },
 
-                    } else {
+                body: JSON.stringify({ item_id: itemId })
 
-                        alert('Some items failed to process completely.');
-
-                        window.location.reload();
-
-                    }
-
-                })
-
-                .catch(err => {
-
-                    console.error('Save finished error:', err);
-
-                    alert('An error occurred while saving finished items.');
-
-                });
+            }).then(res => res.json());
 
         });
 
-    }
+
+
+        Promise.all(promises)
+
+            .then(results => {
+
+                const allSuccess = results.every(r => r.success);
+
+                if (allSuccess) {
+
+                    window.location.reload();
+
+                } else {
+
+                    alert('Some items failed to process completely.');
+
+                    window.location.reload();
+
+                }
+
+            })
+
+            .catch(err => {
+
+                console.error('Save finished error:', err);
+
+                alert('An error occurred while saving finished items.');
+
+            });
+
+    });
+
+}
 
 </script>
 
