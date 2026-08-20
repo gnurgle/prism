@@ -1645,5 +1645,85 @@ def toggle_glass_active(glass_id):
         db.commit()
     return redirect(request.referrer or url_for('list_glass'))
 
+@app.route('/export_components_image/<int:item_id>')
+
+def export_components_image(item_id):
+
+    db = get_db()
+
+    item = db.execute('SELECT * FROM ITM WHERE ITEMID = ?', (item_id,)).fetchone()
+
+    if not item:
+
+        flash('Item not found.', 'danger')
+
+        return redirect(url_for('index'))
+
+
+
+    svg_filename = item['ITMSVG'] if 'ITMSVG' in item.keys() else None
+
+    svg_url = url_for('static', filename=svg_filename) if svg_filename else ''
+
+
+
+    # Fetch components and associated glass/color data
+
+    components = db.execute('''
+
+        SELECT 
+
+            i.COMPID, i.COMPNAME, i.ITEMID, i.COMPNUM, i.SVGREG, 
+
+            i.GLASSID, i.COMPLEN, i.COMPWID, i.COMPNOTE,
+
+            i.ISSCRAP, i.ISGRAIN, i.ISACTIVE,
+
+            c.CHEX, g.GLSTEX, g.GTRNSN, g.GLSIMG, t.GTRNSV
+
+        FROM IGC i
+
+        LEFT JOIN GSI g ON i.GLASSID = g.GLASSID
+
+        LEFT JOIN COLOR c ON g.COLOR = c.COLOR
+
+        LEFT JOIN GTRNS t ON g.GTRNSN = t.GTRNSN
+
+        WHERE i.ITEMID = ?
+
+    ''', (item_id,)).fetchall()
+
+
+
+    comp_map = {}
+
+    for comp in components:
+
+        comp_map[comp['SVGREG']] = {
+
+            'CHEX': comp['CHEX'] or 'cccccc',
+
+            'GLSIMG': comp['GLSIMG'] or '',
+
+            'GTRNSV': comp['GTRNSV'] or 75
+
+        }
+
+
+
+    return render_template(
+
+        'export_components_image.html',
+
+        item=item,
+
+        svg_url=svg_url,
+
+        components_json=comp_map
+
+    )
+
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=7665, debug=True)
