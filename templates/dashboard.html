@@ -83,7 +83,7 @@
                 <div class="mt-auto">
                     <h6 class="text-muted border-bottom pb-1 small fw-bold">Static Routes</h6>
                     <div class="d-grid gap-1 mt-2">
-                        <a href="{{ url_for('create_item') }}" class="btn btn-sm btn-light border text-start">Create Item</a>
+                        <a href="{{ url_for('item_bp.create_item') }}" class="btn btn-sm btn-light border text-start">Create Item</a>
                         <a href="{{ url_for('build_components') }}" class="btn btn-sm btn-light border text-start">Build Components</a>
                     </div>
                 </div>
@@ -92,90 +92,49 @@
         </div>
     </div>
 
-<!-- Updated Glass Routes Column -->
+<!-- Glass Routes Column -->
 
 <div class="col-md-3">
-
     <div class="card shadow-sm h-100">
-
         <div class="card-header bg-info text-white fw-bold">Glass Routes</div>
-
         <div class="card-body d-flex flex-column gap-3">
-
             
-
             <!-- Part A: Routes that need an input -->
-
             <div>
-
                 <h6 class="text-muted border-bottom pb-1 small fw-bold">Needs Input</h6>
-
                 <div class="d-flex flex-column gap-2 mt-2">
-
                     <form action="" method="GET" class="input-group input-group-sm" onsubmit="this.action = '/glass/' + this.id_val.value; return true;">
-
                         <input type="number" name="id_val" class="form-control" placeholder="Glass ID" required>
-
                         <button class="btn btn-outline-info" type="submit">Detail</button>
-
-                    </form>
-
+                   </form>
                     <form action="" method="GET" class="input-group input-group-sm" onsubmit="this.action = '/glass/edit/' + this.id_val.value; return true;">
-
                         <input type="number" name="id_val" class="form-control" placeholder="Glass ID" required>
-
                         <button class="btn btn-outline-info" type="submit">Edit Glass</button>
-
                     </form>
-
-                    <!-- NEW ROUTES -->
-
                     <form action="" method="GET" class="input-group input-group-sm" onsubmit="this.action = '/glass/' + this.id_val.value + '/history'; return true;">
-
                         <input type="number" name="id_val" class="form-control" placeholder="Glass ID" required>
-
                         <button class="btn btn-outline-info" type="submit">History</button>
-
                     </form>
-
                     <form action="" method="GET" class="input-group input-group-sm" onsubmit="this.action = '/prices/glass/' + this.id_val.value + '/edit'; return true;">
-
                         <input type="number" name="id_val" class="form-control" placeholder="Glass ID" required>
-
                         <button class="btn btn-outline-info" type="submit">Prices</button>
-
                     </form>
-
                 </div>
-
             </div>
-
-
 
             <!-- Part B: Static routes -->
-
             <div class="mt-auto">
-
                 <h6 class="text-muted border-bottom pb-1 small fw-bold">Static Routes</h6>
-
                 <div class="d-grid gap-1 mt-2">
-
                     <a href="{{ url_for('glass_bp.list_glass') }}" class="btn btn-sm btn-light border text-start">List Glass</a>
-
                     <a href="{{ url_for('glass_bp.create_glass') }}" class="btn btn-sm btn-light border text-start">Create Glass</a>
-
                     <a href="{{ url_for('glass_bp.glass_inventory') }}" class="btn btn-sm btn-light border text-start">Glass Inventory</a>
-
+                    <a href="{{ url_for('glass_bp.bulk_inventory_adjustment') }}" class="btn btn-sm btn-light border text-start">Glass Bulk input</a>
                 </div>
-
             </div>
 
-
-
         </div>
-
     </div>
-
 </div>
 
 
@@ -257,6 +216,7 @@
                         <a href="{{ url_for('inventory_status') }}" class="btn btn-sm btn-light border text-start">Inventory Status</a>
                         <a href="{{ url_for('list_sales') }}" class="btn btn-sm btn-light border text-start">List Sales</a>
                         <a href="{{ url_for('record_sale') }}" class="btn btn-sm btn-light border text-start">Record Sale</a>
+                        <a href="{{ url_for('production_bp.production_board') }}" class="btn btn-sm btn-light border text-start">Production Board</a>
                     </div>
                 </div>
 

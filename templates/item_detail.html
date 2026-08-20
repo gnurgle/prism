@@ -7,7 +7,7 @@
         <h2>Item Details: {{ item.ITMNAME }}</h2>
     </div>
     <div>
-        <a href="{{ url_for('edit_item', item_id=item.ITEMID) }}" class="btn btn-primary">✏️ Edit Item Details</a>
+        <a href="{{ url_for('item_bp.edit_item', item_id=item.ITEMID) }}" class="btn btn-primary">✏️ Edit Item Details</a>
     </div>
 </div>
 
@@ -268,7 +268,7 @@
                         {% for sibling in group_siblings %}
                             {% if sibling.ITEMID != item.ITEMID %}
                             <li class="list-group-item px-0 py-1 bg-transparent">
-                                <a href="{{ url_for('item_detail', item_id=sibling.ITEMID) }}" class="text-decoration-none">
+                                <a href="{{ url_for('item_bp.item_detail', item_id=sibling.ITEMID) }}" class="text-decoration-none">
                                     &bull; {{ sibling.ITMNAME }}
                                 </a>
                             </li>
@@ -393,7 +393,7 @@
 
                 <div class="mt-3">
 
-                    <a href="{{ url_for('edit_prices', item_id=item.ITEMID) }}" class="btn btn-outline-dark btn-sm w-100">Edit Prices</a>
+                    <a href="{{ url_for('item_bp.edit_prices', item_id=item.ITEMID) }}" class="btn btn-outline-dark btn-sm w-100">Edit Prices</a>
 
                 </div>
 
@@ -465,7 +465,7 @@
 
                     <p class="text-muted mb-3">No pattern template uploaded.</p>
 
-                    <a href="{{ url_for('edit_item', item_id=item.ITEMID) }}" class="btn btn-outline-primary btn-sm w-100">Upload Template</a>
+                    <a href="{{ url_for('item_bp.edit_item', item_id=item.ITEMID) }}" class="btn btn-outline-primary btn-sm w-100">Upload Template</a>
 
                 {% endif %}
             </div>
