@@ -1,0 +1,598 @@
+{% extends 'base.html' %}
+
+
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+
+    <div>
+
+        <a href="{{ url_for('glass_bp.glass_inventory') }}" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Inventory Tracking</a>
+
+        <h2 class="mb-0">Bulk Glass Inventory & Price Adjustment</h2>
+
+    </div>
+
+    <div>
+
+        <button type="button" class="btn btn-primary" id="saveTopBtn" onclick="submitBulkChanges()">💾 Save All Changes</button>
+
+    </div>
+
+</div>
+
+
+
+<!-- Controls Bar -->
+
+<div class="card shadow-sm mb-4">
+
+    <div class="card-body">
+
+        <div class="row g-3 align-items-center">
+
+            <div class="col-md-4">
+
+                <label for="bulkDate" class="form-label fw-bold">Adjustment Date</label>
+
+                <input type="date" id="bulkDate" class="form-control" value="{{ today_date }}" required>
+
+            </div>
+
+            <div class="col-md-4">
+
+                <label for="bulkSourceSelect" class="form-label fw-bold">Source Supplier</label>
+
+                <select id="bulkSourceSelect" class="form-select" onchange="loadGlassBySource()">
+
+                    <option value="">-- Select Source to Load --</option>
+
+                    {% for s in sources %}
+
+                        <option value="{{ s.GLSOURCE }}">{{ s.GLSOURCE }}</option>
+
+                    {% endfor %}
+
+                </select>
+
+            </div>
+
+            <div class="col-md-4">
+
+                <label for="groupBySelect" class="form-label fw-bold">Group By</label>
+
+                <select id="groupBySelect" class="form-select" onchange="renderGlassSections()" disabled>
+
+                    <option value="name">Name (Alphabetical)</option>
+
+                    <option value="color">Color (HSV Sorted)</option>
+
+                    <option value="texture">Texture</option>
+
+                    <option value="size">Size (Dimensions)</option>
+
+                </select>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<!-- Dynamic Glass Content Container -->
+
+<div id="glassSectionsContainer">
+
+    <div class="text-center py-5 text-muted card shadow-sm">
+
+        <h4>Please select a Source Supplier above to load glass inventory.</h4>
+
+    </div>
+
+</div>
+
+
+
+<!-- Bottom Save Bar -->
+
+<div class="d-flex justify-content-end mt-4 mb-5" id="bottomSaveContainer" style="display: none !important;">
+
+    <button type="button" class="btn btn-primary btn-lg" onclick="submitBulkChanges()">💾 Save All Changes</button>
+
+</div>
+
+
+
+<!-- Status Modal -->
+
+<div class="modal fade" id="statusModal" tabindex="-1" aria-hidden="true">
+
+    <div class="modal-dialog modal-dialog-centered">
+
+        <div class="modal-content">
+
+            <div class="modal-header bg-dark text-white">
+
+                <h5 class="modal-title" id="statusModalTitle">Status</h5>
+
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+
+            </div>
+
+            <div class="modal-body" id="statusModalBody">Changes saved successfully!</div>
+
+            <div class="modal-footer">
+
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<!-- Hover Image Preview Modal/Tooltip Container CSS & Script -->
+
+<style>
+
+.hover-zoom-container {
+
+    position: relative;
+
+    cursor: pointer;
+
+}
+
+.hover-zoom-container .img-preview-popup {
+
+    display: none;
+
+    position: absolute;
+
+    left: 75px;
+
+    top: 0;
+
+    z-index: 1050;
+
+    width: 200px;
+
+    height: 200px;
+
+    object-fit: cover;
+
+    border: 2px solid #fff;
+
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+
+    border-radius: 6px;
+
+    background: #fff;
+
+}
+
+.hover-zoom-container:hover .img-preview-popup {
+
+    display: block;
+
+}
+
+</style>
+
+
+
+<script>
+
+let loadedGlassData = [];
+
+
+
+function loadGlassBySource() {
+
+    const source = document.getElementById('bulkSourceSelect').value;
+
+    const container = document.getElementById('glassSectionsContainer');
+
+    
+
+    if (!source) {
+
+        container.innerHTML = '<div class="text-center py-5 text-muted card shadow-sm"><h4>Please select a Source Supplier above to load glass inventory.</h4></div>';
+
+        document.getElementById('groupBySelect').disabled = true;
+
+        document.getElementById('bottomSaveContainer').style.setProperty('display', 'none', 'important');
+
+        return;
+
+    }
+
+    
+
+    container.innerHTML = '<div class="text-center py-5 card shadow-sm"><div class="spinner-border text-primary" role="status"></div><p class="mt-2 text-muted">Loading glass items...</p></div>';
+
+    
+
+    fetch(`{{ url_for('glass_bp.api_glass_by_source') }}?source=${encodeURIComponent(source)}`)
+
+        .then(response => response.json())
+
+        .then(data => {
+
+            loadedGlassData = data.items || [];
+
+            document.getElementById('groupBySelect').disabled = false;
+
+            document.getElementById('bottomSaveContainer').style.setProperty('display', 'flex', 'important');
+
+            renderGlassSections();
+
+        })
+
+        .catch(err => {
+
+            container.innerHTML = '<div class="alert alert-danger">Failed to load inventory items.</div>';
+
+        });
+
+}
+
+
+
+function colorSortKey(val) {
+
+    if (val >= 999999.0) return [1, 1.0, 0, val];
+
+    let h = Math.floor(val / 1000);
+
+    let rem = val % 1000;
+
+    let s = Math.floor(rem / 100);
+
+    let v = rem % 100;
+
+    let is_greyscale = s < 0.05 ? 1 : 0;
+
+    return [is_greyscale, is_greyscale ? -v : h, s, v];
+
+}
+
+
+
+function renderGlassSections() {
+
+    const groupBy = document.getElementById('groupBySelect').value;
+
+    const container = document.getElementById('glassSectionsContainer');
+
+    
+
+    if (loadedGlassData.length === 0) {
+
+        container.innerHTML = '<div class="alert alert-warning text-center py-4">No active glass pieces found for this source.</div>';
+
+        return;
+
+    }
+
+    
+
+    let groups = {};
+
+    loadedGlassData.forEach(item => {
+
+        let groupKey = 'Unspecified';
+
+        if (groupBy === 'name') groupKey = item.GLSNAME ? item.GLSNAME.charAt(0).toUpperCase() : 'Other';
+
+        else if (groupBy === 'color') groupKey = item.COLOR ? item.COLOR : 'Uncolored';
+
+        else if (groupBy === 'texture') groupKey = item.GLSTEX ? item.GLSTEX : 'Standard / None';
+
+        else if (groupBy === 'size') groupKey = (item.GLSLEN && item.GLSWID) ? `${item.GLSLEN}" × ${item.GLSWID}"` : 'Unknown Size';
+
+        
+
+        if (!groups[groupKey]) groups[groupKey] = [];
+
+        groups[groupKey].push(item);
+
+    });
+
+    
+
+    let sortedKeys = Object.keys(groups);
+
+    if (groupBy === 'name' || groupBy === 'texture' || groupBy === 'size') {
+
+        sortedKeys.sort();
+
+    } else if (groupBy === 'color') {
+
+        sortedKeys.sort((a, b) => {
+
+            let itemA = groups[a][0].COLOR_HSV || 999999.0;
+
+            let itemB = groups[b][0].COLOR_HSV || 999999.0;
+
+            let keyA = colorSortKey(itemA);
+
+            let keyB = colorSortKey(itemB);
+
+            for (let i = 0; i < keyA.length; i++) {
+
+                if (keyA[i] !== keyB[i]) return keyA[i] - keyB[i];
+
+            }
+
+            return 0;
+
+        });
+
+    }
+
+    
+
+    let html = '';
+
+    sortedKeys.forEach(groupName => {
+
+        let itemsInGroup = groups[groupName];
+
+        html += `
+
+            <div class="card shadow-sm mb-4">
+
+                <div class="card-header bg-dark text-white fw-bold">
+
+                    ${groupName} <span class="badge bg-secondary ms-2">${itemsInGroup.length} items</span>
+
+                </div>
+
+                <div class="card-body bg-light">
+
+                    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
+
+        `;
+
+        
+
+        itemsInGroup.forEach(item => {
+
+            let imgSrc = item.GLSIMG;
+
+            if (imgSrc && !imgSrc.startsWith('http') && !imgSrc.startsWith('/') && !imgSrc.startsWith('static/')) {
+
+                imgSrc = 'static/' + imgSrc;
+
+            }
+
+            let resolvedImgUrl = imgSrc ? (imgSrc.startsWith('static/') ? "{{ url_for('static', filename='') }}" + imgSrc.replace('static/', '') : imgSrc) : null;
+
+            let baseStock = item.CURRENT_STOCK !== null && item.CURRENT_STOCK !== undefined ? item.CURRENT_STOCK : 0;
+
+            
+
+            html += `
+
+                <div class="col">
+
+                    <div class="card h-100 shadow-sm border">
+
+                        <div class="card-body d-flex gap-3 align-items-center">
+
+                            <div class="flex-shrink-0 hover-zoom-container">
+
+                                ${resolvedImgUrl ? 
+
+                                    `<img src="${resolvedImgUrl}" class="rounded border" style="width: 64px; height: 64px; object-fit: cover;" alt="Glass">
+
+                                     <img src="${resolvedImgUrl}" class="img-preview-popup" alt="Enlarged View">` :
+
+                                    `<div class="bg-secondary text-white rounded d-flex align-items-center justify-content-center small" style="width: 64px; height: 64px;">No Image</div>`
+
+                                }
+
+                            </div>
+
+                            <div class="flex-grow-1">
+
+                                <h6 class="fw-bold mb-1 text-primary">${item.GLSNAME}</h6>
+
+                                <div class="row g-2">
+
+                                    <div class="col-6">
+
+                                        <label class="form-label small text-muted mb-0">Price ($)</label>
+
+                                        <input type="number" step="0.01" class="form-control form-control-sm price-input" data-glassid="${item.GLASSID}" value="${item.GLSPRICE !== null && item.GLSPRICE !== undefined ? item.GLSPRICE : ''}">
+
+                                    </div>
+
+                                    <div class="col-6">
+
+                                        <div class="d-flex justify-content-between align-items-center">
+
+                                            <!-- Changed "Stock Qty" to "Qty" -->
+
+                                            <label class="form-label small text-muted mb-0">Qty</label>
+
+                                            <span class="small fw-bold stock-diff-badge" id="diff-${item.GLASSID}" data-base="${baseStock}"></span>
+
+                                        </div>
+
+                                        <input type="number" class="form-control form-control-sm stock-input" data-glassid="${item.GLASSID}" data-base="${baseStock}" value="${baseStock}" oninput="updateStockDiff(${item.GLASSID})" required min="0">
+
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            `;
+
+        });
+
+        
+
+        html += `</div></div></div>`;
+
+    });
+
+    
+
+    container.innerHTML = html;
+
+}
+
+
+function updateStockDiff(glassId) {
+
+    const input = document.querySelector(`.stock-input[data-glassid="${glassId}"]`);
+
+    const badge = document.getElementById(`diff-${glassId}`);
+
+    const baseStock = parseInt(input.getAttribute('data-base')) || 0;
+
+    const newVal = parseInt(input.value);
+
+    
+
+    if (isNaN(newVal) || input.value === '') {
+
+        badge.textContent = '';
+
+        return;
+
+    }
+
+    
+
+    const diff = newVal - baseStock;
+
+    if (diff > 0) {
+
+        badge.textContent = `+${diff}`;
+
+        badge.className = 'small fw-bold text-success stock-diff-badge';
+
+    } else if (diff < 0) {
+
+        badge.textContent = `${diff}`;
+
+        badge.className = 'small fw-bold text-danger stock-diff-badge';
+
+    } else {
+
+        badge.textContent = '±0';
+
+        badge.className = 'small fw-bold text-muted stock-diff-badge';
+
+    }
+
+}
+
+
+
+function submitBulkChanges() {
+
+    const dateVal = document.getElementById('bulkDate').value;
+
+    if (!dateVal) {
+
+        alert('Please select a valid adjustment date.');
+
+        return;
+
+    }
+
+    
+
+    let updates = [];
+
+    loadedGlassData.forEach(item => {
+
+        const stockInput = document.querySelector(`.stock-input[data-glassid="${item.GLASSID}"]`);
+
+        const priceInput = document.querySelector(`.price-input[data-glassid="${item.GLASSID}"]`);
+
+        
+
+        if (stockInput && priceInput) {
+
+            updates.push({
+
+                GLASSID: item.GLASSID,
+
+                stock: stockInput.value !== '' ? parseInt(stockInput.value) : null,
+
+                price: priceInput.value !== '' ? parseFloat(priceInput.value) : null
+
+            });
+
+        }
+
+    });
+
+    
+
+    fetch("{{ url_for('glass_bp.bulk_inventory_adjustment') }}", {
+
+        method: 'POST',
+
+        headers: { 'Content-Type': 'application/json' },
+
+        body: JSON.stringify({ date: dateVal, items: updates })
+
+    })
+
+    .then(response => response.json())
+
+    .then(data => {
+
+        if (data.status === 'success') {
+
+            document.getElementById('statusModalTitle').textContent = 'Success';
+
+            document.getElementById('statusModalBody').textContent = data.message;
+
+            let modal = new bootstrap.Modal(document.getElementById('statusModal'));
+
+            modal.show();
+
+            loadGlassBySource();
+
+        } else {
+
+            alert('Error: ' + data.message);
+
+        }
+
+    })
+
+    .catch(err => {
+
+        alert('An unexpected network error occurred.');
+
+    });
+
+}
+
+</script>
+
+{% endblock %}

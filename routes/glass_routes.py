@@ -801,3 +801,255 @@ def delete_glass_price(glass_id, price_id):
     db.commit()
     flash('Glass price tier removed.', 'success')
     return redirect(url_for('glass_bp.edit_glass_prices', glass_id=glass_id))
+
+@glass_bp.route('/glass/bulk-adjustment', methods=['GET', 'POST'])
+
+def bulk_inventory_adjustment():
+
+    db = get_db_from_app()
+
+    
+
+    if request.is_json or request.method == 'POST' and request.headers.get('Content-Type') == 'application/json':
+
+        data = request.get_json()
+
+        adjust_date = data.get('date', date.today().isoformat())
+
+        items = data.get('items', [])
+
+        
+
+        try:
+
+            from datetime import datetime, timedelta
+
+            adjust_dt = datetime.strptime(adjust_date, '%Y-%m-%d')
+
+            prev_day = (adjust_dt - timedelta(days=1)).strftime('%Y-%m-%d')
+
+
+
+            for item in items:
+
+                glass_id = item.get('GLASSID')
+
+                stock = item.get('stock')
+
+                price = item.get('price')
+
+                
+
+                if glass_id is not None:
+
+                    # 1. Update stock if provided
+
+                    if stock is not None:
+
+                        db.execute(
+
+                            "INSERT INTO GLSINV (GLASSID, GLSSTOCK, TS) VALUES (?, ?, ?)",
+
+                            (glass_id, int(stock), adjust_date)
+
+                        )
+
+                    
+
+                    # 2. Update price using date-shuffling logic
+
+                    if price is not None and price != '':
+
+                        new_price = float(price)
+
+                        
+
+                        # Check if a price already exists starting exactly on this date
+
+                        exact_match = db.execute(
+
+                            "SELECT rowid FROM GPC WHERE GLASSID = ? AND STDATE = ?", 
+
+                            (glass_id, adjust_date)
+
+                        ).fetchone()
+
+                        
+
+                        if exact_match:
+
+                            # Just update the price for this exact date to avoid duplicates
+
+                            db.execute(
+
+                                "UPDATE GPC SET GLSPRICE = ? WHERE rowid = ?",
+
+                                (new_price, exact_match['rowid'])
+
+                            )
+
+                        else:
+
+                            # Find the chronologically NEXT interval to determine our new end date
+
+                            next_price = db.execute(
+
+                                "SELECT STDATE FROM GPC WHERE GLASSID = ? AND STDATE > ? ORDER BY STDATE ASC LIMIT 1",
+
+                                (glass_id, adjust_date)
+
+                            ).fetchone()
+
+                            
+
+                            new_end_date = None
+
+                            if next_price and next_price['STDATE']:
+
+                                next_st_dt = datetime.strptime(next_price['STDATE'], '%Y-%m-%d')
+
+                                new_end_date = (next_st_dt - timedelta(days=1)).strftime('%Y-%m-%d')
+
+                            
+
+                            # Find the chronologically PREVIOUS interval to cap its end date
+
+                            prev_price = db.execute(
+
+                                "SELECT rowid, ENDDATE FROM GPC WHERE GLASSID = ? AND STDATE < ? ORDER BY STDATE DESC LIMIT 1",
+
+                                (glass_id, adjust_date)
+
+                            ).fetchone()
+
+                            
+
+                            if prev_price:
+
+                                prev_end_date = prev_price['ENDDATE']
+
+                                # If the previous price is ongoing or overlaps our new date, cap it to the day before
+
+                                if not prev_end_date or prev_end_date >= adjust_date:
+
+                                    db.execute(
+
+                                        "UPDATE GPC SET ENDDATE = ? WHERE rowid = ?",
+
+                                        (prev_day, prev_price['rowid'])
+
+                                    )
+
+                            
+
+                            # Insert the new price interval
+
+                            db.execute(
+
+                                "INSERT INTO GPC (GLASSID, GLSPRICE, STDATE, ENDDATE) VALUES (?, ?, ?, ?)",
+
+                                (glass_id, new_price, adjust_date, new_end_date)
+
+                            )
+
+                        
+
+            db.commit()
+
+            return {"status": "success", "message": "Bulk adjustments and price tiers saved successfully!"}, 200
+
+        except Exception as e:
+
+            db.rollback()
+
+            return {"status": "error", "message": str(e)}, 400
+
+
+
+    sources = db.execute("SELECT DISTINCT GLSOURCE FROM GSI WHERE ISACTIVE = 1 AND GLSOURCE IS NOT NULL AND GLSOURCE != '' ORDER BY GLSOURCE").fetchall()
+
+    
+
+    return render_template(
+
+        'glass_bulk_adjustment.html',
+
+        sources=sources,
+
+        today_date=date.today().isoformat()
+
+    )
+
+@glass_bp.route('/glass/api/by-source', methods=['GET'])
+
+def api_glass_by_source():
+
+    db = get_db_from_app()
+
+    source = request.args.get('source', '').strip()
+
+    
+
+    if not source:
+
+        return {"items": []}, 200
+
+        
+
+    query = """
+
+        SELECT g.GLASSID, g.GLSNAME, g.GLSMANF, g.GLSLEN, g.GLSWID, g.GLSTEX, 
+
+               g.GLSOURCE, g.GLSIMG, g.COLOR, c.CHEX, p.GLSPRICE,
+
+               COALESCE((
+
+                   SELECT i.GLSSTOCK FROM GLSINV i 
+
+                   WHERE i.GLASSID = g.GLASSID 
+
+                   ORDER BY i.TS DESC, i.GLSTRNID DESC LIMIT 1
+
+               ), 0) AS CURRENT_STOCK
+
+        FROM GSI g
+
+        LEFT JOIN COLOR c ON g.COLOR = c.COLOR
+
+        LEFT JOIN (
+
+            SELECT GLASSID, GLSPRICE 
+
+            FROM GPC 
+
+            WHERE ENDDATE IS NULL OR ENDDATE >= DATE('now')
+
+        ) p ON g.GLASSID = p.GLASSID
+
+        WHERE g.ISACTIVE = 1 AND g.GLSOURCE = ?
+
+        ORDER BY g.GLSNAME ASC
+
+    """
+
+    raw_items = db.execute(query, (source,)).fetchall()
+
+    
+
+    items = []
+
+    for row in raw_items:
+
+        item = dict(row)
+
+        hex_val = item.get('CHEX')
+
+        combined_val = hex_to_hsv(hex_val) if hex_val else 999999.0
+
+        item['COLOR_HSV'] = combined_val
+
+        items.append(item)
+
+        
+
+    return {"items": items}, 200
