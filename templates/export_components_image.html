@@ -70,6 +70,7 @@
 
 
 
+
 <script>
 
     const componentsData = {{ components_json | tojson }};
@@ -130,8 +131,6 @@
 
 
 
-        // Render both modes matching svg_renderer.js logic
-
         renderCanvasVariant(svgElement, width, height, 'texture', document.getElementById('canvas-texture'), document.getElementById('download-texture-btn'));
 
         renderCanvasVariant(svgElement, width, height, 'image', document.getElementById('canvas-image'), document.getElementById('download-image-btn'));
@@ -140,7 +139,7 @@
 
 
 
-    function renderCanvasVariant(originalSvg, svgWidth, svgHeight, currentAppearanceMode, canvas, downloadBtn) {
+function renderCanvasVariant(originalSvg, svgWidth, svgHeight, currentAppearanceMode, canvas, downloadBtn) {
 
         canvas.width = svgWidth;
 
@@ -160,19 +159,9 @@
 
 
 
-        let defs = svgClone.querySelector('defs');
-
-        if (!defs) {
-
-            defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
-
-            svgClone.insertBefore(defs, svgClone.firstChild);
-
-        }
-
-
-
         const paths = svgClone.querySelectorAll('path');
+
+        const imageLoadPromises = [];
 
 
 
@@ -196,9 +185,7 @@
 
             }
 
-            trsValue = Math.max(0, Math.min(100, trsValue));
-
-            const shapeOpacity = (trsValue / 100).toFixed(2);
+            const shapeOpacity = Math.max(0, Math.min(100, trsValue)) / 100;
 
 
 
@@ -210,7 +197,9 @@
 
                 useImageFill = true;
 
-                imageUrl = glassImgBaseUrl + comp.GLSIMG.trim();
+                let cleanImgName = comp.GLSIMG.trim().replace(/^images\/glass\//, '');
+
+                imageUrl = glassImgBaseUrl + cleanImgName;
 
             }
 
@@ -220,199 +209,164 @@
 
 
 
-            if (hasTexture || useImageFill) {
+            // Set basic color fill fallback
 
-                let patternId = `texture-pattern-${regionId}-${currentAppearanceMode}-${comp ? (useImageFill ? comp.GLSIMG : comp.GLSTEX) : 'none'}`;
+            path.setAttribute('fill', baseColor);
 
-                
-
-                const pattern = document.createElementNS("http://www.w3.org/2000/svg", "pattern");
-
-                pattern.setAttribute("id", patternId);
-
-                pattern.setAttribute("width", "1200");
-
-                pattern.setAttribute("height", "1200");
-
-                pattern.setAttribute("patternUnits", "userSpaceOnUse");
-
-                
-
-                if (useImageFill) {
-
-                    const imgWidth = svgWidth * 2;
-
-                    const imgHeight = svgHeight * 2;
-
-                    const centerX = (1200 - imgWidth) / 2;
-
-                    const centerY = (1200 - imgHeight) / 2;
-
-
-
-                    const imageFill = document.createElementNS("http://www.w3.org/2000/svg", "image");
-
-                    imageFill.setAttribute("href", imageUrl);
-
-                    imageFill.setAttribute("x", centerX);
-
-                    imageFill.setAttribute("y", centerY);
-
-                    imageFill.setAttribute("width", imgWidth);
-
-                    imageFill.setAttribute("height", imgHeight);
-
-                    imageFill.setAttribute("preserveAspectRatio", "none");
-
-                    imageFill.setAttribute("style", `opacity: ${shapeOpacity};`);
-
-                    pattern.appendChild(imageFill);
-
-                } else {
-
-                    const baseRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-
-                    baseRect.setAttribute("width", "1200");
-
-                    baseRect.setAttribute("height", "1200");
-
-                    baseRect.setAttribute("fill", baseColor);
-
-                    baseRect.setAttribute("opacity", shapeOpacity);
-
-                    pattern.appendChild(baseRect);
-
-
-
-                    const textureFilename = comp.GLSTEX.trim().toLowerCase() + '.jpg';
-
-                    const textureUrl = effectImgBaseUrl + textureFilename;
-
-
-
-                    const textureImage = document.createElementNS("http://www.w3.org/2000/svg", "image");
-
-                    textureImage.setAttribute("href", textureUrl);
-
-                    textureImage.setAttribute("width", "1200");
-
-                    textureImage.setAttribute("height", "1200");
-
-                    textureImage.setAttribute("preserveAspectRatio", "none");
-
-                    textureImage.setAttribute("style", `mix-blend-mode: multiply; opacity: ${shapeOpacity}; filter: grayscale(100%);`);
-
-                    pattern.appendChild(textureImage);
-
-                }
-
-
-
-                defs.appendChild(pattern);
-
-                path.setAttribute('fill', `url(#${patternId})`);
-
-                path.removeAttribute('fill-opacity');
-
-            } else {
-
-                path.setAttribute('fill', baseColor);
-
-                path.setAttribute('fill-opacity', shapeOpacity);
-
-            }
-
-
-
-            if (hasTexture) {
-
-                const textureFilterId = `bump-filter-${regionId}`;
-
-                const filter = document.createElementNS("http://www.w3.org/2000/svg", "filter");
-
-                filter.setAttribute("id", textureFilterId);
-
-                filter.setAttribute("x", "-20%");
-
-                filter.setAttribute("y", "-20%");
-
-                filter.setAttribute("width", "140%");
-
-                filter.setAttribute("height", "140%");
-
-
-
-                const feColorMatrix = document.createElementNS("http://www.w3.org/2000/svg", "feColorMatrix");
-
-                feColorMatrix.setAttribute("type", "matrix");
-
-                feColorMatrix.setAttribute("values", "0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0.2126 0.7152 0.0722 0 0");
-
-                filter.appendChild(feColorMatrix);
-
-
-
-                const feDiffuse = document.createElementNS("http://www.w3.org/2000/svg", "feDiffuseLighting");
-
-                feDiffuse.setAttribute("lighting-color", "#ffffff");
-
-                feDiffuse.setAttribute("surfaceScale", "4");
-
-                feDiffuse.setAttribute("result", "light");
-
-
-
-                const feLight = document.createElementNS("http://www.w3.org/2000/svg", "feDistantLight");
-
-                feLight.setAttribute("azimuth", "45");
-
-                feLight.setAttribute("elevation", "60");
-
-                feDiffuse.appendChild(feLight);
-
-                filter.appendChild(feDiffuse);
-
-
-
-                const feBlend = document.createElementNS("http://www.w3.org/2000/svg", "feBlend");
-
-                feBlend.setAttribute("mode", "multiply");
-
-                feBlend.setAttribute("in", "SourceGraphic");
-
-                feBlend.setAttribute("in2", "light");
-
-                feBlend.setAttribute("result", "blended");
-
-                filter.appendChild(feBlend);
-
-
-
-                defs.appendChild(filter);
-
-                path.style.filter = `url(#${textureFilterId})`;
-
-            } else {
-
-                path.style.filter = 'none';
-
-            }
-
-
+            path.setAttribute('fill-opacity', shapeOpacity);
 
             path.removeAttribute('opacity');
 
-            path.setAttribute('stroke', '#000000');       // Thick stroke as requested
+            path.setAttribute('stroke', '#000000');
 
-            path.setAttribute('stroke-width', '12');      // Heavy distinct border
+            path.setAttribute('stroke-width', '12');
 
             path.setAttribute('stroke-linejoin', 'round');
+
+
+
+            // If it has a texture or glass image, we queue an asynchronous image load for the canvas pattern
+
+            if (hasTexture || useImageFill) {
+
+                let assetUrl = useImageFill ? imageUrl : (effectImgBaseUrl + comp.GLSTEX.trim().toLowerCase() + '.jpg');
+
+                
+
+                let p = new Promise((resolve) => {
+
+                    const patternImg = new Image();
+
+                    patternImg.crossOrigin = "anonymous";
+
+                    patternImg.onload = function() {
+
+                        resolve({ path, patternImg, isTexture: !useImageFill, baseColor, shapeOpacity });
+
+                    };
+
+                    patternImg.onerror = function() {
+
+                        // Fallback gracefully to color if image asset fails to load
+
+                        resolve(null);
+
+                    };
+
+                    patternImg.src = assetUrl;
+
+                });
+
+                imageLoadPromises.push(p);
+
+            }
 
         });
 
 
 
-        const serializer = new XMLSerializer();
+        // Once all vector shapes are ready, serialize SVG structure, paint, then layer pattern fills
+
+        Promise.all(imageLoadPromises).then((loadedPatterns) => {
+
+            const serializer = new XMLSerializer();
+
+            const svgString = serializer.serializeToString(svgClone);
+
+            const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+
+            const URL = window.URL || window.webkitURL || window;
+
+            const blobURL = URL.createObjectURL(svgBlob);
+
+
+
+            const baseImg = new Image();
+
+            baseImg.crossOrigin = "anonymous";
+
+            baseImg.onload = function() {
+
+                ctx.clearRect(0, 0, svgWidth, svgHeight);
+
+                // 1. Draw base colored SVG paths
+
+                ctx.drawImage(baseImg, 0, 0, svgWidth, svgHeight);
+
+                URL.revokeObjectURL(blobURL);
+
+
+
+                // 2. Apply texture or glass image overlays cleanly on top of their respective paths
+
+                loadedPatterns.forEach(item => {
+
+                    if (!item) return;
+
+                    ctx.save();
+
+                    ctx.globalAlpha = item.shapeOpacity;
+
+
+
+                    // Create clipping mask matching the specific path element geometry
+
+                    const pathString = item.path.getAttribute('d');
+
+                    if (pathString) {
+
+                        const p2d = new Path2D(pathString);
+
+                        ctx.clip(p2d);
+
+
+
+                        if (item.isTexture) {
+
+                            // Draw base color layer inside clipping mask
+
+                            ctx.fillStyle = item.baseColor;
+
+                            ctx.fillRect(0, 0, svgWidth, svgHeight);
+
+                            
+
+                            // Apply multiply blend mode for textures
+
+                            ctx.globalCompositeOperation = 'multiply';
+
+                        }
+
+
+
+                        // Draw the overlay image scaled to fit the view bounds
+
+                        ctx.drawImage(item.patternImg, 0, 0, svgWidth, svgHeight);
+
+                    }
+
+                    ctx.restore();
+
+                });
+
+
+
+                const dataUrl = canvas.toDataURL('image/png');
+
+                downloadBtn.href = dataUrl;
+
+                downloadBtn.style.display = 'inline-block';
+
+            };
+
+            baseImg.src = blobURL;
+
+        });
+
+    
+
+
+const serializer = new XMLSerializer();
 
         const svgString = serializer.serializeToString(svgClone);
 
@@ -425,6 +379,12 @@
 
 
         const img = new Image();
+
+        // Fix: Enable anonymous cross-origin loading so external assets render cleanly on canvas blobs
+
+        img.crossOrigin = "anonymous";
+
+        
 
         img.onload = function() {
 
@@ -445,7 +405,6 @@
         };
 
         img.src = blobURL;
-
     }
 
 </script>

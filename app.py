@@ -1703,7 +1703,9 @@ def export_components_image(item_id):
 
             'CHEX': comp['CHEX'] or 'cccccc',
 
-            'GLSIMG': comp['GLSIMG'] or '',
+            'GLSTEX': comp['GLSTEX'] or '',  # <-- Added missing texture mapping
+
+            'GLSIMG': comp['GLSIMG'] or '',  # <-- Added missing glass image mapping
 
             'GTRNSV': comp['GTRNSV'] or 75
 
@@ -1722,7 +1724,6 @@ def export_components_image(item_id):
         components_json=comp_map
 
     )
-
 
 
 if __name__ == "__main__":
