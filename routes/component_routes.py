@@ -1,14 +1,11 @@
 import os
-
 import sqlite3
-
 import re
-
 import xml.etree.ElementTree as ET
-
 from flask import Blueprint, flash, redirect, render_template, request, url_for, jsonify, current_app
-
-
+import base64
+from PIL import Image as PILImage
+import io
 
 component_bp = Blueprint('component_bp', __name__)
 
@@ -619,3 +616,110 @@ def export_components_image(item_id):
         components_json=comp_map
 
     )
+
+
+@component_bp.route('/save_components_image/<int:item_id>', methods=['POST'])
+
+def save_components_image(item_id):
+
+    db = get_db()
+
+    item = db.execute('SELECT * FROM ITM WHERE ITEMID = ?', (item_id,)).fetchone()
+
+    if not item:
+
+        return jsonify({'success': False, 'message': 'Item not found.'}), 404
+
+
+
+    data = request.get_json()
+
+    image_data = data.get('image_data')
+
+    if not image_data:
+
+        return jsonify({'success': False, 'message': 'No image data provided.'}), 400
+
+
+
+    try:
+
+        if ',' in image_data:
+
+            header, encoded = image_data.split(',', 1)
+
+        else:
+
+            encoded = image_data
+
+
+
+        image_bytes = base64.b64decode(encoded)
+
+        
+
+        raw_name = item['ITMNAME'] if 'ITMNAME' in item.keys() and item['ITMNAME'] else 'item'
+
+        safe_name = "".join(c if c.isalnum() or c in ('_', '-') else '_' for c in raw_name)
+
+        filename = f"{item_id}_{safe_name}.webp"
+
+
+
+        base_dir = current_app.root_path
+
+        full_dir = os.path.join(base_dir, 'static', 'images', 'item')
+
+        thumb_dir = os.path.join(base_dir, 'static', 'images', 'item', 'thumb')
+
+
+
+        os.makedirs(full_dir, exist_ok=True)
+
+        os.makedirs(thumb_dir, exist_ok=True)
+
+
+
+        full_path = os.path.join(full_dir, filename)
+
+        thumb_path = os.path.join(thumb_dir, filename)
+
+
+
+        image = PILImage.open(io.BytesIO(image_bytes))
+
+        
+
+        # Save full size webp image
+
+        image.save(full_path, 'WEBP')
+
+
+
+        # Create and save 25% thumbnail
+
+        new_width = max(1, int(image.width * 0.25))
+
+        new_height = max(1, int(image.height * 0.25))
+
+        thumb_image = image.resize((new_width, new_height), PILImage.Resampling.LANCZOS)
+
+        thumb_image.save(thumb_path, 'WEBP')
+
+
+
+        db_img_value = f"images/item/{filename}"
+
+        db.execute('UPDATE ITM SET ITMIMG = ? WHERE ITEMID = ?', (db_img_value, item_id))
+
+        db.commit()
+
+
+
+        return jsonify({'success': True, 'message': 'Image saved and database updated successfully!'})
+
+    except Exception as e:
+
+        db.rollback()
+
+        return jsonify({'success': False, 'message': str(e)}), 500

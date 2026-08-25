@@ -4,63 +4,83 @@
 
 {% block content %}
 
+
+
 <div class="container mt-4">
+
+
 
     <div class="d-flex justify-content-between align-items-center mb-4">
 
+
+
         <h2>Export Previews: {{ item.ITMNAME }}</h2>
 
-        <a href="{{ url_for('component_bp.edit_components', item_id=item.ITEMID) }}" class="btn btn-outline-secondary btn-sm">Back to Edit Components</a>
-
-    </div>
 
 
+        <div>
 
-    <div class="row text-center">
+            <button id="save-image-btn" class="btn btn-success btn-sm me-2" style="display: none;">Save Image</button>
 
-        <!-- Preview 1: Textured View -->
-
-        <div class="col-md-6 mb-4">
-
-            <div class="card shadow-sm p-3">
-
-                <h5 class="card-title">Textures View</h5>
-
-                <div class="border bg-light p-2 d-flex justify-content-center align-items-center" style="min-height: 300px; background: repeating-conic-gradient(#ccc 0% 25%, #fff 0% 50%) 0 0/15px 15px !important;">
-
-                    <canvas id="canvas-texture" style="max-width: 100%; height: auto;"></canvas>
-
-                </div>
-
-                <a id="download-texture-btn" class="btn btn-primary btn-sm mt-3" style="display: none;" download="components_textured.png">Download Textured PNG</a>
-
-            </div>
+            <a href="{{ url_for('component_bp.edit_components', item_id=item.ITEMID) }}" class="btn btn-outline-secondary btn-sm">Back to Edit Components</a>
 
         </div>
 
 
 
-        <!-- Preview 2: Glass Image View -->
+    </div>
 
-        <div class="col-md-6 mb-4">
+
+
+    <div class="row text-center justify-content-center">
+
+        <!-- Preview: Glass Image View -->
+
+
+
+        <div class="col-md-8 mb-4">
+
+
 
             <div class="card shadow-sm p-3">
+
+
 
                 <h5 class="card-title">Glass Images View</h5>
 
+
+
                 <div class="border bg-light p-2 d-flex justify-content-center align-items-center" style="min-height: 300px; background: repeating-conic-gradient(#ccc 0% 25%, #fff 0% 50%) 0 0/15px 15px !important;">
+
+
 
                     <canvas id="canvas-image" style="max-width: 100%; height: auto;"></canvas>
 
+
+
                 </div>
 
-                <a id="download-image-btn" class="btn btn-secondary btn-sm mt-3" style="display: none;" download="components_glass.png">Download Glass PNG</a>
+
+
+                <div class="mt-3">
+
+                    <a id="download-image-btn" class="btn btn-secondary btn-sm" style="display: none;" download="components_glass.webp">Download Glass WebP</a>
+
+                </div>
+
+
 
             </div>
 
+
+
         </div>
 
+
+
     </div>
+
+
 
 </div>
 
@@ -71,342 +91,733 @@
 
 
 
+
 <script>
+
+
 
     const componentsData = {{ components_json | tojson }};
 
+
+
     const svgUrl = "{{ svg_url }}";
 
-    const effectImgBaseUrl = "{{ url_for('static', filename='images/effects/') }}";
+
 
     const glassImgBaseUrl = "{{ url_for('static', filename='images/glass/') }}";
 
 
 
+    const itemId = "{{ item.ITEMID }}";
+
+
+
+
+
+
+
     window.addEventListener('DOMContentLoaded', () => {
+
+
 
         fetch(svgUrl)
 
+
+
             .then(response => response.text())
+
+
 
             .then(svgText => {
 
+
+
                 document.getElementById('svg-source-container').innerHTML = svgText;
+
+
 
                 const svgElement = document.querySelector('#svg-source-container svg');
 
+
+
                 if (svgElement) {
+
+
 
                     generatePngPreviews(svgElement);
 
+
+
                 }
+
+
 
             })
 
+
+
             .catch(err => console.error("Error loading SVG for export:", err));
+
+
 
     });
 
 
 
+
+
+
+
     function generatePngPreviews(svgElement) {
+
+
 
         const viewBox = svgElement.getAttribute('viewBox');
 
+
+
         let width = 800, height = 800;
+
+
 
         if (viewBox) {
 
+
+
             const parts = viewBox.split(/[\s,]+/).map(parseFloat);
+
+
 
             if (parts.length === 4) {
 
+
+
                 width = parts[2];
+
+
 
                 height = parts[3];
 
+
+
             }
+
+
 
         }
 
 
 
-        renderCanvasVariant(svgElement, width, height, 'texture', document.getElementById('canvas-texture'), document.getElementById('download-texture-btn'));
 
-        renderCanvasVariant(svgElement, width, height, 'image', document.getElementById('canvas-image'), document.getElementById('download-image-btn'));
+
+
+
+        renderCanvasVariant(svgElement, width, height, document.getElementById('canvas-image'), document.getElementById('download-image-btn'));
+
+
 
     }
 
 
 
-function renderCanvasVariant(originalSvg, svgWidth, svgHeight, currentAppearanceMode, canvas, downloadBtn) {
+
+
+
+
+    function renderCanvasVariant(originalSvg, svgWidth, svgHeight, canvas, downloadBtn) {
+
+
 
         canvas.width = svgWidth;
 
+
+
         canvas.height = svgHeight;
+
+
 
         const ctx = canvas.getContext('2d');
 
 
 
+
+
+
+
         const svgClone = originalSvg.cloneNode(true);
+
+
 
         if (!svgClone.getAttribute('viewBox')) {
 
+
+
             svgClone.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`);
+
+
 
         }
 
 
 
+
+
+
+
         const paths = svgClone.querySelectorAll('path');
+
+
 
         const imageLoadPromises = [];
 
 
 
+
+
+
+
         paths.forEach((path, index) => {
+
+
 
             let regionId = path.getAttribute('data-region-id') || path.getAttribute('data-number') || (index + 1);
 
+
+
             let comp = componentsData[regionId];
 
-            
 
-            let baseColor = (comp && comp.CHEX) ? '#' + comp.CHEX : '#cccccc';
+
+
 
 
 
             let trsValue = 75;
 
+
+
             if (comp && comp.GTRNSV !== undefined && comp.GTRNSV !== null && comp.GTRNSV !== '') {
+
+
 
                 trsValue = parseFloat(comp.GTRNSV);
 
+
+
             }
+
+
 
             const shapeOpacity = Math.max(0, Math.min(100, trsValue)) / 100;
 
 
 
+
+
+
+
             let useImageFill = false;
+
+
 
             let imageUrl = '';
 
-            if (currentAppearanceMode === 'image' && comp && comp.GLSIMG && comp.GLSIMG.trim() !== '') {
+
+
+            if (comp && comp.GLSIMG && comp.GLSIMG.trim() !== '') {
+
+
 
                 useImageFill = true;
 
+
+
                 let cleanImgName = comp.GLSIMG.trim().replace(/^images\/glass\//, '');
 
+
+
                 imageUrl = glassImgBaseUrl + cleanImgName;
+
+
 
             }
 
 
 
-            let hasTexture = !useImageFill && comp && comp.GLSTEX && comp.GLSTEX.trim() !== '';
 
 
 
-            // Set basic color fill fallback
 
-            path.setAttribute('fill', baseColor);
+            path.setAttribute('fill', 'none');
 
-            path.setAttribute('fill-opacity', shapeOpacity);
+
+
+            path.removeAttribute('fill-opacity');
+
+
 
             path.removeAttribute('opacity');
 
+
+
             path.setAttribute('stroke', '#000000');
 
-            path.setAttribute('stroke-width', '12');
+
+
+            path.setAttribute('stroke-width', '25');
+
+
 
             path.setAttribute('stroke-linejoin', 'round');
 
 
 
-            // If it has a texture or glass image, we queue an asynchronous image load for the canvas pattern
 
-            if (hasTexture || useImageFill) {
 
-                let assetUrl = useImageFill ? imageUrl : (effectImgBaseUrl + comp.GLSTEX.trim().toLowerCase() + '.jpg');
 
-                
+
+            if (useImageFill) {
+
+
 
                 let p = new Promise((resolve) => {
 
+
+
                     const patternImg = new Image();
+
+
 
                     patternImg.crossOrigin = "anonymous";
 
+
+
                     patternImg.onload = function() {
 
-                        resolve({ path, patternImg, isTexture: !useImageFill, baseColor, shapeOpacity });
+
+
+                        resolve({ path, patternImg, shapeOpacity });
+
+
 
                     };
+
+
 
                     patternImg.onerror = function() {
 
-                        // Fallback gracefully to color if image asset fails to load
+
 
                         resolve(null);
 
+
+
                     };
 
-                    patternImg.src = assetUrl;
+
+
+                    patternImg.src = imageUrl;
+
+
 
                 });
 
+
+
                 imageLoadPromises.push(p);
 
+
+
             }
+
+
 
         });
 
 
 
-        // Once all vector shapes are ready, serialize SVG structure, paint, then layer pattern fills
+
+
+
 
         Promise.all(imageLoadPromises).then((loadedPatterns) => {
 
+
+
             const serializer = new XMLSerializer();
+
+
 
             const svgString = serializer.serializeToString(svgClone);
 
+
+
             const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
 
+
+
             const URL = window.URL || window.webkitURL || window;
+
+
 
             const blobURL = URL.createObjectURL(svgBlob);
 
 
 
+
+
+
+
             const baseImg = new Image();
+
+
 
             baseImg.crossOrigin = "anonymous";
 
+
+
             baseImg.onload = function() {
+
+
 
                 ctx.clearRect(0, 0, svgWidth, svgHeight);
 
-                // 1. Draw base colored SVG paths
-
-                ctx.drawImage(baseImg, 0, 0, svgWidth, svgHeight);
-
-                URL.revokeObjectURL(blobURL);
 
 
 
-                // 2. Apply texture or glass image overlays cleanly on top of their respective paths
+
+
+
+                // 1. Render all glass texture fills cleanly within each path
 
                 loadedPatterns.forEach(item => {
 
+
+
                     if (!item) return;
 
-                    ctx.save();
 
-                    ctx.globalAlpha = item.shapeOpacity;
-
-
-
-                    // Create clipping mask matching the specific path element geometry
 
                     const pathString = item.path.getAttribute('d');
 
-                    if (pathString) {
 
-                        const p2d = new Path2D(pathString);
 
-                        ctx.clip(p2d);
+                    if (!pathString) return;
 
 
 
-                        if (item.isTexture) {
-
-                            // Draw base color layer inside clipping mask
-
-                            ctx.fillStyle = item.baseColor;
-
-                            ctx.fillRect(0, 0, svgWidth, svgHeight);
-
-                            
-
-                            // Apply multiply blend mode for textures
-
-                            ctx.globalCompositeOperation = 'multiply';
-
-                        }
 
 
 
-                        // Draw the overlay image scaled to fit the view bounds
 
-                        ctx.drawImage(item.patternImg, 0, 0, svgWidth, svgHeight);
+                    const p2d = new Path2D(pathString);
 
-                    }
 
-                    ctx.restore();
+
+                    const tempCanvas = document.createElement('canvas');
+
+
+
+                    tempCanvas.width = svgWidth;
+
+
+
+                    tempCanvas.height = svgHeight;
+
+
+
+                    const tCtx = tempCanvas.getContext('2d');
+
+
+
+
+
+
+
+                    tCtx.fillStyle = '#ffffff';
+
+
+
+                    tCtx.fill(p2d);
+
+
+
+
+
+
+
+                    tCtx.globalCompositeOperation = 'source-in';
+
+
+
+                    tCtx.globalAlpha = item.shapeOpacity;
+
+
+
+                    tCtx.imageSmoothingEnabled = true;
+
+
+
+                    tCtx.imageSmoothingQuality = 'high';
+
+
+
+                    tCtx.drawImage(item.patternImg, 0, 0, svgWidth, svgHeight);
+
+
+
+
+
+
+
+                    ctx.drawImage(tempCanvas, 0, 0);
+
+
 
                 });
 
 
 
-                const dataUrl = canvas.toDataURL('image/png');
+
+
+
+
+                // 2. Render the stroke layer on top, using destination-out to cleanly clip away the inner overlap
+
+                const strokeCanvas = document.createElement('canvas');
+
+
+
+                strokeCanvas.width = svgWidth;
+
+
+
+                strokeCanvas.height = svgHeight;
+
+
+
+                const sCtx = strokeCanvas.getContext('2d');
+
+
+
+                sCtx.drawImage(baseImg, 0, 0, svgWidth, svgHeight);
+
+
+
+
+
+
+
+                sCtx.globalCompositeOperation = 'destination-out';
+
+
+
+                paths.forEach(path => {
+
+
+
+                    const pathString = path.getAttribute('d');
+
+
+
+                    if (pathString) {
+
+
+
+                        const p2d = new Path2D(pathString);
+
+
+
+                        sCtx.fillStyle = '#000000';
+
+
+
+                        sCtx.fill(p2d);
+
+
+
+                    }
+
+
+
+                });
+
+
+
+
+
+
+
+                ctx.drawImage(strokeCanvas, 0, 0);
+
+
+
+
+
+
+
+                URL.revokeObjectURL(blobURL);
+
+
+
+
+
+
+
+                const dataUrl = canvas.toDataURL('image/webp');
+
+
 
                 downloadBtn.href = dataUrl;
 
+
+
                 downloadBtn.style.display = 'inline-block';
+
+
+
+
+
+
+
+                const saveBtn = document.getElementById('save-image-btn');
+
+
+
+                saveBtn.style.display = 'inline-block';
+
+
+
+                saveBtn.onclick = function() {
+
+
+
+                    saveBtn.disabled = true;
+
+
+
+                    saveBtn.textContent = 'Saving...';
+
+
+
+
+
+
+
+                    fetch(`/save_components_image/${itemId}`, {
+
+
+
+                        method: 'POST',
+
+
+
+                        headers: {
+
+
+
+                            'Content-Type': 'application/json'
+
+
+
+                        },
+
+
+
+                        body: JSON.stringify({ image_data: dataUrl })
+
+
+
+                    })
+
+
+
+                    .then(response => response.json())
+
+
+
+                    .then(result => {
+
+
+
+                        if (result.success) {
+
+
+
+                            alert('Image successfully saved and database updated!');
+
+
+
+                        } else {
+
+
+
+                            alert('Error: ' + result.message);
+
+
+
+                        }
+
+
+
+                    })
+
+
+
+                    .catch(err => {
+
+
+
+                        console.error('Error saving image:', err);
+
+
+
+                        alert('An unexpected error occurred while saving the image.');
+
+
+
+                    })
+
+
+
+                    .finally(() => {
+
+
+
+                        saveBtn.disabled = false;
+
+
+
+                        saveBtn.textContent = 'Save Image';
+
+
+
+                    });
+
+
+
+                };
+
+
 
             };
 
+
+
             baseImg.src = blobURL;
+
+
 
         });
 
-    
 
 
-const serializer = new XMLSerializer();
-
-        const svgString = serializer.serializeToString(svgClone);
-
-        const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-
-        const URL = window.URL || window.webkitURL || window;
-
-        const blobURL = URL.createObjectURL(svgBlob);
-
-
-
-        const img = new Image();
-
-        // Fix: Enable anonymous cross-origin loading so external assets render cleanly on canvas blobs
-
-        img.crossOrigin = "anonymous";
-
-        
-
-        img.onload = function() {
-
-            ctx.clearRect(0, 0, svgWidth, svgHeight);
-
-            ctx.drawImage(img, 0, 0, svgWidth, svgHeight);
-
-            URL.revokeObjectURL(blobURL);
-
-
-
-            const dataUrl = canvas.toDataURL('image/png');
-
-            downloadBtn.href = dataUrl;
-
-            downloadBtn.style.display = 'inline-block';
-
-        };
-
-        img.src = blobURL;
     }
 
+
+
 </script>
+
+
 
 {% endblock %}
