@@ -1449,3 +1449,201 @@ def record_sale():
     venues = db.execute("SELECT VENUEID, VENUELOC FROM VENUE").fetchall()
 
     return render_template("sale_form.html", items=items, venues=venues)
+
+@item_bp.route('/item/bulk-sales', methods=['GET'])
+
+def item_bulk_sales():
+
+    db = get_db()
+
+    venues = db.execute("SELECT VENUEID, VENNAME FROM VENUE WHERE ISACTIVE = 1 ORDER BY VENNAME ASC").fetchall()
+
+    today_date = datetime.today().strftime('%Y-%m-%d')
+
+    return render_template('item_bulk_sales.html', venues=venues, today_date=today_date)
+
+
+
+@item_bp.route('/item/api/bulk-sales-data', methods=['GET'])
+
+def api_item_bulk_sales_data():
+
+    db = get_db()
+
+    items = db.execute(
+
+        """
+
+        SELECT i.ITEMID, i.ITMNAME, i.ITMGRP, i.ONEOFF, i.ITMIMG, i.ISACTIVE, i.CURRENT,
+
+               (SELECT ii.ITMSTOCK FROM ITMINV ii WHERE ii.ITEMID = i.ITEMID ORDER BY ii.TS DESC LIMIT 1) AS CURRENT_STOCK,
+
+               (SELECT ipc.ITMPRICE FROM IPC ipc WHERE ipc.ITEMID = i.ITEMID AND (ipc.ENDDATE IS NULL OR ipc.ENDDATE >= DATE('now')) ORDER BY ipc.STDATE DESC LIMIT 1) AS ITMPRICE
+
+        FROM ITM i
+
+        ORDER BY i.ITMGRP ASC, i.ITMNAME ASC
+
+        """
+
+    ).fetchall()
+
+    
+
+    item_list = [dict(row) for row in items]
+
+    return {'items': item_list}
+
+@item_bp.route('/item/api/bulk-sales-adjustment', methods=['POST'])
+
+def bulk_sales_adjustment():
+
+    db = get_db()
+
+    data = request.get_json()
+
+    sale_date = data.get('date')
+
+    venue_id = data.get('venue_id') or None
+
+    items = data.get('items', [])
+
+    
+
+    if not sale_date:
+
+        return {'status': 'error', 'message': 'Adjustment date is required.'}, 400
+
+
+
+    try:
+
+        for entry in items:
+
+            item_id = entry.get('ITEMID')
+
+            amt_sold = entry.get('amt_sold', 0)
+
+            new_price = entry.get('price')
+
+            
+
+            # Fetch current stock
+
+            stock_row = db.execute(
+
+                "SELECT ITMSTOCK FROM ITMINV WHERE ITEMID = ? ORDER BY TS DESC LIMIT 1",
+
+                (item_id,)
+
+            ).fetchone()
+
+            current_stock = stock_row['ITMSTOCK'] if stock_row and stock_row['ITMSTOCK'] is not None else 0
+
+            
+
+            # 1. If items were sold, record entry in ITMSALE and subtract from stock
+
+            if amt_sold > 0:
+
+                db.execute(
+
+                    """
+
+                    INSERT INTO ITMSALE (ITEMID, SUNITS, SDATE, VENUEID)
+
+                    VALUES (?, ?, ?, ?)
+
+                    """,
+
+                    (item_id, amt_sold, sale_date, venue_id)
+
+                )
+
+                
+
+                new_stock = max(0, current_stock - amt_sold)
+
+                db.execute(
+
+                    """
+
+                    INSERT INTO ITMINV (ITEMID, ITMSTOCK, TS)
+
+                    VALUES (?, ?, CURRENT_TIMESTAMP)
+
+                    """,
+
+                    (item_id, new_stock)
+
+                )
+
+            
+
+            # 2. Update price if changed (using the standard IPC adjustment approach)
+
+            if new_price is not None:
+
+                current_price_row = db.execute(
+
+                    """
+
+                    SELECT ITMPRICE FROM IPC 
+
+                    WHERE ITEMID = ? AND (ENDDATE IS NULL OR ENDDATE >= DATE('now'))
+
+                    ORDER BY STDATE DESC LIMIT 1
+
+                    """,
+
+                    (item_id,)
+
+                ).fetchone()
+
+                
+
+                if not current_price_row or float(current_price_row['ITMPRICE']) != float(new_price):
+
+                    # Close out current price range
+
+                    db.execute(
+
+                        """
+
+                        UPDATE IPC SET ENDDATE = DATE(?, '-1 day')
+
+                        WHERE ITEMID = ? AND (ENDDATE IS NULL OR ENDDATE >= DATE('now'))
+
+                        """,
+
+                        (sale_date, item_id)
+
+                    )
+
+                    # Insert new price tier
+
+                    db.execute(
+
+                        """
+
+                        INSERT INTO IPC (ITEMID, ITMPRICE, STDATE, ENDDATE)
+
+                        VALUES (?, ?, ?, NULL)
+
+                        """,
+
+                        (item_id, new_price, sale_date)
+
+                    )
+
+
+
+        db.commit()
+
+        return {'status': 'success', 'message': 'Sales recorded and inventory updated successfully!'}
+
+    except Exception as e:
+
+        db.rollback()
+
+        return {'status': 'error', 'message': str(e)}, 500

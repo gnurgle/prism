@@ -1,406 +1,809 @@
 {% extends 'base.html' %}
 
+
+
 {% block content %}
+
 <div class="d-flex justify-content-between align-items-center mb-3">
+
     <div>
+
         <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Dashboard</a>
+
         <h2>Item Details: {{ item.ITMNAME }}</h2>
+
     </div>
+
     <div>
+
         <a href="{{ url_for('item_bp.edit_item', item_id=item.ITEMID) }}" class="btn btn-primary">✏️ Edit Item Details</a>
+
     </div>
+
 </div>
 
+
+
 <div class="row">
+
     <!-- Main Left Column -->
+
     <div class="col-md-8">
+
         <div class="card shadow-sm mb-4">
+
             <div class="card-header bg-dark text-white">General Information</div>
+
             <div class="card-body">
+
                 <div class="row align-items-center">
+
                     <!-- General Info Details -->
+
                     <div class="col-md-12">
+
                         <table class="table table-borderless mb-0">
+
                             <tbody>
-                                <tr>
-                                    <th style="width: 40%;">Item ID:</th>
-                                    <td>#{{ item.ITEMID }}</td>
-                                </tr>
-                                <tr>
-                                    <th>Group:</th>
-                                    <td><span class="badge bg-secondary">{{ item.ITMGRP or 'Unassigned' }}</span></td>
-                                </tr>
-                                <!-- Added Dimensions -->
-                                <tr>
-                                    <th>Dimensions (L×W):</th>
-                                    <td>{{ item.ITMLEN or '—' | inch_format }}" × {{ item.ITMWID or '—' | inch_format}}"</td>
-                                </tr>
-<!-- Added Dimensions -->
 
                                 <tr>
+
+                                    <th style="width: 40%;">Item ID:</th>
+
+                                    <td>#{{ item.ITEMID }}</td>
+
+                                </tr>
+
+                                <tr>
+
+                                    <th>Group:</th>
+
+                                    <td><span class="badge bg-secondary">{{ item.ITMGRP or 'Unassigned' }}</span></td>
+
+                                </tr>
+
+                                <!-- Added Dimensions -->
+
+                                <tr>
+
+                                    <th>Dimensions (L×W):</th>
+
+                                    <td>{{ item.ITMLEN or '—' | inch_format }}" × {{ item.ITMWID or '—' | inch_format}}"</td>
+
+                                </tr>
+
+<!-- Added Dimensions -->
+
+
+
+                                <tr>
+
+
 
                                     <table class="table table-bordered table-sm text-center align-middle">
 
+
+
                                         <thead class="table-light">
 
+
+
                                             <tr>
+
+
+
 
 
                                                 <th>Solder</th>
 
+
+
                                                 <th>Foil</th>
+
+
 
                                                 <th>Came</th>
 
+
+
                                                 <th>Chain</th>
+
+
 
                                                 <th>Jump Ring</th>
 
+
+
                                                 <th>Wire</th>
 
+
+
                                             </tr>
+
+
 
                                         </thead>
 
+
+
                                         <tbody>
+
+
 
                                             <tr>
 
+
+
                                                 <td>
+
+
 
                                                     {% if item.ITMSLDR is not none and item.ITMSLDR != '' %}
 
+
+
                                                         {{ "%.2f" | format(itm_supplies.ITMSLDR) }} g
+
+
 
                                                     {% else %}
 
+
+
                                                         —
+
+
 
                                                     {% endif %}
 
+
+
                                                 </td>
 
+
+
                                                 <td>
+
+
 
                                                     {% if item.ITMFOIL is not none and item.ITMFOIL != '' %}
 
+
+
                                                         {{ "%.2f" | format(itm_supplies.ITMFOIL) }} in
+
+
 
                                                     {% else %}
 
+
+
                                                         —
+
+
 
                                                     {% endif %}
 
+
+
                                                 </td>
 
+
+
                                                 <td>
+
+
 
                                                     {% if item.ITMCAME is not none and item.ITMCAME != '' %}
 
+
+
                                                         {{ "%.2f" | format(itm_supplies.ITMCAME) }} in
+
+
 
                                                     {% else %}
 
+
+
                                                         —
+
+
 
                                                     {% endif %}
 
+
+
                                                 </td>
 
+
+
                                                 <td>
+
+
 
                                                     {% if item.ITMCHAIN is not none and item.ITMCHAIN != '' %}
 
+
+
                                                         {{ "%.2f" | format(itm_supplies.ITMCHAIN) }} in
+
+
 
                                                     {% else %}
 
+
+
                                                         —
+
+
 
                                                     {% endif %}
 
+
+
                                                 </td>
 
+
+
                                                 <td>
+
+
 
                                                     {% if item.ITMRING is not none and item.ITMRING != '' %}
 
+
+
                                                         {{ "%.2f" | format(itm_supplies.ITMRING) }} ring(s)
+
+
 
                                                     {% else %}
 
+
+
                                                         —
+
+
 
                                                     {% endif %}
 
+
+
                                                 </td>
+
+
 
                                                 <td>
 
+
+
                                                     {% if item.ITMWIRE is not none and item.ITMWIRE != '' %}
+
+
 
                                                         {{ "%.2f" | format(itm_supplies.ITMWIRE) }} in
 
+
+
                                                     {% else %}
+
+
 
                                                         —
 
+
+
                                                     {% endif %}
+
+
 
                                                 </td>
 
+
+
                                             </tr>
 
+
+
                                             <!-- Second row for linked MSI names -->
+
+
 
                                             <tr class="text-muted small">
 
 
+
+
+
                                                 <td>{{ item.MSLDR_NAME if item.MSLDR_NAME else '' }}</td>
+
+
 
                                                 <td>{{ item.MFOIL_NAME if item.MFOIL_NAME else '' }}</td>
 
+
+
                                                 <td>{{ item.MCAME_NAME if item.MCAME_NAME else '' }}</td>
+
+
 
                                                 <td>{{ item.MCHAIN_NAME if item.MCHAIN_NAME else '' }}</td>
 
+
+
                                                 <td>{{ item.MRING_NAME if item.MRING_NAME else '' }}</td>
+
+
 
                                                 <td>{{ item.MWIRE_NAME if item.MWIRE_NAME else '' }}</td>
 
+
+
                                             </tr>
+
+
 
                                         </tbody>
 
+
+
                                     </table>
+
+
 
 				</tr>
 
+
+
 <!-- Display-Only Decorations Table -->
+
+
 
 <div class="mt-3">
 
+
+
     <h6 class="text-muted small mb-1">Associated Decorations</h6>
+
+
 
     <table class="table table-bordered table-sm text-center align-middle">
 
+
+
         <thead class="table-light">
+
+
 
             <tr>
 
+
+
                 <th>Decoration Item</th>
+
+
 
                 <th>Amount</th>
 
+
+
             </tr>
+
+
 
         </thead>
 
+
+
         <tbody>
+
+
 
             {% if associated_decorations %}
 
+
+
                 {% for deco in associated_decorations %}
 
+
+
                 <tr>
+
+
 
                     <td class="text-start ps-3">{{ deco.MSINAME }}</td>
 
+
+
                     <td>{{ deco.IMIAMT }}</td>
 
+
+
                 </tr>
+
+
 
                 {% endfor %}
 
+
+
             {% else %}
+
+
 
                 <tr>
 
+
+
                     <td colspan="2" class="text-muted small">No decorations associated with this item.</td>
+
+
 
                 </tr>
 
+
+
             {% endif %}
+
+
 
         </tbody>
 
+
+
     </table>
 
+
+
 </div>
+
                         <table class="table table-borderless mb-0">
+
 			<tbody>
+
                                 <tr>
+
                                     <th>One-Off Status:</th>
+
                                     <td>
+
                                         {% if item.ONEOFF %}
+
                                             <span class="badge bg-warning text-dark">One-Off Item</span>
+
                                         {% else %}
+
                                             <span class="badge bg-light text-dark border">Standard Production Item</span>
+
                                         {% endif %}
+
                                     </td>
+
                                 </tr>
+
                                 <tr>
+
                                     <th>Status:</th>
+
                                     <td>
+
                                         {% if item.CURRENT %}
+
                                             <span class="badge bg-success">Currently Selling</span>
+
                                         {% else %}
+
                                             <span class="badge bg-secondary">Discontinued / Inactive</span>
+
                                         {% endif %}
+
                                     </td>
+
                                 </tr>
+
                                 <tr>
+
                                     <th>Notes:</th>
+
                                     <td>{{ item.ITMNOTE or 'No notes provided.' }}</td>
+
                                 </tr>
+
                             </tbody>
+
                         </table>
+
                     </div>
 
+
+
                 </div>
+
+
 
                 <!-- Sub-list of other items in the group (hidden if one-off is active) -->
+
                 {% if not item.ONEOFF and group_siblings %}
+
                 <div class="mt-4 pt-3 border-top">
+
                     <h6 class="text-muted mb-2">Other Items in Group "{{ item.ITMGRP }}":</h6>
+
                     <ul class="list-group list-group-flush">
+
                         {% for sibling in group_siblings %}
+
                             {% if sibling.ITEMID != item.ITEMID %}
+
                             <li class="list-group-item px-0 py-1 bg-transparent">
+
                                 <a href="{{ url_for('item_bp.item_detail', item_id=sibling.ITEMID) }}" class="text-decoration-none">
+
                                     &bull; {{ sibling.ITMNAME }}
+
                                 </a>
+
                             </li>
+
                             {% endif %}
+
                         {% endfor %}
+
                     </ul>
+
                 </div>
+
                 {% endif %}
+
             </div>
+
         </div>
 
+
+
         <!-- Components Breakdown -->
+
         <div class="card shadow-sm">
+
             <div class="card-header bg-dark text-white">Associated Components (`IGC`)</div>
+
             <div class="card-body p-0">
+
                 <table class="table table-sm table-striped mb-0">
+
                     <thead>
+
                         <tr>
+
                             <th>Component #</th>
+
                             <th>Name</th>
+
                             <th>Glass Used</th>
+
                             <th>Dimensions (L×W)</th>
+
                         </tr>
+
                     </thead>
+
                     <tbody>
+
                         {% for comp in components %}
+
                         <tr class="component-row" data-comp-id="{{ comp.COMPNUM }}" style="cursor: pointer;" title="Click to highlight in SVG pattern">
+
                             <td>#{{ comp.COMPNUM }}</td>
+
                             <td><strong>{{ comp.COMPNAME or 'Unnamed' }}</strong></td>
+
                             <td>{{ comp.GLSNAME or 'Unassigned' }}</td>
+
                             <td>{{ comp.COMPLEN | inch_format}}" × {{ comp.COMPWID | inch_format}}"</td>
+
                         </tr>
+
                         {% else %}
+
                         <tr>
+
                             <td colspan="4" class="text-center py-3 text-muted">No components mapped for this item.</td>
+
                         </tr>
+
                         {% endfor %}
+
                     </tbody>
+
                 </table>
+
             </div>
+
         </div>
+
     </div>
+
+
 
  <!-- Right Column: Pricing and SVG Pattern -->
 
+
+
     <div class="col-md-4">
+
+
 
         <!-- Pricing Summary Box -->
 
+
+
         <div class="card shadow-sm mb-4 text-center">
+
+
 
             <div class="card-header bg-dark text-white">Pricing Summary</div>
 
+
+
             <div class="card-body">
+
+
 
                 <div class="mb-3">
 
+
+
                     <span class="text-muted small d-block">CURRENT PRICE</span>
+
+
 
                     <h2 class="display-5 fw-bold text-success mb-0">
 
+
+
                         ${% if current_price %}{{ "%.2f"|format(current_price.PRICE) }}{% else %}0.00{% endif %}
+
+
 
                     </h2>
 
+
+
                 </div>
+
+
 
                 <div class="row border-top pt-2 text-muted small">
 
+
+
                     <div class="col-6 border-end">
+
+
 
                         <span class="d-block fw-bold text-dark">Lowest</span>
 
+
+
                         <span>${% if lowest_price %}{{ "%.2f"|format(lowest_price.PRICE) }}{% else %}0.00{% endif %}</span>
 
+
+
                         <div class="text-xs text-secondary">
+
+
 
                             {% if lowest_price %}{{ lowest_price.START_DATE }} {% if lowest_price.END_DATE %}to {{ lowest_price.END_DATE }}{% endif %}{% else %}N/A{% endif %}
 
+
+
                         </div>
 
+
+
                     </div>
+
+
 
                     <div class="col-6">
 
+
+
                         <span class="d-block fw-bold text-dark">Highest</span>
+
+
 
                         <span>${% if highest_price %}{{ "%.2f"|format(highest_price.PRICE) }}{% else %}0.00{% endif %}</span>
 
+
+
                         <div class="text-xs text-secondary">
+
+
 
                             {% if highest_price %}{{ highest_price.START_DATE }} {% if highest_price.END_DATE %}to {{ highest_price.END_DATE }}{% endif %}{% else %}N/A{% endif %}
 
+
+
                         </div>
+
+
 
                     </div>
 
+
+
                 </div>
+
+
 
 <!-- Added Materials Cost Row -->
 
+
+
         <div class="border-top mt-3 pt-2 text-center">
+
+
 
             <span class="text-muted small d-block">ESTIMATED MATERIALS COST</span>
 
+
+
             <span class="h5 fw-bold text-dark">${% if materials_cost %}{{ "%.2f"|format(materials_cost) }}{% else %}0.00{% endif %}</span>
 
+
+
         </div>
+
         <div class="border-top mt-3 pt-2 text-center">
+
                         <span class="text-muted small d-block">Estimated Supplies Cost:</span>
+
+
 
                         <span class="h5 fw-bold text-dark">${{ "%.2f"|format(estimated_supplies_cost) }}</span>
 
+
+
                     </div>
 
+
+
         <div class="border-top mt-3 pt-2 text-center">
+
                         <span class="text-muted small d-block">Total Cost:</span>
+
+
 
                         <strong class="h5 fw-bold text-dark">${{ "%.2f"|format(total_cost) }}</strong>
 
+
+
                     </div>
+
+
 
                 <div class="mt-3">
 
+
+
                     <a href="{{ url_for('item_bp.edit_prices', item_id=item.ITEMID) }}" class="btn btn-outline-dark btn-sm w-100">Edit Prices</a>
 
+
+
                 </div>
+
+
 
             </div>
 
 
 
+
+
+
+
         </div>
 
 
@@ -409,7 +812,15 @@
 
 
 
-        <!-- Item Image Card -->
+
+
+
+
+
+
+
+
+        <!-- Item Image Card with Transparent Bordered Popout Modal -->
 
         <div class="card shadow-sm mb-4">
 
@@ -419,7 +830,75 @@
 
                 {% if item.ITMIMG %}
 
-                    <img src="{{ url_for('static', filename=item.ITMIMG.lstrip('/')) }}" alt="{{ item.ITMNAME }}" class="img-fluid rounded border" style="max-height: 300px;">
+                    <style>
+
+                        .img-popout-wrapper {
+
+                            position: relative;
+
+                            display: inline-block;
+
+                            cursor: pointer;
+
+                        }
+
+                        .img-popout-wrapper .popout-preview {
+
+                            display: none;
+
+                            position: fixed;
+
+                            top: 50%;
+
+                            left: 50%;
+
+                            transform: translate(-50%, -50%);
+
+                            z-index: 1050;
+
+                            background: transparent;
+
+                            padding: 10px;
+
+                            border: 2px solid rgba(255, 255, 255, 0.8);
+
+                            border-radius: 8px;
+
+                            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+
+                            text-align: center;
+
+                        }
+
+                        .img-popout-wrapper .popout-preview img {
+
+                            max-width: 85vw;
+
+                            max-height: 85vh;
+
+                            border-radius: 4px;
+
+                        }
+
+                        .img-popout-wrapper:hover .popout-preview {
+
+                            display: block;
+
+                        }
+
+                    </style>
+
+                    <div class="img-popout-wrapper">
+
+                        <img src="{{ url_for('static', filename=item.ITMIMG.lstrip('/')) }}" alt="{{ item.ITMNAME }}" class="img-fluid rounded border" style="max-height: 300px;">
+
+                        <div class="popout-preview">
+
+                            <img src="{{ url_for('static', filename=item.ITMIMG.lstrip('/')) }}" alt="{{ item.ITMNAME }} (Large)">
+
+                        </div>
+
+                    </div>
 
                 {% else %}
 
@@ -433,99 +912,198 @@
 
 
 
+
+
+
+
         <!-- Pattern Display Box (Reference Layout) -->
+
+
 
         {% if item.ITMSVG %}
 
+
+
         <div class="card shadow-sm mb-4">
+
+
 
             <div class="card-header bg-dark text-white">Pattern Template</div>
 
+
+
             <div class="card-body text-center">
+
+
 
 		{% if item.ITMSVG %}
 
+
+
                     <div class="border p-2 bg-white rounded mb-2 d-flex justify-content-center align-items-center" style="min-height: 200px; overflow: hidden;">
+
+
 
                         <object id="svg-object" data="{{ url_for('static', filename=item.ITMSVG) }}" type="image/svg+xml" class="img-fluid border bg-white" style="max-height: 600px; width: 100%;">
 
+
+
                             Your browser does not support SVG objects.
+
+
 
                         </object>
 
+
+
                     </div>
+
+
 
                     <div class="d-flex gap-2">
 
+
+
                         <a href="{{ url_for('component_bp.edit_components', item_id=item.ITEMID) }}" class="btn btn-outline-dark btn-sm w-100">Launch Component Editor</a>
+
+
 
                     </div>
 
+
+
                 {% else %}
+
+
 
                     <p class="text-muted mb-3">No pattern template uploaded.</p>
 
+
+
                     <a href="{{ url_for('item_bp.edit_item', item_id=item.ITEMID) }}" class="btn btn-outline-primary btn-sm w-100">Upload Template</a>
 
+
+
                 {% endif %}
+
             </div>
+
+
 
         </div>
 
+
+
         {% endif %}
+
+
 
     </div>
 
+
+
 </div>
 
+
+
 <script src="{{ url_for('static', filename='js/template_svg.js') }}"></script>
+
 <script>
+
 document.addEventListener("DOMContentLoaded", function() {
+
     window.bindSidebarEvents = function() {
+
         const componentRows = document.querySelectorAll('.component-row');
+
         const svgObject = document.getElementById('svg-object');
+
         if (!svgObject) return;
 
+
+
         svgObject.addEventListener('load', function() {
+
             const svgDoc = svgObject.contentDocument;
+
             if (!svgDoc) return;
 
+
+
             componentRows.forEach(row => {
+
                 row.addEventListener('click', function() {
+
                     const compId = this.getAttribute('data-comp-id');
 
+
+
                     let paths = svgDoc.querySelectorAll('path');
+
                     if (paths.length === 0) {
+
                         paths = svgDoc.getElementsByTagNameNS('*', 'path');
+
                     }
 
+
+
                     paths.forEach(p => {
+
                         p.setAttribute('stroke', 'black');
+
                         p.style.stroke = 'black';
+
                         p.setAttribute('stroke-width', '1');
+
                         p.style.strokeWidth = '1';
+
                     });
+
+
 
                     paths.forEach((path, index) => {
+
                         const num = path.getAttribute('data-region-id') || path.getAttribute('data-number') || (index + 1);
+
                         if (num == compId) {
+
                             path.setAttribute('stroke', 'red');
+
                             path.style.stroke = 'red';
+
                             path.setAttribute('stroke-width', '20');
+
                             path.style.strokeWidth = '20';
+
                         }
+
                     });
 
+
+
                     componentRows.forEach(r => r.classList.remove('table-active', 'table-warning'));
+
                     this.classList.add('table-active', 'table-warning');
+
                 });
+
             });
+
         });
+
     };
 
+
+
     if (document.getElementById('svg-object')) {
+
         window.bindSidebarEvents();
+
     }
+
 });
+
 </script>
+
 {% endblock %}

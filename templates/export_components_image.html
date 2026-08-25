@@ -292,6 +292,8 @@
 
 
 
+            // Explicitly pull and evaluate transparency from GTRNSV (defaulting to 75 if missing/empty)
+
             let trsValue = 75;
 
 
@@ -488,7 +490,7 @@
 
 
 
-                // 1. Render all glass texture fills cleanly within each path
+                // 1. Render all glass texture fills with their specific evaluated transparency (shapeOpacity)
 
                 loadedPatterns.forEach(item => {
 
@@ -550,9 +552,7 @@
 
 
 
-                    tCtx.globalAlpha = item.shapeOpacity;
-
-
+                    tCtx.globalAlpha = item.shapeOpacity; // Applied correctly here per component
 
                     tCtx.imageSmoothingEnabled = true;
 
@@ -582,7 +582,7 @@
 
 
 
-                // 2. Render the stroke layer on top, using destination-out to cleanly clip away the inner overlap
+                // 2. Render the stroke layer on top with proper inner boundary clipping
 
                 const strokeCanvas = document.createElement('canvas');
 
