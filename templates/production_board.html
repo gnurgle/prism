@@ -154,7 +154,7 @@
 
                                     <h6 class="card-title mb-0 text-truncate" style="font-size: 0.9rem;">
 
-                                        <a href="{{ url_for('item_detail', item_id=item.ITEMID) }}" class="text-decoration-none text-dark" title="{{ item.ITMNAME }}">{{ item.ITMNAME }}</a>
+                                        <a href="{{ url_for('item_bp.item_detail', item_id=item.ITEMID) }}" class="text-decoration-none text-dark" title="{{ item.ITMNAME }}">{{ item.ITMNAME }}</a>
 
                                     </h6>
 
@@ -1163,47 +1163,26 @@ if (saveFinishedBtn) {
                 method: 'POST',
 
                 headers: { 'Content-Type': 'application/json' },
-
                 body: JSON.stringify({ item_id: itemId })
-
             }).then(res => res.json());
-
         });
 
-
-
         Promise.all(promises)
-
             .then(results => {
-
                 const allSuccess = results.every(r => r.success);
-
                 if (allSuccess) {
-
                     window.location.reload();
-
                 } else {
-
                     alert('Some items failed to process completely.');
-
                     window.location.reload();
-
                 }
-
             })
-
             .catch(err => {
-
                 console.error('Save finished error:', err);
-
                 alert('An error occurred while saving finished items.');
-
             });
-
     });
-
 }
-
 </script>
 
 {% endblock %}

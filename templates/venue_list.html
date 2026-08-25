@@ -28,7 +28,7 @@
 
         </button>
 
-        <a href="{{ url_for('create_venue') }}" class="btn btn-primary">+ Add New Venue</a>
+        <a href="{{ url_for('venue_bp.create_venue') }}" class="btn btn-primary">+ Add New Venue</a>
 
     </div>
 
@@ -66,7 +66,7 @@
 
     </div>
 
-    <a href="{{ url_for('list_venues') }}" class="btn btn-sm btn-link text-decoration-none p-0">Clear All</a>
+    <a href="{{ url_for('venue_bp.list_venues') }}" class="btn btn-sm btn-link text-decoration-none p-0">Clear All</a>
 
 </div>
 
@@ -80,7 +80,7 @@
 
     {% set new_order = 'desc' if current_sort == col_key and current_order == 'asc' else 'asc' %}
 
-    <a href="{{ url_for('list_venues', sort_by=col_key, order=new_order, **filters) }}" class="text-white text-decoration-none d-block">
+    <a href="{{ url_for('venue_bp.list_venues', sort_by=col_key, order=new_order, **filters) }}" class="text-white text-decoration-none d-block">
 
         {{ label }}
 
@@ -136,7 +136,7 @@
 
                     <td>
 
-                        <a href="{{ url_for('venue_detail', venue_id=venue.VENUEID) }}" class="fw-bold text-decoration-none text-primary">
+                        <a href="{{ url_for('venue_bp.venue_detail', venue_id=venue.VENUEID) }}" class="fw-bold text-decoration-none text-primary">
 
                             {{ venue.VENNAME }}
 
@@ -206,7 +206,7 @@
 
                     <td class="text-end">
 
-                        <a href="{{ url_for('edit_venue', venue_id=venue.VENUEID) }}" class="btn btn-sm btn-outline-primary">Edit</a>
+                        <a href="{{ url_for('venue_bp.edit_venue', venue_id=venue.VENUEID) }}" class="btn btn-sm btn-outline-primary">Edit</a>
 
                     </td>
 
@@ -222,7 +222,7 @@
 
                         {% if filters.q or filters.ven_grp or filters.app_start or filters.app_end or filters.state or filters.min_fee or filters.max_fee or filters.multi_wknd or filters.occ_start or filters.occ_end or filters.year %}
 
-                            <a href="{{ url_for('list_venues') }}">Reset filters</a>
+                            <a href="{{ url_for('venue_bp.list_venues') }}">Reset filters</a>
 
                         {% endif %}
 
@@ -258,7 +258,7 @@
 
             </div>
 
-            <form action="{{ url_for('list_venues') }}" method="GET" id="venueFilterForm">
+            <form action="{{ url_for('venue_bp.list_venues') }}" method="GET" id="venueFilterForm">
 
                 <input type="hidden" name="sort_by" value="{{ current_sort }}">
 
@@ -444,7 +444,7 @@
 
                 <div class="modal-footer justify-content-between">
 
-                    <a href="{{ url_for('list_venues') }}" class="btn btn-outline-secondary">Clear Filters</a>
+                    <a href="{{ url_for('venue_bp.list_venues') }}" class="btn btn-outline-secondary">Clear Filters</a>
 
                     <button type="submit" class="btn btn-primary">Apply Filters</button>
 

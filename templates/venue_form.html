@@ -8,7 +8,7 @@
 
     <div>
 
-        <a href="{% if venue and venue.VENUEID %}{{ url_for('venue_detail', venue_id=venue.VENUEID) }}{% else %}{{ url_for('list_venues') }}{% endif %}" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back</a>
+        <a href="{% if venue and venue.VENUEID %}{{ url_for('venue_bp.venue_detail', venue_id=venue.VENUEID) }}{% else %}{{ url_for('venue_bp.list_venues') }}{% endif %}" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back</a>
 
         <h2>{% if venue and venue.VENUEID %}Edit Venue: {{ venue.VENNAME }}{% else %}Add New Venue{% endif %}</h2>
 
@@ -18,7 +18,7 @@
 
 
 
-<form method="POST" action="{% if venue and venue.VENUEID %}{{ url_for('edit_venue', venue_id=venue.VENUEID) }}{% else %}{{ url_for('create_venue') }}{% endif %}">
+<form method="POST" action="{% if venue and venue.VENUEID %}{{ url_for('venue_bp.edit_venue', venue_id=venue.VENUEID) }}{% else %}{{ url_for('venue_bp.create_venue') }}{% endif %}">
 
     
 
@@ -521,7 +521,7 @@
 
         <button type="submit" class="btn btn-success btn-lg">{% if venue and venue.VENUEID %}Save Changes{% else %}Create Venue{% endif %}</button>
 
-        <a href="{% if venue and venue.VENUEID %}{{ url_for('venue_detail', venue_id=venue.VENUEID) }}{% else %}{{ url_for('list_venues') }}{% endif %}" class="btn btn-secondary btn-lg ms-2">Cancel</a>
+        <a href="{% if venue and venue.VENUEID %}{{ url_for('venue_bp.venue_detail', venue_id=venue.VENUEID) }}{% else %}{{ url_for('venue_bp.list_venues') }}{% endif %}" class="btn btn-secondary btn-lg ms-2">Cancel</a>
 
     </div>
 

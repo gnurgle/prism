@@ -84,7 +84,7 @@
                     <h6 class="text-muted border-bottom pb-1 small fw-bold">Static Routes</h6>
                     <div class="d-grid gap-1 mt-2">
                         <a href="{{ url_for('item_bp.create_item') }}" class="btn btn-sm btn-light border text-start">Create Item</a>
-                        <a href="{{ url_for('build_components') }}" class="btn btn-sm btn-light border text-start">Build Components</a>
+                        <a href="{{ url_for('component_bp.build_components') }}" class="btn btn-sm btn-light border text-start">Build Components</a>
                     </div>
                 </div>
 
@@ -204,15 +204,25 @@
                     </div>
                 </div>
 
+                <div>
+                    <h6 class="text-muted border-bottom pb-1 small fw-bold">Other Input</h6>
+                    <div class="d-flex flex-column gap-2 mt-2">
+                        <form action="" method="GET" class="input-group input-group-sm" onsubmit="this.action = '/export_components_image/' + this.id_val.value; return true;">
+                            <input type="number" name="id_val" class="form-control" placeholder="Item ID" required>
+                            <button class="btn btn-outline-secondary" type="submit">Build</button>
+                        </form>
+                    </div>
+                </div>
+
                 <!-- Part B: Static routes -->
                 <div class="mt-auto">
                     <h6 class="text-muted border-bottom pb-1 small fw-bold">Static Routes</h6>
                     <div class="d-grid gap-1 mt-2">
-                        <a href="{{ url_for('list_venues') }}" class="btn btn-sm btn-light border text-start">List Venues</a>
-                        <a href="{{ url_for('create_venue') }}" class="btn btn-sm btn-light border text-start">Create Venue</a>
+                        <a href="{{ url_for('venue_bp.list_venues') }}" class="btn btn-sm btn-light border text-start">List Venues</a>
+                        <a href="{{ url_for('venue_bp.create_venue') }}" class="btn btn-sm btn-light border text-start">Create Venue</a>
                         <hr class="my-1">
                         <a href="{{ url_for('index') }}" class="btn btn-sm btn-light border text-start">Dashboard Home</a>
-                        <a href="{{ url_for('upload_template') }}" class="btn btn-sm btn-light border text-start">Upload Template</a>
+                        <a href="{{ url_for('templates_bp.upload_template') }}" class="btn btn-sm btn-light border text-start">Upload Template</a>
                         <a href="{{ url_for('inventory_status') }}" class="btn btn-sm btn-light border text-start">Inventory Status</a>
                         <a href="{{ url_for('list_sales') }}" class="btn btn-sm btn-light border text-start">List Sales</a>
                         <a href="{{ url_for('record_sale') }}" class="btn btn-sm btn-light border text-start">Record Sale</a>
