@@ -281,6 +281,13 @@ def edit_template(item_id):
 
     conn = get_db()
 
+
+    came_from_upload = False
+
+    if request.referrer and '/template/upload' in request.referrer:
+
+        came_from_upload = True
+
     item = conn.execute('SELECT * FROM ITM WHERE ITEMID = ?', (item_id,)).fetchone()
 
     
@@ -440,8 +447,7 @@ def edit_template(item_id):
             print(f"Error reading paths for template view: {e}")
 
 
-
-    return render_template('edit_template.html', item=item, paths_list=paths_list)
+    return render_template('edit_template.html', item=item, paths_list=paths_list, came_from_upload=came_from_upload)
 
 
 

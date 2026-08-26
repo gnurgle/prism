@@ -581,7 +581,8 @@ def create_item():
 
         flash('Item created successfully!', 'success')
 
-        return redirect(url_for('item_bp.item_detail', item_id=new_item_id))
+        return redirect(url_for('templates_bp.upload_template', item_id=new_item_id))
+
 
 
 

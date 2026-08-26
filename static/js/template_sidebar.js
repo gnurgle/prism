@@ -31,7 +31,7 @@ function bindSidebarEvents() {
                 Array.from(paths).forEach((p, idx) => {
                     if (idx === targetIndex) {
                         p.setAttribute('stroke', 'red');
-                        p.setAttribute('stroke-width', '3');
+                        p.setAttribute('stroke-width', '20');
                     } else {
                         p.removeAttribute('stroke');
                         p.removeAttribute('stroke-width');
