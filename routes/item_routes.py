@@ -1709,3 +1709,259 @@ def process_workflow(item_id):
 
 
     return render_template("process_workflow.html", item=item)
+
+@item_bp.route('/item/color-variation', methods=['GET', 'POST'])
+
+def color_variation_select():
+
+    db = get_db()
+
+    
+
+    if request.method == 'POST':
+
+        source_item_id = request.form.get('source_item_id')
+
+        new_item_name = request.form.get('new_item_name')
+
+        
+
+        if not source_item_id or not new_item_name or not new_item_name.strip():
+
+            flash('Please select an item and provide a valid new item name.', 'warning')
+
+            return redirect(url_for('item_bp.color_variation_select'))
+
+        
+
+        # Fetch source item record[cite: 2]
+
+        source_item = db.execute('SELECT * FROM ITM WHERE ITEMID = ?', (source_item_id,)).fetchone()
+
+        if not source_item:
+
+            flash('Source item record not found.', 'danger')
+
+            return redirect(url_for('item_bp.color_variation_select'))
+
+        
+
+        source_dict = dict(source_item)
+
+        
+
+        # Normalize status and variation fields
+
+        raw_is_active = source_dict.get('ISACTIVE')
+
+        inherited_is_active = 1 if raw_is_active == 1 or raw_is_active is True or raw_is_active == '1' else 0
+
+
+
+        raw_current = source_dict.get('CURRENT')
+
+        inherited_current = 1 if raw_current == 1 or raw_current is True or raw_current == '1' else 0
+
+        
+
+        # Preserve or mirror source VARIAT tracking structure if needed, or flag as variation
+
+        # (Using source's VARIAT if present, or defaulting appropriately for processes relying on it)
+
+        source_variat = source_dict.get('VARIAT')
+
+        inherited_variat = 1 if source_variat is None or source_variat == 1 or source_variat == '1' else source_variat
+
+
+
+        # If the source item already had a parent, you can choose to chain it 
+
+        # or keep the direct source item ID as the parent link. 
+
+        # Using source_item_id ensures it links back to its direct source model.
+
+        inherited_parent = source_item_id 
+
+        
+
+        # 1. Insert new ITM record matching source VARIAT, PARENT, and status fields
+
+        cursor = db.execute(
+
+            """
+
+            INSERT INTO ITM (
+
+                ITMNAME, ONEOFF, VARIAT, ITMGRP, CURRENT, ITMPTRN, ITMSVG, 
+
+                ITMNOTE, ITMLEN, ITMWID, PARENT, PATINA, ISACTIVE
+
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+
+            """,
+
+            (
+
+                new_item_name.strip(),
+
+                source_dict['ONEOFF'],
+
+                inherited_variat,
+
+                source_dict['ITMGRP'],
+
+                inherited_current,
+
+                source_dict['ITMPTRN'],
+
+                source_dict['ITMSVG'],
+
+                source_dict['ITMNOTE'],
+
+                source_dict['ITMLEN'],
+
+                source_dict['ITMWID'],
+
+                inherited_parent,
+
+                source_dict['PATINA'],
+
+                inherited_is_active
+
+            )
+
+        )
+
+        new_item_id = cursor.lastrowid
+
+        
+
+        # 2. Duplicate associated glass components (IGC table)[cite: 3]
+
+        components = db.execute('SELECT * FROM IGC WHERE ITEMID = ?', (source_item_id,)).fetchall()
+
+        for comp in components:
+
+            c = dict(comp)
+
+            db.execute(
+
+                """
+
+                INSERT INTO IGC (COMPNAME, ITEMID, COMPNUM, SVGREG, GLASSID, COMPLEN, COMPWID, COMPNOTE, ISSCRAP, ISGRAIN, ISACTIVE)
+
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+
+                """,
+
+                (c['COMPNAME'], new_item_id, c['COMPNUM'], c['SVGREG'], c['GLASSID'], c['COMPLEN'], c['COMPWID'], c['COMPNOTE'], c['ISSCRAP'], c['ISGRAIN'], c['ISACTIVE'])
+
+            )
+
+            
+
+        # 3. Duplicate associated misc item links (IMI table) & track mapping[cite: 3]
+
+        imi_rows = db.execute('SELECT * FROM IMI WHERE ITEMID = ?', (source_item_id,)).fetchall()
+
+        imi_mapping = {} # Maps old IMIID to new IMIID
+
+        for imi in imi_rows:
+
+            i = dict(imi)
+
+            cur_imi = db.execute(
+
+                "INSERT INTO IMI (ITEMID, MSIID, IMIAMT) VALUES (?, ?, ?)",
+
+                (new_item_id, i['MSIID'], i['IMIAMT'])
+
+            )
+
+            imi_mapping[i['IMIID']] = cur_imi.lastrowid
+
+            
+
+        # Remap item-level supply foreign keys (IMISLDR, IMICAME, IMIFOIL, IMICHAIN, IMIRING, IMIWIRE)
+
+        supply_fk_fields = ['IMISLDR', 'IMICAME', 'IMIFOIL', 'IMICHAIN', 'IMIRING', 'IMIWIRE']
+
+        update_fields = {}
+
+        for fk in supply_fk_fields:
+
+            old_imiid = source_dict.get(fk)
+
+            if old_imiid and old_imiid in imi_mapping:
+
+                update_fields[fk] = imi_mapping[old_imiid]
+
+            else:
+
+                update_fields[fk] = None
+
+                
+
+        db.execute(
+
+            """
+
+            UPDATE ITM 
+
+            SET IMISLDR = ?, IMICAME = ?, IMIFOIL = ?, IMICHAIN = ?, IMIRING = ?, IMIWIRE = ?
+
+            WHERE ITEMID = ?
+
+            """,
+
+            (
+
+                update_fields.get('IMISLDR'),
+
+                update_fields.get('IMICAME'),
+
+                update_fields.get('IMIFOIL'),
+
+                update_fields.get('IMICHAIN'),
+
+                update_fields.get('IMIRING'),
+
+                update_fields.get('IMIWIRE'),
+
+                new_item_id
+
+            )
+
+        )
+
+        
+
+        db.commit()
+
+        flash('Color variation created successfully!', 'success')
+
+        return redirect(url_for('component_bp.edit_components', item_id=new_item_id))
+
+
+
+    # GET: Retrieve groups and items organized by group first, then alphabetically by name
+
+    groups = db.execute('SELECT DISTINCT ITMGRP FROM ITM WHERE ITMGRP IS NOT NULL ORDER BY ITMGRP ASC').fetchall()
+
+    items = db.execute(
+
+        """
+
+        SELECT ITEMID, ITMNAME, ITMGRP, ITMIMG 
+
+        FROM ITM 
+
+        ORDER BY ITMGRP ASC, ITMNAME ASC
+
+        """
+
+    ).fetchall()
+
+    
+
+    return render_template('item_color_variation_select.html', groups=groups, items=items)

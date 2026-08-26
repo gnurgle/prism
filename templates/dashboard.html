@@ -84,6 +84,7 @@
                     <h6 class="text-muted border-bottom pb-1 small fw-bold">Static Routes</h6>
                     <div class="d-grid gap-1 mt-2">
                         <a href="{{ url_for('item_bp.create_item') }}" class="btn btn-sm btn-light border text-start">Create Item</a>
+                        <a href="{{ url_for('item_bp.color_variation_select') }}" class="btn btn-sm btn-light border text-start">Create Color Variation Item</a>
                         <a href="{{ url_for('component_bp.build_components') }}" class="btn btn-sm btn-light border text-start">Build Components</a>
                     </div>
                 </div>
@@ -226,6 +227,7 @@
                         <a href="{{ url_for('inventory_status') }}" class="btn btn-sm btn-light border text-start">Inventory Status</a>
                         <a href="{{ url_for('list_sales') }}" class="btn btn-sm btn-light border text-start">List Sales</a>
                         <a href="{{ url_for('record_sale') }}" class="btn btn-sm btn-light border text-start">Record Sale</a>
+                        <a href="{{ url_for('item_bp.item_bulk_sales') }}" class="btn btn-sm btn-light border text-start">End of Day Sales</a>
                         <a href="{{ url_for('production_bp.production_board') }}" class="btn btn-sm btn-light border text-start">Production Board</a>
                     </div>
                 </div>

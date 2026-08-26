@@ -1,0 +1,363 @@
+{% extends 'base.html' %}
+
+
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+
+    <div>
+
+        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Dashboard</a>
+
+        <h2>Create Color Variation</h2>
+
+        <p class="text-muted">Provide a new item name, select an existing item source, and generate its color variation.</p>
+
+    </div>
+
+</div>
+
+
+
+<form id="variation-form" method="POST">
+
+    <input type="hidden" name="source_item_id" id="source_item_id">
+
+    
+
+    <!-- New Item Name Field -->
+
+    <div class="card shadow-sm mb-4">
+
+        <div class="card-body">
+
+            <label for="new_item_name" class="form-label fw-bold">New Color Variation Item Name <span class="text-danger">*</span></label>
+
+            <input type="text" class="form-control" id="new_item_name" name="new_item_name" placeholder="Enter name for the new variation..." required>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- Filter and Action Bar -->
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+
+        <div class="w-25">
+
+            <label for="groupFilter" class="form-label fw-bold">Filter by Group</label>
+
+            <select id="groupFilter" class="form-select">
+
+                <option value="">All Groups</option>
+
+                {% for group in groups %}
+
+                    <option value="{{ group.ITMGRP }}">{{ group.ITMGRP }}</option>
+
+                {% endfor %}
+
+            </select>
+
+        </div>
+
+        <div>
+
+            <button type="submit" id="make-variation-btn" class="btn btn-success" disabled>Make Color Variation</button>
+
+        </div>
+
+    </div>
+
+</form>
+
+
+
+<!-- Items Container (Group Sections or Flat Grid) -->
+
+<div id="items-container">
+
+    {% set current_group = namespace(val=None) %}
+
+    {% for item in items %}
+
+        {% set item_group = item.ITMGRP or 'Unassigned' %}
+
+        {% if current_group.val != item_group %}
+
+            {% if not loop.first %}</div></div>{% endif %}
+
+            {% set current_group.val = item_group %}
+
+            <div class="group-section mb-4" data-group="{{ item.ITMGRP or '' }}">
+
+                <h4 class="border-bottom pb-2 text-secondary">{{ item_group }}</h4>
+
+                <div class="row row-cols-1 row-cols-md-4 g-4">
+
+        {% endif %}
+
+
+
+        <div class="col item-card-wrapper" data-group="{{ item.ITMGRP or '' }}">
+
+            <div class="card h-100 shadow-sm item-card" data-item-id="{{ item.ITEMID }}" style="cursor: pointer;">
+
+                <div class="overflow-hidden text-center bg-light p-2 position-relative" style="height: 180px;">
+
+                    {% if item.ITMIMG %}
+
+                        {% set img_filename = item.ITMIMG.split('/')[-1] %}
+
+                        {% set full_img_url = url_for('static', filename=item.ITMIMG.lstrip('/')) %}
+
+                        {% set thumb_url = url_for('static', filename='images/item/thumb/' + img_filename) %}
+
+                        <img src="{{ thumb_url }}" 
+
+                             alt="{{ item.ITMNAME }}" 
+
+                             class="img-fluid rounded h-100 object-fit-contain item-thumb"
+
+                             data-full-img="{{ full_img_url }}">
+
+                    {% else %}
+
+                        <div class="d-flex align-items-center justify-content-center h-100 text-muted">No Image</div>
+
+                    {% endif %}
+
+                </div>
+
+                <div class="card-body text-center">
+
+                    <h5 class="card-title fs-6 mb-1">{{ item.ITMNAME }}</h5>
+
+                    <p class="text-muted small mb-0">{{ item.ITMGRP or 'Unassigned' }}</p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
+        {% if loop.last %}</div></div>{% endif %}
+
+    {% endfor %}
+
+</div>
+
+
+
+<!-- Large Hover Popup Container -->
+
+<div id="image-popup" class="card shadow-lg position-fixed d-none" style="width: 300px; z-index: 1050; pointer-events: none;">
+
+    <div class="card-body p-2 bg-white text-center">
+
+        <img id="popup-img" src="" alt="Enlarged Preview" class="img-fluid rounded" style="max-height: 280px; object-fit: contain;">
+
+    </div>
+
+</div>
+
+
+
+<style>
+
+    .item-card:hover {
+
+        border-color: #0d6efd !important;
+
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+
+    }
+
+    .item-card.selected {
+
+        border: 2px solid #198754 !important;
+
+        background-color: #f8f9fa;
+
+    }
+
+</style>
+
+
+
+<script>
+
+    document.addEventListener('DOMContentLoaded', function() {
+
+        const cards = document.querySelectorAll('.item-card');
+
+        const sourceInput = document.getElementById('source_item_id');
+
+        const makeBtn = document.getElementById('make-variation-btn');
+
+        const groupFilter = document.getElementById('groupFilter');
+
+        const groupSections = document.querySelectorAll('.group-section');
+
+        const itemWrappers = document.querySelectorAll('.item-card-wrapper');
+
+        const nameInput = document.getElementById('new_item_name');
+
+        
+
+        const popup = document.getElementById('image-popup');
+
+        const popupImg = document.getElementById('popup-img');
+
+
+
+        // Check form readiness (needs both an item selection and a new name input)
+
+        function validateForm() {
+
+            if (sourceInput.value && nameInput.value.trim() !== '') {
+
+                makeBtn.removeAttribute('disabled');
+
+            } else {
+
+                makeBtn.setAttribute('disabled', 'true');
+
+            }
+
+        }
+
+
+
+        nameInput.addEventListener('input', validateForm);
+
+
+
+        // Card selection logic
+
+        cards.forEach(card => {
+
+            card.addEventListener('click', function() {
+
+                cards.forEach(c => c.classList.remove('selected'));
+
+                this.classList.add('selected');
+
+                sourceInput.value = this.getAttribute('data-item-id');
+
+                validateForm();
+
+            });
+
+
+
+            // Large hover popup events
+
+            const thumb = card.querySelector('.item-thumb');
+
+            if (thumb) {
+
+                const fullImgUrl = thumb.getAttribute('data-full-img');
+
+                
+
+                card.addEventListener('mouseenter', function(e) {
+
+                    if (fullImgUrl) {
+
+                        popupImg.src = fullImgUrl;
+
+                        popup.classList.remove('d-none');
+
+                    }
+
+                });
+
+
+
+                card.addEventListener('mousemove', function(e) {
+
+                    // Position popup near cursor without obstructing
+
+                    const offsetX = 20;
+
+                    const offsetY = 20;
+
+                    let left = e.clientX + offsetX;
+
+                    let top = e.clientY + offsetY;
+
+                    
+
+                    // Keep within viewport bounds
+
+                    if (left + 320 > window.innerWidth) {
+
+                        left = e.clientX - 320 - offsetX;
+
+                    }
+
+                    if (top + 300 > window.innerHeight) {
+
+                        top = window.innerHeight - 310;
+
+                    }
+
+
+
+                    popup.style.left = left + 'px';
+
+                    popup.style.top = top + 'px';
+
+                });
+
+
+
+                card.addEventListener('mouseleave', function() {
+
+                    popup.classList.add('d-none');
+
+                    popupImg.src = '';
+
+                });
+
+            }
+
+        });
+
+
+
+        // Group dropdown filtering logic
+
+        groupFilter.addEventListener('change', function() {
+
+            const selectedGroup = this.value;
+
+            groupSections.forEach(section => {
+
+                const group = section.getAttribute('data-group');
+
+                if (!selectedGroup || group === selectedGroup) {
+
+                    section.style.display = '';
+
+                } else {
+
+                    section.style.display = 'none';
+
+                }
+
+            });
+
+        });
+
+    });
+
+</script>
+
+{% endblock %}
