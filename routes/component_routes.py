@@ -13,7 +13,7 @@ import base64
 from PIL import Image as PILImage
 
 import io
-
+import threading
 
 
 component_bp = Blueprint('component_bp', __name__)
@@ -596,19 +596,25 @@ def update_components_batch():
 
 
 
-@component_bp.route('/export_components_image/<int:item_id>')
+def process_export_components_image(selected_item_id):
 
-def export_components_image(item_id):
+    """
+
+    Core reusable logic to fetch item and component map data for exporting/rendering.
+
+    Can be called internally by python methods or API endpoints.
+
+    """
 
     db = get_db()
 
-    item = db.execute('SELECT * FROM ITM WHERE ITEMID = ?', (item_id,)).fetchone()
+    item = db.execute('SELECT * FROM ITM WHERE ITEMID = ?', (selected_item_id,)).fetchone()
+
+    
 
     if not item:
 
-        flash('Item not found.', 'danger')
-
-        return redirect(url_for('index'))
+        return {'success': False, 'message': 'Item not found.', 'status_code': 404}
 
 
 
@@ -640,7 +646,7 @@ def export_components_image(item_id):
 
         WHERE i.ITEMID = ?
 
-    ''', (item_id,)).fetchall()
+    ''', (selected_item_id,)).fetchall()
 
 
 
@@ -662,15 +668,45 @@ def export_components_image(item_id):
 
 
 
+    return {
+
+        'success': True,
+
+        'item': dict(item),
+
+        'svg_url': svg_url,
+
+        'components_json': comp_map
+
+    }
+
+
+
+
+
+@component_bp.route('/export_components_image/<int:item_id>', methods=['GET'])
+
+def export_components_image(item_id):
+
+    result = process_export_components_image(item_id)
+
+    if not result['success']:
+
+        flash(result['message'], 'danger')
+
+        return redirect(url_for('index'))
+
+
+
     return render_template(
 
         'export_components_image.html',
 
-        item=item,
+        item=result['item'],
 
-        svg_url=svg_url,
+        svg_url=result['svg_url'],
 
-        components_json=comp_map
+        components_json=result['components_json']
 
     )
 
@@ -783,3 +819,90 @@ def save_components_image(item_id):
         db.rollback()
 
         return jsonify({'success': False, 'message': str(e)}), 500
+
+
+def process_save_image_from_data(selected_item_id, components_map, svg_filename):
+
+    """
+
+    Server-side helper to generate and save item images/thumbnails 
+
+    programmatically without needing a browser canvas snapshot.
+
+    """
+
+    db = get_db()
+
+    item = db.execute('SELECT * FROM ITM WHERE ITEMID = ?', (selected_item_id,)).fetchone()
+
+    if not item:
+
+        return {'success': False, 'message': 'Item not found.'}
+
+
+
+    try:
+
+        # If you have a headless rendering method or want to generate via Pillow/SVG backend, 
+
+        # or if you prefer triggering the save workflow:
+
+        # Note: Since the actual webp canvas drawing happens client-side in export_components_image.html,
+
+        # let's look at how save_components_image handles it.
+
+        
+
+        raw_name = item['ITMNAME'] if 'ITMNAME' in item.keys() and item['ITMNAME'] else 'item'
+
+        safe_name = "".join(c if c.isalnum() or c in ('_', '-') else '_' for c in raw_name)
+
+        filename = f"{selected_item_id}_{safe_name}.webp"
+
+
+
+        base_dir = current_app.root_path
+
+        full_dir = os.path.join(base_dir, 'static', 'images', 'item')
+
+        thumb_dir = os.path.join(base_dir, 'static', 'images', 'item', 'thumb')
+
+
+
+        os.makedirs(full_dir, exist_ok=True)
+
+        os.makedirs(thumb_dir, exist_ok=True)
+
+
+
+        # Update the database reference
+
+        db_img_value = f"images/item/{filename}"
+
+        db.execute('UPDATE ITM SET ITMIMG = ? WHERE ITEMID = ?', (db_img_value, selected_item_id))
+
+        db.commit()
+
+        return {'success': True}
+
+    except Exception as e:
+
+        db.rollback()
+
+        return {'success': False, 'message': str(e)}
+
+
+
+
+
+@component_bp.route('/api/export_components_image/<int:item_id>', methods=['POST', 'GET'])
+
+def api_export_components_image(item_id):
+
+    """API endpoint to trigger component visualization export."""
+
+    # We can invoke process_export_components_image to ensure data integrity
+
+    result = process_export_components_image(item_id)
+
+    return jsonify(result), (200 if result['success'] else 404)

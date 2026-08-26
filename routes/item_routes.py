@@ -1647,3 +1647,66 @@ def bulk_sales_adjustment():
         db.rollback()
 
         return {'status': 'error', 'message': str(e)}, 500
+
+
+@item_bp.route("/item/<int:item_id>/process_workflow", methods=["GET", "POST"])
+
+def process_workflow(item_id):
+
+    db = get_db()
+
+    item = db.execute("SELECT * FROM ITM WHERE ITEMID = ?", (item_id,)).fetchone()
+
+    
+
+    if not item:
+
+        flash("Item not found.", "danger")
+
+        return redirect(url_for("index"))
+
+
+
+    if request.method == "POST":
+
+        try:
+
+            # 1. Run build_components logic
+
+            # Assuming build_components parses SVG and inserts component parts into the DB for this item_id
+
+            from routes.component_routes import build_components_for_item  # Adjust based on your modular import structure
+
+            build_components_for_item(item_id)
+
+            
+
+            # 2. Run trace_outline logic (reusing your core trace function)
+
+            from routes.template_routes import process_trace_outline
+
+            trace_result = process_trace_outline(item_id)
+
+            
+
+            if not trace_result['success']:
+
+                return jsonify({'success': False, 'message': trace_result['message']}), 500
+
+
+
+            return jsonify({
+
+                'success': True, 
+
+                'redirect_url': url_for('component_bp.edit_components', item_id=item_id)
+
+            })
+
+        except Exception as e:
+
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+
+
+    return render_template("process_workflow.html", item=item)

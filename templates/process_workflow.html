@@ -1,0 +1,249 @@
+{% extends 'base.html' %}
+
+
+
+{% block content %}
+
+<div class="row justify-content-center">
+
+    <div class="col-md-6">
+
+        <div class="card shadow-sm">
+
+            <div class="card-header bg-dark text-white">
+
+                <h4 class="mb-0">Processing Workflow: {{ item.ITMNAME }}</h4>
+
+            </div>
+
+            <div class="card-body text-center">
+
+                <form id="workflowForm" method="POST">
+
+                    <p class="text-muted">
+
+                        This process will automatically build components from the template SVG and calculate trace dimensions for <strong>{{ item.ITMNAME }}</strong> (ID: {{ item.ITEMID }}).
+
+                    </p>
+
+
+
+                    <!-- Loading Spinner Container (Hidden initially, or shown immediately if auto-triggering) -->
+
+                    <div id="loadingContainer" class="mb-4 py-4 border rounded bg-light">
+
+                        <div class="spinner-border text-success mb-3" role="status" style="width: 3rem; height: 3rem;">
+
+                            <span class="visually-hidden">Loading...</span>
+
+                        </div>
+
+                        <div>
+
+                            <strong id="progressStatusText" class="d-block text-dark">Initializing workflow...</strong>
+
+                        </div>
+
+                    </div>
+
+
+
+                    <div class="d-flex justify-content-between" id="formButtons">
+
+                        <a href="{{ url_for('index') }}" class="btn btn-secondary">Cancel</a>
+
+                        <button type="submit" id="startBtn" class="btn btn-success">Run Workflow</button>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<script>
+
+document.getElementById('workflowForm').addEventListener('submit', function(e) {
+
+    e.preventDefault();
+
+    
+
+    const form = e.target;
+
+    const startBtn = document.getElementById('startBtn');
+
+    const loadingContainer = document.getElementById('loadingContainer');
+
+    const progressStatusText = document.getElementById('progressStatusText');
+
+
+
+    startBtn.style.display = 'none';
+
+    loadingContainer.classList.remove('d-none');
+
+
+
+    // Randomized status message array matching your upload sequence style[cite: 6]
+
+    const randomMessages = [
+
+        "Processing image matrix...",
+
+        "Building component segments...",
+
+        "Tracing vector outlines...",
+
+        "Optimizing SVG paths...",
+
+        "Refining anchor points...",
+
+        "Converting data...",
+
+        "Defining regions...",
+
+        "Computing Bezier Curves...",
+
+        "Drawing Points...",
+
+        "Sketching Lines...",
+
+        "Filling in Regions...",
+
+        "Numbering Components...",
+
+        "Comparing template...",
+
+        "Calculating solder requirements...",
+
+        "Evaluating foil lengths...",
+
+        "Determining optimal path...",
+
+        "Making a little snack...",
+
+        "Watching One Piece...",
+
+        "Preparing component editor data..."
+
+    ];
+
+
+
+    let isRequestCompleted = false;
+
+
+
+    function setNextMessage() {
+
+        if (isRequestCompleted) return;
+
+        
+
+        if (randomMessages.length > 0) {
+
+            const randomIndex = Math.floor(Math.random() * randomMessages.length);
+
+            const message = randomMessages.splice(randomIndex, 1)[0];
+
+            progressStatusText.textContent = message;
+
+
+
+            const randomDelay = Math.floor(Math.random() * 4000) + 2000;
+
+            setTimeout(setNextMessage, randomDelay);
+
+        } else {
+
+            progressStatusText.textContent = "Finalizing generation steps...";
+
+        }
+
+    }
+
+
+
+    setTimeout(setNextMessage, 1500);
+
+
+
+    // Asynchronous execution of build_components and trace_outline
+
+    fetch(window.location.href, {
+
+        method: 'POST',
+
+    })
+
+    .then(response => response.json())
+
+    .then(data => {
+
+        isRequestCompleted = true;
+
+        if (data.success) {
+
+            progressStatusText.textContent = "Workflow complete! Redirecting to component editor...";
+
+            const spinner = loadingContainer.querySelector('.spinner-border');
+
+            spinner.classList.remove('text-success');
+
+            spinner.classList.add('text-primary');
+
+
+
+            setTimeout(() => {
+
+                window.location.href = data.redirect_url;
+
+            }, 800);
+
+        } else {
+
+            throw new Error(data.message || 'Workflow processing failed.');
+
+        }
+
+    })
+
+    .catch(error => {
+
+        isRequestCompleted = true;
+
+        const spinner = loadingContainer.querySelector('.spinner-border');
+
+        if (spinner) {
+
+            spinner.classList.remove('text-success');
+
+            spinner.classList.add('text-danger');
+
+        }
+
+
+
+        progressStatusText.textContent = 'Error: ' + error.message;
+
+        startBtn.style.display = 'inline-block';
+
+        startBtn.textContent = 'Retry Workflow';
+
+        console.error('Error:', error);
+
+    });
+
+});
+
+</script>
+
+{% endblock %}

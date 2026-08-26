@@ -140,8 +140,6 @@
 
             </div>
 
-            <!-- Submit button removed from bottom of sidebar form -->
-
         </form>
 
     </div>
@@ -154,13 +152,27 @@
 
         <!-- Header row with Title and Save Button on the right -->
 
-        <div class="d-flex justify-content-between align-items-center w-100 mb-2 px-2">
+<!-- Header row with Title and Save Button + Loading Spinner -->
 
-            <h5 class="text-secondary mb-0">{{ item.ITMNAME }} - Interactive Layout</h5>
+<div class="d-flex justify-content-between align-items-center w-100 mb-2 px-2">
 
-            <button type="button" class="btn btn-success btn-sm shadow-sm" onclick="saveAllComponents()">Save All Changes</button>
+    <h5 class="text-secondary mb-0">{{ item.ITMNAME }} - Interactive Layout</h5>
+
+    <div class="d-flex align-items-center gap-2">
+
+        <div id="save-spinner" class="spinner-border spinner-border-sm text-success" role="status" style="display: none;">
+
+            <span class="visually-hidden">Loading...</span>
 
         </div>
+
+        <button id="save-btn" type="button" class="btn btn-success btn-sm shadow-sm" onclick="saveAllComponents()">Save All Changes</button>
+
+    </div>
+
+</div>
+
+
 
         
 
@@ -222,7 +234,7 @@
 
 
 
-<!-- Bottom-right overlay buttons for stroke color and width adjustment -->
+            <!-- Bottom-right overlay buttons for stroke color and width adjustment -->
 
             <div style="position: absolute; bottom: 10px; right: 10px; z-index: 10; display: flex; flex-direction: column; gap: 5px; align-items: flex-end;">
 
@@ -263,6 +275,7 @@
                 </div>
 
             </div>
+
         </div>
 
     </div>
@@ -381,9 +394,21 @@ function stageComponentChanges() {
 
 }
 
-
-
 function saveAllComponents() {
+
+    const saveBtn = document.getElementById('save-btn');
+
+    const spinner = document.getElementById('save-spinner');
+
+    
+
+    // Show loading state
+
+    saveBtn.disabled = true;
+
+    spinner.style.display = 'inline-block';
+
+
 
     const payload = {
 
@@ -394,6 +419,8 @@ function saveAllComponents() {
     };
 
 
+
+    // 1. Save component batch updates to the database
 
     fetch("{{ url_for('component_bp.update_components_batch') }}", {
 
@@ -415,13 +442,47 @@ function saveAllComponents() {
 
         if (data.success) {
 
-            alert('All component changes saved to the database successfully!');
+            // 2. If the main SVG renderer already has a canvas snapshot function or if we can capture it,
+
+            // alternatively, we can fetch the export endpoint's JSON data and trigger the save directly:
+
+            return fetch("{{ url_for('component_bp.api_export_components_image', item_id=item.ITEMID) }}");
 
         } else {
 
-            alert('Error saving changes: ' + data.message);
+            throw new Error(data.message || 'Error saving changes.');
 
         }
+
+    })
+
+    .then(response => response.json())
+
+    .then(exportData => {
+
+        if (!exportData.success) {
+
+            throw new Error('Failed to fetch export component data.');
+
+        }
+
+
+
+        // 3. Programmatically generate the image canvas snapshot right here
+
+        // (Reusing the same rendering approach as the export view)
+
+        return generateAndSaveCanvasImage(exportData);
+
+    })
+
+    .then(saveResult => {
+
+        spinner.style.display = 'none';
+
+        saveBtn.disabled = false;
+
+        console.log('Saved and image updated successfully:', saveResult);
 
     })
 
@@ -429,12 +490,241 @@ function saveAllComponents() {
 
         console.error('Error:', error);
 
-        alert('An unexpected error occurred while saving.');
+        alert('An error occurred: ' + error.message);
+
+        spinner.style.display = 'none';
+
+        saveBtn.disabled = false;
 
     });
 
 }
 
+
+
+function saveAllComponents() {
+
+    const saveBtn = document.getElementById('save-btn');
+
+    const spinner = document.getElementById('save-spinner');
+
+    
+
+    // Show loading state
+
+    saveBtn.disabled = true;
+
+    spinner.style.display = 'inline-block';
+
+
+
+    const payload = {
+
+        item_id: "{{ item.ITEMID }}",
+
+        components: Object.values(localComponentsData)
+
+    };
+
+
+
+    // 1. Save component batch updates to the database
+
+    fetch("{{ url_for('component_bp.update_components_batch') }}", {
+
+        method: 'POST',
+
+        headers: {
+
+            'Content-Type': 'application/json'
+
+        },
+
+        body: JSON.stringify(payload)
+
+    })
+
+    .then(response => response.json())
+
+    .then(data => {
+
+        if (!data.success) {
+
+            throw new Error(data.message || 'Error saving component changes.');
+
+        }
+
+
+
+        // 2. Fetch the export data mapping for this item
+
+        return fetch("{{ url_for('component_bp.api_export_components_image', item_id=item.ITEMID) }}");
+
+    })
+
+    .then(response => response.json())
+
+    .then(exportData => {
+
+        if (!exportData.success) {
+
+            throw new Error('Failed to retrieve component export mapping.');
+
+        }
+
+
+
+        // 3. Render the SVG and components onto an off-screen canvas to generate the WebP snapshot
+
+        return generateAndPostImageSnapshot(exportData);
+
+    })
+
+    .then(saveRes => {
+
+        if (!saveRes.success) {
+
+            throw new Error(saveRes.message || 'Failed to save generated image.');
+
+        }
+
+
+
+        // Finish up
+
+        spinner.style.display = 'none';
+
+        saveBtn.disabled = false;
+
+        console.log('Changes saved and image updated successfully!');
+
+        alert('Changes saved and component image updated successfully!');
+
+    })
+
+    .catch(error => {
+
+        console.error('Error:', error);
+
+        alert('An error occurred: ' + error.message);
+
+        spinner.style.display = 'none';
+
+        saveBtn.disabled = false;
+
+    });
+
+}
+
+
+
+function generateAndPostImageSnapshot(exportData) {
+
+    return new Promise((resolve, reject) => {
+
+        // 1. Create a hidden iframe to load the export page and execute its canvas rendering scripts fully
+
+        const iframe = document.createElement('iframe');
+
+        iframe.style.position = 'fixed';
+
+        iframe.style.top = '-9999px';
+
+        iframe.style.left = '-9999px';
+
+        iframe.style.width = '1200px';
+
+        iframe.style.height = '1200px';
+
+        iframe.style.visibility = 'hidden';
+
+        
+
+        iframe.src = "{{ url_for('component_bp.export_components_image', item_id=item.ITEMID) }}";
+
+
+
+        iframe.onload = function() {
+
+            // 2. Give the iframe's internal scripts and canvas renderer time to complete drawing
+
+            setTimeout(() => {
+
+                try {
+
+                    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+
+                    const canvas = iframeDoc.querySelector('canvas');
+
+
+
+                    if (canvas && typeof canvas.toDataURL === 'function') {
+
+                        const dataUrl = canvas.toDataURL('image/webp', 0.9);
+
+                        document.body.removeChild(iframe);
+
+
+
+                        // 3. Post the captured WebP base64 string directly to the backend save route
+
+                        fetch("{{ url_for('component_bp.save_components_image', item_id=item.ITEMID) }}", {
+
+                            method: 'POST',
+
+                            headers: {
+
+                                'Content-Type': 'application/json'
+
+                            },
+
+                            body: JSON.stringify({ image_data: dataUrl })
+
+                        })
+
+                        .then(res => res.json())
+
+                        .then(result => resolve(result))
+
+                        .catch(err => reject(err));
+
+                    } else {
+
+                        document.body.removeChild(iframe);
+
+                        reject(new Error('Canvas element could not be found inside the export iframe.'));
+
+                    }
+
+                } catch (e) {
+
+                    if (iframe.parentNode) document.body.removeChild(iframe);
+
+                    reject(new Error('Cross-origin or canvas extraction error: ' + e.message));
+
+                }
+
+            }, 4000); // 4 seconds allows images, SVG files, and canvas scripts to paint completely
+
+        };
+
+
+
+        iframe.onerror = function() {
+
+            if (iframe.parentNode) document.body.removeChild(iframe);
+
+            reject(new Error('Failed to load export frame for canvas rendering.'));
+
+        };
+
+
+
+        document.body.appendChild(iframe);
+
+    });
+
+}
 
 
 function handleGlassChange() {
@@ -496,6 +786,7 @@ function handleGlassChange() {
 }
 
 
+
 // Default stroke color set to Silver
 
 let currentStrokeColor = '#C0C0C0';
@@ -543,6 +834,9 @@ function setStrokeColor(colorHex) {
     }
 
 }
+
 </script>
+
+
 
 {% endblock %}
