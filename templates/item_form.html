@@ -426,11 +426,11 @@
 
                 <div class="d-flex gap-2">
 
-                    <a href="{{ url_for('upload_template') }}" class="btn btn-outline-primary btn-sm">Upload/Replace Template Image</a>
+                    <a href="{{ url_for('templates_bp.upload_template') }}" class="btn btn-outline-primary btn-sm">Upload/Replace Template Image</a>
 
                     {% if item.ITMSVG %}
 
-                        <a href="{{ url_for('edit_template', item_id=item.ITEMID) }}" class="btn btn-outline-dark btn-sm">Edit SVG Template Regions</a>
+                        <a href="{{ url_for('templates_bp.edit_template', item_id=item.ITEMID) }}" class="btn btn-outline-dark btn-sm">Edit SVG Template Regions</a>
 
                     {% endif %}
 

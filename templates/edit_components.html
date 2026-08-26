@@ -20,7 +20,7 @@
 
             <h4 class="mb-0">Component Details</h4>
 
-            <a href="{{ url_for('item_detail', item_id=item.ITEMID) }}" class="btn btn-outline-secondary btn-sm">Back</a>
+            <a href="{{ url_for('item_bp.item_detail', item_id=item.ITEMID) }}" class="btn btn-outline-secondary btn-sm">Back</a>
 
         </div>
 
@@ -395,7 +395,7 @@ function saveAllComponents() {
 
 
 
-    fetch("{{ url_for('update_components_batch') }}", {
+    fetch("{{ url_for('component_bp.update_components_batch') }}", {
 
         method: 'POST',
 

@@ -152,30 +152,18 @@
 
 
 
-<!-- Centered Image Preview Modal Overlay -->
 
-<div class="modal fade" id="imagePreviewModal" tabindex="-1" aria-hidden="true">
+<!-- Centered Large Hover Preview Overlay -->
 
-    <div class="modal-dialog modal-dialog-centered modal-lg">
+<div id="hoverPreviewOverlay" class="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center" style="display: none; z-index: 1080; pointer-events: none; background: rgba(0, 0, 0, 0.2);">
 
-        <div class="modal-content bg-transparent border-0">
+    <div class="card shadow-lg p-2 bg-white border" style="width: 450px; max-width: 90vw;">
 
-            <div class="modal-body text-center position-relative p-0">
-
-                <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3 z-3 bg-dark p-2 rounded-circle" data-bs-dismiss="modal" aria-label="Close"></button>
-
-                <img id="enlargedModalImage" src="" class="img-fluid rounded shadow-lg" style="max-height: 80vh; background: #fff; padding: 5px;" alt="Enlarged View">
-
-            </div>
-
-        </div>
+        <img id="hoverPreviewImg" src="" class="img-fluid rounded" style="width: 100%; height: 400px; object-fit: contain; background: #f8f9fa;" alt="Enlarged Preview">
 
     </div>
 
 </div>
-
-
-
 <style>
 
 .cursor-pointer {
@@ -187,7 +175,6 @@
 </style>
 
 
-
 <script>
 
 let loadedItemData = [];
@@ -197,6 +184,8 @@ let loadedItemData = [];
 document.addEventListener("DOMContentLoaded", function() {
 
     loadItems();
+
+    initHoverPreview();
 
 });
 
@@ -342,11 +331,11 @@ function renderItemSections() {
 
         itemsInGroup.forEach(item => {
 
-            // Clean dynamic paths pointing cleanly to static directories using proper Flask routing
+            let rawImg = item.ITMIMG ? item.ITMIMG.replace(/^\/+/, '') : '';
 
-            let thumbUrl = item.ITMIMG ? "{{ url_for('static', filename='images/item/thumb/') }}" + item.ITMIMG : null;
+            let thumbUrl = rawImg ? "{{ url_for('static', filename='') }}" + (rawImg.includes('thumb/') ? rawImg : 'images/item/thumb/' + rawImg.split('/').pop()) : null;
 
-            let fullUrl = item.ITMIMG ? "{{ url_for('static', filename='images/item/') }}" + item.ITMIMG : null;
+            let fullUrl = rawImg ? "{{ url_for('static', filename='') }}" + (rawImg.startsWith('images/') ? rawImg : 'images/item/' + rawImg.split('/').pop()) : null;
 
             
 
@@ -368,7 +357,7 @@ function renderItemSections() {
 
                                 ${thumbUrl ? 
 
-                                    `<img src="${thumbUrl}" class="rounded border cursor-pointer" style="width: 64px; height: 64px; object-fit: cover;" alt="Item" onclick="openEnlargedModal('${fullUrl}')" title="Click to enlarge">` :
+                                    `<img src="${thumbUrl}" class="rounded border item-thumb" data-full-img="${fullUrl}" style="width: 64px; height: 64px; object-fit: cover;" alt="Item">` :
 
                                     `<div class="bg-secondary text-white rounded d-flex align-items-center justify-content-center small" style="width: 64px; height: 64px;">No Image</div>`
 
@@ -427,17 +416,69 @@ function renderItemSections() {
 }
 
 
+function initHoverPreview() {
 
-function openEnlargedModal(imageUrl) {
+    const hoverOverlay = document.getElementById('hoverPreviewOverlay');
 
-    document.getElementById('enlargedModalImage').src = imageUrl;
+    const hoverImg = document.getElementById('hoverPreviewImg');
 
-    let modal = new bootstrap.Modal(document.getElementById('imagePreviewModal'));
+    const container = document.getElementById('itemSectionsContainer');
 
-    modal.show();
+
+
+    // Use delegation on the container looking at the item card wrapper
+
+    container.addEventListener('mouseover', function(e) {
+
+        const cardCol = e.target.closest('.col');
+
+        if (cardCol) {
+
+            const thumb = cardCol.querySelector('.item-thumb');
+
+            if (thumb) {
+
+                const fullUrl = thumb.getAttribute('data-full-img');
+
+                if (fullUrl) {
+
+                    hoverImg.src = fullUrl;
+
+                    hoverOverlay.style.display = 'flex';
+
+                }
+
+            }
+
+        }
+
+    });
+
+
+
+    container.addEventListener('mouseout', function(e) {
+
+        const cardCol = e.target.closest('.col');
+
+        if (cardCol) {
+
+            // Check if the mouse has genuinely left the card column boundary
+
+            const relatedTarget = e.relatedTarget;
+
+            if (!cardCol.contains(relatedTarget)) {
+
+                hoverOverlay.style.display = 'none';
+
+                hoverImg.src = '';
+
+            }
+
+        }
+
+    });
 
 }
-
 
 
 function validateAmtSold(itemId) {
