@@ -1,5 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash
-
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from datetime import datetime, timedelta
 
 import os
@@ -1675,8 +1674,7 @@ def process_workflow(item_id):
 
             # Assuming build_components parses SVG and inserts component parts into the DB for this item_id
 
-            from routes.component_routes import build_components_for_item  # Adjust based on your modular import structure
-
+            from routes.component_routes import process_build_components as build_components_for_item
             build_components_for_item(item_id)
 
             
