@@ -54,19 +54,21 @@ def get_db():
 
 @templates_bp.route("/template/upload", methods=["GET", "POST"])
 
-def upload_template():
+@templates_bp.route("/template/upload/<int:item_id>", methods=["GET", "POST"])
+
+def upload_template(item_id=None):
 
     db = get_db()
 
     if request.method == "POST":
 
-        item_id = request.form.get("ITEMID")
+        selected_item_id = item_id or request.form.get("ITEMID")
 
         file = request.files.get("template_image")
 
 
 
-        if not item_id or not file:
+        if not selected_item_id or not file:
 
             flash("Please select an item and upload an image.", "danger")
 
@@ -74,7 +76,7 @@ def upload_template():
 
             
 
-        item = db.execute("SELECT * FROM ITM WHERE ITEMID = ?", (item_id,)).fetchone()
+        item = db.execute("SELECT * FROM ITM WHERE ITEMID = ?", (selected_item_id,)).fetchone()
 
 
 
@@ -108,7 +110,7 @@ def upload_template():
 
         relative_img_path = f"images/templates/{filename}"
 
-        db.execute("UPDATE ITM SET ITMPTRN = ? WHERE ITEMID = ?", (relative_img_path, item_id))
+        db.execute("UPDATE ITM SET ITMPTRN = ? WHERE ITEMID = ?", (relative_img_path, selected_item_id))
 
         db.commit()
 
@@ -128,7 +130,7 @@ def upload_template():
 
             relative_svg_path = f"images/svg/{svg_filename}"
 
-            db.execute("UPDATE ITM SET ITMSVG = ? WHERE ITEMID = ?", (relative_svg_path, item_id))
+            db.execute("UPDATE ITM SET ITMSVG = ? WHERE ITEMID = ?", (relative_svg_path, selected_item_id))
 
             db.commit()
 
@@ -140,14 +142,13 @@ def upload_template():
 
             
 
-        return redirect(url_for('templates_bp.edit_template', item_id=item_id))
+        return redirect(url_for('templates_bp.edit_template', item_id=selected_item_id))
 
         
 
     items = db.execute("SELECT ITEMID, ITMNAME FROM ITM").fetchall()
 
-    return render_template("template_upload.html", items=items)
-
+    return render_template("template_upload.html", items=items, selected_item_id=item_id)
 
 
 

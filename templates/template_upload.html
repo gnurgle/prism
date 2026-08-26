@@ -1,142 +1,345 @@
 {% extends 'base.html' %}
 
+
+
 {% block content %}
+
 <div class="row justify-content-center">
+
     <div class="col-md-6">
+
         <div class="card shadow-sm">
+
             <div class="card-header bg-dark text-white">
+
                 <h4 class="mb-0">Upload New Template Image</h4>
+
             </div>
+
             <div class="card-body">
+
                 <form id="uploadForm" method="POST" enctype="multipart/form-data">
-                    <div class="mb-3">
-                        <label class="form-label">Select Item (ITMNAME)</label>
-                        <select name="ITEMID" id="itemIdSelect" class="form-select" required>
-                            <option value="">-- Choose Item --</option>
-                            {% for item in items %}
-                                <option value="{{ item.ITEMID }}">{{ item.ITMNAME }} (ID: {{ item.ITEMID }})</option>
-                            {% endfor %}
-                        </select>
-                    </div>
 
                     <div class="mb-3">
-                        <label class="form-label">Template Image File</label>
-                        <input type="file" name="template_image" id="templateImageFile" class="form-control" accept="image/*" required>
+
+                        <label class="form-label">Select Item (ITMNAME)</label>
+
+                        {% if selected_item_id %}
+
+                            <input type="hidden" name="ITEMID" value="{{ selected_item_id }}">
+
+                        {% endif %}
+
+                        <select name="ITEMID" id="itemIdSelect" class="form-select" required {% if selected_item_id %}disabled{% endif %}>
+
+                            <option value="">-- Choose Item --</option>
+
+                            {% for item in items %}
+
+                                <option value="{{ item.ITEMID }}" {% if selected_item_id and selected_item_id|int == item.ITEMID|int %}selected{% endif %}>
+
+                                    {{ item.ITMNAME }} (ID: {{ item.ITEMID }})
+
+                                </option>
+
+                            {% endfor %}
+
+                        </select>
+
                     </div>
+
+
+
+                    <div class="mb-3">
+
+                        <label class="form-label">Template Image File</label>
+
+                        <input type="file" name="template_image" id="templateImageFile" class="form-control" accept="image/*" required>
+
+                    </div>
+
+
 
                     <!-- Loading Spinner Container (Hidden by default) -->
+
                     <div id="loadingContainer" class="mb-3 d-none text-center py-3 border rounded bg-light">
+
                         <div class="spinner-border text-success mb-2" role="status" style="width: 3rem; height: 3rem;">
+
                             <span class="visually-hidden">Loading...</span>
+
                         </div>
+
                         <div>
+
                             <strong id="progressStatusText" class="d-block text-dark">Uploading image...</strong>
+
                         </div>
+
                     </div>
+
+
 
                     <div class="d-flex justify-content-between" id="formButtons">
+
                         <a href="{{ url_for('index') }}" class="btn btn-secondary">Cancel</a>
+
                         <button type="submit" id="submitBtn" class="btn btn-success">Upload & Convert</button>
+
                     </div>
+
                 </form>
+
             </div>
+
         </div>
+
     </div>
+
 </div>
 
+
+
+<!-- Success Modal -->
+
+<div class="modal fade" id="successModal" tabindex="-1" aria-labelledby="successModalLabel" aria-hidden="true">
+
+    <div class="modal-dialog modal-dialog-centered">
+
+        <div class="modal-content">
+
+            <div class="modal-header bg-success text-white">
+
+                <h5 class="modal-title" id="successModalLabel">Upload & Conversion Successful</h5>
+
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+
+            </div>
+
+            <div class="modal-body text-center p-4">
+
+                <p class="mb-0 fs-5">Template uploaded and converted successfully!</p>
+
+            </div>
+
+            <div class="modal-footer">
+
+                <button type="button" id="proceedBtn" class="btn btn-success">Proceed to Edit Template</button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
 <script>
+
 document.getElementById('uploadForm').addEventListener('submit', function(e) {
+
     e.preventDefault();
+
     
+
     const form = e.target;
+
     const formData = new FormData(form);
+
     const submitBtn = document.getElementById('submitBtn');
+
     const loadingContainer = document.getElementById('loadingContainer');
+
     const progressStatusText = document.getElementById('progressStatusText');
 
+
+
     submitBtn.disabled = true;
+
     loadingContainer.classList.remove('d-none');
 
+
+
     // List of unique status strings
+
     const randomMessages = [
+
         "Processing image matrix...",
+
         "Tracing vector outlines...",
+
         "Optimizing SVG paths...",
+
         "Refining anchor points...",
+
         "Converting data...",
+
         "Defining regions...",
+
         "Compressing XML...",
+
         "Computing Bezier Curves...",
+
         "Drawing Points...",
+
         "Sketching Lines...",
+
         "Filling in Regions...",
+
         "Numbering Components...",
+
         "Comparing template...",
+
         "Converting path data...",
+
         "Removing excess space...",
+
         "Guessing at the right shape...",
+
         "Planning path information...",
+
         "Determining optimal path...",
+
         "Lining the outline of lines with outlines...",
+
         "Dialing W for Wumbo...",
+
         "Thinking about boys kissing...",
+
         "Making a little snack...",
+
         "Watching One Piece...",
+
         "Taking a break to watch reels...",
+
         "Doing things and stuff...",
+
         "Preparing preview data..."
+
     ];
+
+
 
     let isRequestCompleted = false;
 
+
+
     // Function to pick a unique string, or fallback if exhausted
+
     function setNextMessage() {
+
         if (isRequestCompleted) return;
+
         
+
         if (randomMessages.length > 0) {
-            // Pick a random index from the remaining array and remove it so it's only used once
+
             const randomIndex = Math.floor(Math.random() * randomMessages.length);
+
             const message = randomMessages.splice(randomIndex, 1)[0];
+
             progressStatusText.textContent = message;
 
-            // Random delay between 2000ms (2s) and 7000ms (7s)
+
+
             const randomDelay = Math.floor(Math.random() * 5000) + 2000;
+
             setTimeout(setNextMessage, randomDelay);
+
         } else {
-            // When list is exhausted, stay on this string
+
             progressStatusText.textContent = "Finishing svg processing...";
+
         }
+
     }
 
-    // Kick off the first message change after a random delay (2-7s)
+
+
     const initialDelay = Math.floor(Math.random() * 5000) + 2000;
+
     setTimeout(setNextMessage, initialDelay);
 
+
+
     // Asynchronous backend request
+
     fetch(form.action || window.location.href, {
+
         method: 'POST',
+
         body: formData
+
     })
+
     .then(response => {
-        isRequestCompleted = true;
-        progressStatusText.textContent = "Conversion complete! Redirecting...";
-        
-        setTimeout(() => {
-            window.location.href = response.url;
-        }, 500);
-    })
-    .catch(error => {
-        isRequestCompleted = true;
-        const spinner = loadingContainer.querySelector('.spinner-border');
-        if (spinner) {
-            spinner.classList.remove('text-success');
-            spinner.classList.add('text-danger');
+
+        if (!response.ok) {
+
+            throw new Error('Server returned error response');
+
         }
 
+        isRequestCompleted = true;
+
+        progressStatusText.textContent = "Conversion complete!";
+
+        
+
+        const redirectUrl = response.url;
+
+        const modalElement = document.getElementById('successModal');
+
+        const successModal = new bootstrap.Modal(modalElement);
+
+
+
+        const handleRedirect = () => {
+
+            window.location.href = redirectUrl;
+
+        };
+
+
+
+        document.getElementById('proceedBtn').addEventListener('click', handleRedirect);
+
+        modalElement.addEventListener('hidden.bs.modal', handleRedirect);
+
+
+
+        successModal.show();
+
+    })
+
+    .catch(error => {
+
+        isRequestCompleted = true;
+
+        const spinner = loadingContainer.querySelector('.spinner-border');
+
+        if (spinner) {
+
+            spinner.classList.remove('text-success');
+
+            spinner.classList.add('text-danger');
+
+        }
+
+
+
         progressStatusText.textContent = 'Conversion failed.';
+
         submitBtn.disabled = false;
+
         console.error('Error:', error);
+
     });
+
 });
+
 </script>
+
 {% endblock %}
