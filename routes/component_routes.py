@@ -381,14 +381,6 @@ def api_build_components(item_id):
 
 def process_export_components_image(selected_item_id):
 
-    """
-
-    Core reusable logic to fetch item and component map data for exporting/rendering.
-
-    Can be called internally by python methods or API endpoints.
-
-    """
-
     db = get_db()
 
     item = db.execute('SELECT * FROM ITM WHERE ITEMID = ?', (selected_item_id,)).fetchone()
@@ -404,6 +396,14 @@ def process_export_components_image(selected_item_id):
     svg_filename = item['ITMSVG'] if 'ITMSVG' in item.keys() else None
 
     svg_url = url_for('static', filename=svg_filename) if svg_filename else ''
+
+
+
+    # Fetch patina value from item and validate
+
+    raw_patina = item['PATINA'] if 'PATINA' in item.keys() else None
+
+    patina_choice = raw_patina if raw_patina in ['Silver', 'Copper', 'Black'] else 'Silver'
 
 
 
@@ -459,13 +459,11 @@ def process_export_components_image(selected_item_id):
 
         'svg_url': svg_url,
 
-        'components_json': comp_map
+        'components_json': comp_map,
+
+        'patina_choice': patina_choice
 
     }
-
-
-
-
 
 @component_bp.route('/export_components_image/<int:item_id>', methods=['GET'])
 
@@ -489,10 +487,11 @@ def export_components_image(item_id):
 
         svg_url=result['svg_url'],
 
-        components_json=result['components_json']
+        components_json=result['components_json'],
+
+        patina_choice=result['patina_choice']
 
     )
-
 
 
 

@@ -501,7 +501,7 @@ function saveAllComponents() {
 
         item_id: "{{ item.ITEMID }}",
 
-        patina_choice: currentPatina,
+        patina_choice: currentPatina, // Sends the active patina ('Silver', 'Copper', or 'Black')
 
         components: Object.values(localComponentsData)
 
@@ -515,11 +515,7 @@ function saveAllComponents() {
 
         method: 'POST',
 
-        headers: {
-
-            'Content-Type': 'application/json'
-
-        },
+        headers: { 'Content-Type': 'application/json' },
 
         body: JSON.stringify(payload)
 
@@ -534,8 +530,6 @@ function saveAllComponents() {
             throw new Error(data.message || 'Error saving component changes.');
 
         }
-
-
 
         // 2. Fetch export data mapping for snapshot generation
 
@@ -553,9 +547,7 @@ function saveAllComponents() {
 
         }
 
-
-
-        // 3. Render SVG snapshot and post image
+        // 3. Render SVG snapshot with updated patina and post image
 
         return generateAndPostImageSnapshot(exportData);
 
@@ -568,8 +560,6 @@ function saveAllComponents() {
             throw new Error(saveRes.message || 'Failed to save generated image.');
 
         }
-
-
 
         spinner.style.display = 'none';
 
@@ -592,7 +582,6 @@ function saveAllComponents() {
     });
 
 }
-
 
 
 function generateAndPostImageSnapshot(exportData) {

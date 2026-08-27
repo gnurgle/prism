@@ -94,6 +94,391 @@
 
 <script>
 
+    const componentsData = {{ components_json | tojson }};
+
+    const svgUrl = "{{ svg_url }}";
+
+    const glassImgBaseUrl = "{{ url_for('static', filename='images/glass/') }}";
+
+    const itemId = "{{ item.ITEMID }}";
+
+    
+
+    // Map the active item patina choice to its hex color code
+
+    const initialPatina = "{{ patina_choice | default('Silver') }}";
+
+    const currentPatina = ['Silver', 'Copper', 'Black'].includes(initialPatina) ? initialPatina : 'Silver';
+
+    let strokeColorHex = '#C0C0C0'; // Silver default
+
+    if (currentPatina === 'Copper') {
+
+        strokeColorHex = '#B87333';
+
+    } else if (currentPatina === 'Black') {
+
+        strokeColorHex = '#000000';
+
+    }
+
+
+
+    window.addEventListener('DOMContentLoaded', () => {
+
+        fetch(svgUrl)
+
+            .then(response => response.text())
+
+            .then(svgText => {
+
+                document.getElementById('svg-source-container').innerHTML = svgText;
+
+                const svgElement = document.querySelector('#svg-source-container svg');
+
+                if (svgElement) {
+
+                    generatePngPreviews(svgElement);
+
+                }
+
+            })
+
+            .catch(err => console.error("Error loading SVG for export:", err));
+
+    });
+
+
+
+    function generatePngPreviews(svgElement) {
+
+        const viewBox = svgElement.getAttribute('viewBox');
+
+        let width = 800, height = 800;
+
+        if (viewBox) {
+
+            const parts = viewBox.split(/[\s,]+/).map(parseFloat);
+
+            if (parts.length === 4) {
+
+                width = parts[2];
+
+                height = parts[3];
+
+            }
+
+        }
+
+
+
+        renderCanvasVariant(svgElement, width, height, document.getElementById('canvas-image'), document.getElementById('download-image-btn'));
+
+    }
+
+
+
+    function renderCanvasVariant(originalSvg, svgWidth, svgHeight, canvas, downloadBtn) {
+
+        canvas.width = svgWidth;
+
+        canvas.height = svgHeight;
+
+        const ctx = canvas.getContext('2d');
+
+
+
+        const svgClone = originalSvg.cloneNode(true);
+
+        if (!svgClone.getAttribute('viewBox')) {
+
+            svgClone.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`);
+
+        }
+
+
+
+        const paths = svgClone.querySelectorAll('path');
+
+        const imageLoadPromises = [];
+
+
+
+        paths.forEach((path, index) => {
+
+            let regionId = path.getAttribute('data-region-id') || path.getAttribute('data-number') || (index + 1);
+
+            let comp = componentsData[regionId];
+
+
+
+            let trsValue = 75;
+
+            if (comp && comp.GTRNSV !== undefined && comp.GTRNSV !== null && comp.GTRNSV !== '') {
+
+                trsValue = parseFloat(comp.GTRNSV);
+
+            }
+
+            const shapeOpacity = Math.max(0, Math.min(100, trsValue)) / 100;
+
+
+
+            let useImageFill = false;
+
+            let imageUrl = '';
+
+            if (comp && comp.GLSIMG && comp.GLSIMG.trim() !== '') {
+
+                useImageFill = true;
+
+                let cleanImgName = comp.GLSIMG.trim().replace(/^images\/glass\//, '');
+
+                imageUrl = glassImgBaseUrl + cleanImgName;
+
+            }
+
+
+
+            path.setAttribute('fill', 'none');
+
+            path.removeAttribute('fill-opacity');
+
+            path.removeAttribute('opacity');
+
+            // Use the dynamically loaded patina stroke color instead of hardcoded black
+
+            path.setAttribute('stroke', strokeColorHex);
+
+            path.setAttribute('stroke-width', '25');
+
+            path.setAttribute('stroke-linejoin', 'round');
+
+
+
+            if (useImageFill) {
+
+                let p = new Promise((resolve) => {
+
+                    const patternImg = new Image();
+
+                    patternImg.crossOrigin = "anonymous";
+
+                    patternImg.onload = function() {
+
+                        resolve({ path, patternImg, shapeOpacity });
+
+                    };
+
+                    patternImg.onerror = function() {
+
+                        resolve(null);
+
+                    };
+
+                    patternImg.src = imageUrl;
+
+                });
+
+                imageLoadPromises.push(p);
+
+            }
+
+        });
+
+
+
+        Promise.all(imageLoadPromises).then((loadedPatterns) => {
+
+            const serializer = new XMLSerializer();
+
+            const svgString = serializer.serializeToString(svgClone);
+
+            const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+
+            const URL = window.URL || window.webkitURL || window;
+
+            const blobURL = URL.createObjectURL(svgBlob);
+
+
+
+            const baseImg = new Image();
+
+            baseImg.crossOrigin = "anonymous";
+
+            baseImg.onload = function() {
+
+                ctx.clearRect(0, 0, svgWidth, svgHeight);
+
+
+
+                loadedPatterns.forEach(item => {
+
+                    if (!item) return;
+
+                    const pathString = item.path.getAttribute('d');
+
+                    if (!pathString) return;
+
+
+
+                    const p2d = new Path2D(pathString);
+
+                    const tempCanvas = document.createElement('canvas');
+
+                    tempCanvas.width = svgWidth;
+
+                    tempCanvas.height = svgHeight;
+
+                    const tCtx = tempCanvas.getContext('2d');
+
+
+
+                    tCtx.fillStyle = '#ffffff';
+
+                    tCtx.fill(p2d);
+
+
+
+                    tCtx.globalCompositeOperation = 'source-in';
+
+                    tCtx.globalAlpha = item.shapeOpacity;
+
+                    tCtx.imageSmoothingEnabled = true;
+
+                    tCtx.imageSmoothingQuality = 'high';
+
+                    tCtx.drawImage(item.patternImg, 0, 0, svgWidth, svgHeight);
+
+
+
+                    ctx.drawImage(tempCanvas, 0, 0);
+
+                });
+
+
+
+                const strokeCanvas = document.createElement('canvas');
+
+                strokeCanvas.width = svgWidth;
+
+                strokeCanvas.height = svgHeight;
+
+                const sCtx = strokeCanvas.getContext('2d');
+
+                sCtx.drawImage(baseImg, 0, 0, svgWidth, svgHeight);
+
+
+
+                sCtx.globalCompositeOperation = 'destination-out';
+
+                paths.forEach(path => {
+
+                    const pathString = path.getAttribute('d');
+
+                    if (pathString) {
+
+                        const p2d = new Path2D(pathString);
+
+                        // Use the correct stroke color mapping during canvas composite clipping
+
+                        sCtx.fillStyle = strokeColorHex;
+
+                        sCtx.fill(p2d);
+
+                    }
+
+                });
+
+
+
+                ctx.drawImage(strokeCanvas, 0, 0);
+
+
+
+                URL.revokeObjectURL(blobURL);
+
+
+
+                const dataUrl = canvas.toDataURL('image/webp');
+
+                downloadBtn.href = dataUrl;
+
+                downloadBtn.style.display = 'inline-block';
+
+
+
+                const saveBtn = document.getElementById('save-image-btn');
+
+                saveBtn.style.display = 'inline-block';
+
+                saveBtn.onclick = function() {
+
+                    saveBtn.disabled = true;
+
+                    saveBtn.textContent = 'Saving...';
+
+
+
+                    fetch(`/save_components_image/${itemId}`, {
+
+                        method: 'POST',
+
+                        headers: {
+
+                            'Content-Type': 'application/json'
+
+                        },
+
+                        body: JSON.stringify({ image_data: dataUrl })
+
+                    })
+
+                    .then(response => response.json())
+
+                    .then(result => {
+
+                        if (result.success) {
+
+                            alert('Image successfully saved and database updated!');
+
+                        } else {
+
+                            alert('Error: ' + result.message);
+
+                        }
+
+                    })
+
+                    .catch(err => {
+
+                        console.error('Error saving image:', err);
+
+                        alert('An unexpected error occurred while saving the image.');
+
+                    })
+
+                    .finally(() => {
+
+                        saveBtn.disabled = false;
+
+                        saveBtn.textContent = 'Save Image';
+
+                    });
+
+                };
+
+            };
+
+            baseImg.src = blobURL;
+
+        });
+
+    }
+
+</script>
+<script>
+
 
 
     const componentsData = {{ components_json | tojson }};
@@ -819,5 +1204,731 @@
 </script>
 
 
+
+<script>
+
+
+
+    const componentsData = {{ components_json | tojson }};
+
+
+
+    const svgUrl = "{{ svg_url }}";
+
+
+
+    const glassImgBaseUrl = "{{ url_for('static', filename='images/glass/') }}";
+
+
+
+    const itemId = "{{ item.ITEMID }}";
+
+
+
+
+
+
+
+    window.addEventListener('DOMContentLoaded', () => {
+
+
+
+        fetch(svgUrl)
+
+
+
+            .then(response => response.text())
+
+
+
+            .then(svgText => {
+
+
+
+                document.getElementById('svg-source-container').innerHTML = svgText;
+
+
+
+                const svgElement = document.querySelector('#svg-source-container svg');
+
+
+
+                if (svgElement) {
+
+
+
+                    generatePngPreviews(svgElement);
+
+
+
+                }
+
+
+
+            })
+
+
+
+            .catch(err => console.error("Error loading SVG for export:", err));
+
+
+
+    });
+
+
+
+
+
+
+
+    function generatePngPreviews(svgElement) {
+
+
+
+        const viewBox = svgElement.getAttribute('viewBox');
+
+
+
+        let width = 800, height = 800;
+
+
+
+        if (viewBox) {
+
+
+
+            const parts = viewBox.split(/[\s,]+/).map(parseFloat);
+
+
+
+            if (parts.length === 4) {
+
+
+
+                width = parts[2];
+
+
+
+                height = parts[3];
+
+
+
+            }
+
+
+
+        }
+
+
+
+
+
+
+
+        renderCanvasVariant(svgElement, width, height, document.getElementById('canvas-image'), document.getElementById('download-image-btn'));
+
+
+
+    }
+
+
+
+
+
+
+
+    function renderCanvasVariant(originalSvg, svgWidth, svgHeight, canvas, downloadBtn) {
+
+
+
+        canvas.width = svgWidth;
+
+
+
+        canvas.height = svgHeight;
+
+
+
+        const ctx = canvas.getContext('2d');
+
+
+
+
+
+
+
+        const svgClone = originalSvg.cloneNode(true);
+
+
+
+        if (!svgClone.getAttribute('viewBox')) {
+
+
+
+            svgClone.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`);
+
+
+
+        }
+
+
+
+
+
+
+
+        const paths = svgClone.querySelectorAll('path');
+
+
+
+        const imageLoadPromises = [];
+
+
+
+
+
+
+
+        paths.forEach((path, index) => {
+
+
+
+            let regionId = path.getAttribute('data-region-id') || path.getAttribute('data-number') || (index + 1);
+
+
+
+            let comp = componentsData[regionId];
+
+
+
+
+
+
+
+            // Explicitly pull and evaluate transparency from GTRNSV (defaulting to 75 if missing/empty)
+
+            let trsValue = 75;
+
+
+
+            if (comp && comp.GTRNSV !== undefined && comp.GTRNSV !== null && comp.GTRNSV !== '') {
+
+
+
+                trsValue = parseFloat(comp.GTRNSV);
+
+
+
+            }
+
+
+
+            const shapeOpacity = Math.max(0, Math.min(100, trsValue)) / 100;
+
+
+
+
+
+
+
+            let useImageFill = false;
+
+
+
+            let imageUrl = '';
+
+
+
+            if (comp && comp.GLSIMG && comp.GLSIMG.trim() !== '') {
+
+
+
+                useImageFill = true;
+
+
+
+                let cleanImgName = comp.GLSIMG.trim().replace(/^images\/glass\//, '');
+
+
+
+                imageUrl = glassImgBaseUrl + cleanImgName;
+
+
+
+            }
+
+
+
+
+
+
+
+            path.setAttribute('fill', 'none');
+
+
+
+            path.removeAttribute('fill-opacity');
+
+
+
+            path.removeAttribute('opacity');
+
+
+
+            path.setAttribute('stroke', '#000000');
+
+
+
+            path.setAttribute('stroke-width', '25');
+
+
+
+            path.setAttribute('stroke-linejoin', 'round');
+
+
+
+
+
+
+
+            if (useImageFill) {
+
+
+
+                let p = new Promise((resolve) => {
+
+
+
+                    const patternImg = new Image();
+
+
+
+                    patternImg.crossOrigin = "anonymous";
+
+
+
+                    patternImg.onload = function() {
+
+
+
+                        resolve({ path, patternImg, shapeOpacity });
+
+
+
+                    };
+
+
+
+                    patternImg.onerror = function() {
+
+
+
+                        resolve(null);
+
+
+
+                    };
+
+
+
+                    patternImg.src = imageUrl;
+
+
+
+                });
+
+
+
+                imageLoadPromises.push(p);
+
+
+
+            }
+
+
+
+        });
+
+
+
+
+
+
+
+        Promise.all(imageLoadPromises).then((loadedPatterns) => {
+
+
+
+            const serializer = new XMLSerializer();
+
+
+
+            const svgString = serializer.serializeToString(svgClone);
+
+
+
+            const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+
+
+
+            const URL = window.URL || window.webkitURL || window;
+
+
+
+            const blobURL = URL.createObjectURL(svgBlob);
+
+
+
+
+
+
+
+            const baseImg = new Image();
+
+
+
+            baseImg.crossOrigin = "anonymous";
+
+
+
+            baseImg.onload = function() {
+
+
+
+                ctx.clearRect(0, 0, svgWidth, svgHeight);
+
+
+
+
+
+
+
+                // 1. Render all glass texture fills with their specific evaluated transparency (shapeOpacity)
+
+                loadedPatterns.forEach(item => {
+
+
+
+                    if (!item) return;
+
+
+
+                    const pathString = item.path.getAttribute('d');
+
+
+
+                    if (!pathString) return;
+
+
+
+
+
+
+
+                    const p2d = new Path2D(pathString);
+
+
+
+                    const tempCanvas = document.createElement('canvas');
+
+
+
+                    tempCanvas.width = svgWidth;
+
+
+
+                    tempCanvas.height = svgHeight;
+
+
+
+                    const tCtx = tempCanvas.getContext('2d');
+
+
+
+
+
+
+
+                    tCtx.fillStyle = '#ffffff';
+
+
+
+                    tCtx.fill(p2d);
+
+
+
+
+
+
+
+                    tCtx.globalCompositeOperation = 'source-in';
+
+
+
+                    tCtx.globalAlpha = item.shapeOpacity; // Applied correctly here per component
+
+                    tCtx.imageSmoothingEnabled = true;
+
+
+
+                    tCtx.imageSmoothingQuality = 'high';
+
+
+
+                    tCtx.drawImage(item.patternImg, 0, 0, svgWidth, svgHeight);
+
+
+
+
+
+
+
+                    ctx.drawImage(tempCanvas, 0, 0);
+
+
+
+                });
+
+
+
+
+
+
+
+                // 2. Render the stroke layer on top with proper inner boundary clipping
+
+                const strokeCanvas = document.createElement('canvas');
+
+
+
+                strokeCanvas.width = svgWidth;
+
+
+
+                strokeCanvas.height = svgHeight;
+
+
+
+                const sCtx = strokeCanvas.getContext('2d');
+
+
+
+                sCtx.drawImage(baseImg, 0, 0, svgWidth, svgHeight);
+
+
+
+
+
+
+
+                sCtx.globalCompositeOperation = 'destination-out';
+
+
+
+                paths.forEach(path => {
+
+
+
+                    const pathString = path.getAttribute('d');
+
+
+
+                    if (pathString) {
+
+
+
+                        const p2d = new Path2D(pathString);
+
+
+
+                        sCtx.fillStyle = '#000000';
+
+
+
+                        sCtx.fill(p2d);
+
+
+
+                    }
+
+
+
+                });
+
+
+
+
+
+
+
+                ctx.drawImage(strokeCanvas, 0, 0);
+
+
+
+
+
+
+
+                URL.revokeObjectURL(blobURL);
+
+
+
+
+
+
+
+                const dataUrl = canvas.toDataURL('image/webp');
+
+
+
+                downloadBtn.href = dataUrl;
+
+
+
+                downloadBtn.style.display = 'inline-block';
+
+
+
+
+
+
+
+                const saveBtn = document.getElementById('save-image-btn');
+
+
+
+                saveBtn.style.display = 'inline-block';
+
+
+
+                saveBtn.onclick = function() {
+
+
+
+                    saveBtn.disabled = true;
+
+
+
+                    saveBtn.textContent = 'Saving...';
+
+
+
+
+
+
+
+                    fetch(`/save_components_image/${itemId}`, {
+
+
+
+                        method: 'POST',
+
+
+
+                        headers: {
+
+
+
+                            'Content-Type': 'application/json'
+
+
+
+                        },
+
+
+
+                        body: JSON.stringify({ image_data: dataUrl })
+
+
+
+                    })
+
+
+
+                    .then(response => response.json())
+
+
+
+                    .then(result => {
+
+
+
+                        if (result.success) {
+
+
+
+                            alert('Image successfully saved and database updated!');
+
+
+
+                        } else {
+
+
+
+                            alert('Error: ' + result.message);
+
+
+
+                        }
+
+
+
+                    })
+
+
+
+                    .catch(err => {
+
+
+
+                        console.error('Error saving image:', err);
+
+
+
+                        alert('An unexpected error occurred while saving the image.');
+
+
+
+                    })
+
+
+
+                    .finally(() => {
+
+
+
+                        saveBtn.disabled = false;
+
+
+
+                        saveBtn.textContent = 'Save Image';
+
+
+
+                    });
+
+
+
+                };
+
+
+
+            };
+
+
+
+            baseImg.src = blobURL;
+
+
+
+        });
+
+
+
+    }
+
+
+
+</script>
 
 {% endblock %}
