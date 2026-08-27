@@ -4,15 +4,27 @@
 
 {% block content %}
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex justify-content-between align-items-center mb-3">
 
     <div>
 
         <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Dashboard</a>
 
-        <h2>Create Color Variation</h2>
+        <h2 class="mb-0">Create Color Variation</h2>
 
-        <p class="text-muted">Provide a new item name, select an existing item source, and generate its color variation.</p>
+    </div>
+
+    <div>
+
+        <form id="variation-form" method="POST" class="d-inline">
+
+            <input type="hidden" name="source_item_id" id="source_item_id">
+
+            <input type="hidden" name="new_item_name" id="hidden_new_item_name">
+
+            <button type="submit" id="make-variation-btn" class="btn btn-primary" disabled>💾 Make Color Variation</button>
+
+        </form>
 
     </div>
 
@@ -20,123 +32,113 @@
 
 
 
-<form id="variation-form" method="POST">
+<!-- Controls & Name Input Bar -->
 
-    <input type="hidden" name="source_item_id" id="source_item_id">
+<div class="card shadow-sm mb-4">
 
-    
+    <div class="card-body">
 
-    <!-- New Item Name Field -->
+        <div class="row g-3 align-items-center">
 
-    <div class="card shadow-sm mb-4">
+            <div class="col-md-7">
 
-        <div class="card-body">
+                <label for="new_item_name" class="form-label fw-bold">New Color Variation Item Name <span class="text-danger">*</span></label>
 
-            <label for="new_item_name" class="form-label fw-bold">New Color Variation Item Name <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="new_item_name" placeholder="Enter name for the new variation..." required>
 
-            <input type="text" class="form-control" id="new_item_name" name="new_item_name" placeholder="Enter name for the new variation..." required>
+            </div>
 
-        </div>
+            <div class="col-md-5">
 
-    </div>
+                <label for="groupFilter" class="form-label fw-bold">Filter by Group</label>
 
+                <select id="groupFilter" class="form-select">
 
+                    <option value="">All Groups (Grouped)</option>
 
-    <!-- Filter and Action Bar -->
+                    {% for group in groups %}
 
-    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <option value="{{ group.ITMGRP }}">{{ group.ITMGRP }}</option>
 
-        <div class="w-25">
+                    {% endfor %}
 
-            <label for="groupFilter" class="form-label fw-bold">Filter by Group</label>
+                </select>
 
-            <select id="groupFilter" class="form-select">
-
-                <option value="">All Groups</option>
-
-                {% for group in groups %}
-
-                    <option value="{{ group.ITMGRP }}">{{ group.ITMGRP }}</option>
-
-                {% endfor %}
-
-            </select>
-
-        </div>
-
-        <div>
-
-            <button type="submit" id="make-variation-btn" class="btn btn-success" disabled>Make Color Variation</button>
+            </div>
 
         </div>
 
     </div>
 
-</form>
+</div>
 
 
 
-<!-- Items Container (Group Sections or Flat Grid) -->
+<!-- Dynamic Items Container -->
 
-<div id="items-container">
+<div id="itemSectionsContainer">
 
     {% set current_group = namespace(val=None) %}
 
     {% for item in items %}
 
-        {% set item_group = item.ITMGRP or 'Unassigned' %}
+        {% set item_group = item.ITMGRP or 'Uncategorized' %}
 
         {% if current_group.val != item_group %}
 
-            {% if not loop.first %}</div></div>{% endif %}
+            {% if not loop.first %}</div></div></div>{% endif %}
 
             {% set current_group.val = item_group %}
 
-            <div class="group-section mb-4" data-group="{{ item.ITMGRP or '' }}">
+            <div class="card shadow-sm mb-4 group-section" data-group="{{ item.ITMGRP or '' }}">
 
-                <h4 class="border-bottom pb-2 text-secondary">{{ item_group }}</h4>
+                <div class="card-header bg-dark text-white fw-bold">
 
-                <div class="row row-cols-1 row-cols-md-4 g-4">
+                    {{ item_group }}
+
+                </div>
+
+                <div class="card-body bg-light">
+
+                    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
 
         {% endif %}
 
 
 
-        <div class="col item-card-wrapper" data-group="{{ item.ITMGRP or '' }}">
+        <div class="col item-card-col" data-group="{{ item.ITMGRP or '' }}">
 
-            <div class="card h-100 shadow-sm item-card" data-item-id="{{ item.ITEMID }}" style="cursor: pointer;">
+            <div class="card h-100 shadow-sm border item-card" data-item-id="{{ item.ITEMID }}" style="cursor: pointer;">
 
-                <div class="overflow-hidden text-center bg-light p-2 position-relative" style="height: 180px;">
+                <div class="card-body d-flex gap-3 align-items-center">
 
-                    {% if item.ITMIMG %}
+                    <div class="flex-shrink-0">
 
-                        {% set img_filename = item.ITMIMG.split('/')[-1] %}
+                        {% if item.ITMIMG %}
 
-                        {% set full_img_url = url_for('static', filename=item.ITMIMG.lstrip('/')) %}
+                            {% set rawImg = item.ITMIMG.replace('\\', '/') %}
 
-                        {% set thumb_url = url_for('static', filename='images/item/thumb/' + img_filename) %}
+                            {% set thumbUrl = url_for('static', filename='') + ('images/item/thumb/' + rawImg.split('/')[-1] if 'thumb/' not in rawImg else rawImg.lstrip('/')) %}
 
-                        <img src="{{ thumb_url }}" 
+                            {% set fullUrl = url_for('static', filename='') + ('images/item/' + rawImg.split('/')[-1] if not rawImg.startswith('images/') else rawImg.lstrip('/')) %}
 
-                             alt="{{ item.ITMNAME }}" 
+                            <img src="{{ thumbUrl }}" class="rounded border item-thumb" data-full-img="{{ fullUrl }}" style="width: 64px; height: 64px; object-fit: cover;" alt="Item">
 
-                             class="img-fluid rounded h-100 object-fit-contain item-thumb"
+                        {% else %}
 
-                             data-full-img="{{ full_img_url }}">
+                            <div class="bg-secondary text-white rounded d-flex align-items-center justify-content-center small" style="width: 64px; height: 64px;">No Image</div>
 
-                    {% else %}
+                        {% endif %}
 
-                        <div class="d-flex align-items-center justify-content-center h-100 text-muted">No Image</div>
+                    </div>
 
-                    {% endif %}
+                    <div class="flex-grow-1">
 
-                </div>
+                        <h6 class="fw-bold mb-1 text-primary">{{ item.ITMNAME }}</h6>
 
-                <div class="card-body text-center">
+                        <p class="text-muted small mb-0">{{ item.ITMGRP or 'Unassigned' }}</p>
 
-                    <h5 class="card-title fs-6 mb-1">{{ item.ITMNAME }}</h5>
-
-                    <p class="text-muted small mb-0">{{ item.ITMGRP or 'Unassigned' }}</p>
+                    </div>
 
                 </div>
 
@@ -146,7 +148,7 @@
 
 
 
-        {% if loop.last %}</div></div>{% endif %}
+        {% if loop.last %}</div></div></div>{% endif %}
 
     {% endfor %}
 
@@ -154,7 +156,17 @@
 
 
 
-<!-- Large Hover Popup Container -->
+<!-- Bottom Action Bar -->
+
+<div class="d-flex justify-content-end mt-4 mb-5">
+
+    <button type="button" id="make-variation-btn-bottom" class="btn btn-primary btn-lg" disabled onclick="document.getElementById('variation-form').submit();">💾 Make Color Variation</button>
+
+</div>
+
+
+
+<!-- Large Hover Popup Container (Cursor Following) -->
 
 <div id="image-popup" class="card shadow-lg position-fixed d-none" style="width: 300px; z-index: 1050; pointer-events: none;">
 
@@ -198,13 +210,15 @@
 
         const sourceInput = document.getElementById('source_item_id');
 
-        const makeBtn = document.getElementById('make-variation-btn');
+        const hiddenNameInput = document.getElementById('hidden_new_item_name');
+
+        const makeBtnTop = document.getElementById('make-variation-btn');
+
+        const makeBtnBottom = document.getElementById('make-variation-btn-bottom');
 
         const groupFilter = document.getElementById('groupFilter');
 
         const groupSections = document.querySelectorAll('.group-section');
-
-        const itemWrappers = document.querySelectorAll('.item-card-wrapper');
 
         const nameInput = document.getElementById('new_item_name');
 
@@ -214,19 +228,35 @@
 
         const popupImg = document.getElementById('popup-img');
 
+        const container = document.getElementById('itemSectionsContainer');
 
 
-        // Check form readiness (needs both an item selection and a new name input)
+
+        // Form validation synchronization
 
         function validateForm() {
 
-            if (sourceInput.value && nameInput.value.trim() !== '') {
+            const hasId = sourceInput.value !== '';
 
-                makeBtn.removeAttribute('disabled');
+            const hasName = nameInput.value.trim() !== '';
+
+            
+
+            hiddenNameInput.value = nameInput.value.trim();
+
+
+
+            if (hasId && hasName) {
+
+                makeBtnTop.removeAttribute('disabled');
+
+                makeBtnBottom.removeAttribute('disabled');
 
             } else {
 
-                makeBtn.setAttribute('disabled', 'true');
+                makeBtnTop.setAttribute('disabled', 'true');
+
+                makeBtnBottom.setAttribute('disabled', 'true');
 
             }
 
@@ -254,85 +284,11 @@
 
             });
 
-
-
-            // Large hover popup events
-
-            const thumb = card.querySelector('.item-thumb');
-
-            if (thumb) {
-
-                const fullImgUrl = thumb.getAttribute('data-full-img');
-
-                
-
-                card.addEventListener('mouseenter', function(e) {
-
-                    if (fullImgUrl) {
-
-                        popupImg.src = fullImgUrl;
-
-                        popup.classList.remove('d-none');
-
-                    }
-
-                });
-
-
-
-                card.addEventListener('mousemove', function(e) {
-
-                    // Position popup near cursor without obstructing
-
-                    const offsetX = 20;
-
-                    const offsetY = 20;
-
-                    let left = e.clientX + offsetX;
-
-                    let top = e.clientY + offsetY;
-
-                    
-
-                    // Keep within viewport bounds
-
-                    if (left + 320 > window.innerWidth) {
-
-                        left = e.clientX - 320 - offsetX;
-
-                    }
-
-                    if (top + 300 > window.innerHeight) {
-
-                        top = window.innerHeight - 310;
-
-                    }
-
-
-
-                    popup.style.left = left + 'px';
-
-                    popup.style.top = top + 'px';
-
-                });
-
-
-
-                card.addEventListener('mouseleave', function() {
-
-                    popup.classList.add('d-none');
-
-                    popupImg.src = '';
-
-                });
-
-            }
-
         });
 
 
 
-        // Group dropdown filtering logic
+        // Group filter logic
 
         groupFilter.addEventListener('change', function() {
 
@@ -353,6 +309,86 @@
                 }
 
             });
+
+        });
+
+
+
+        // Hover Preview Event Handlers
+
+        container.addEventListener('mouseover', function(e) {
+
+            const thumb = e.target.closest('.item-thumb');
+
+            if (thumb) {
+
+                const fullUrl = thumb.getAttribute('data-full-img');
+
+                if (fullUrl) {
+
+                    popupImg.src = fullUrl;
+
+                    popup.classList.remove('d-none');
+
+                }
+
+            }
+
+        });
+
+
+
+        container.addEventListener('mousemove', function(e) {
+
+            const thumb = e.target.closest('.item-thumb');
+
+            if (thumb && !popup.classList.contains('d-none')) {
+
+                const offsetX = 20;
+
+                const offsetY = 20;
+
+                let left = e.clientX + offsetX;
+
+                let top = e.clientY + offsetY;
+
+                
+
+                if (left + 320 > window.innerWidth) {
+
+                    left = e.clientX - 320 - offsetX;
+
+                }
+
+                if (top + 300 > window.innerHeight) {
+
+                    top = window.innerHeight - 310;
+
+                }
+
+
+
+                popup.style.left = left + 'px';
+
+                popup.style.top = top + 'px';
+
+            }
+
+        });
+
+
+
+        container.addEventListener('mouseout', function(e) {
+
+            const thumb = e.target.closest('.item-thumb');
+
+            if (thumb) {
+
+                popup.classList.add('d-none');
+
+                popupImg.src = '';
+
+            }
 
         });
 
