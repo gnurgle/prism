@@ -6,11 +6,11 @@
 
 
 
-<div class="row mb-3 align-items-center">
+<div class="row mb-2 align-items-center">
 
     <div class="col">
 
-        <h2 class="mb-1"><i class="fas fa-industry me-2"></i> Production Workflow</h2>
+        <h2 class="mb-0"><i class="fas fa-industry me-2"></i> Production Workflow</h2>
 
         <p class="text-muted mb-0"></p>
 
@@ -18,13 +18,19 @@
 
     <div class="col-auto d-flex gap-2 align-items-center">
 
-        <!-- Visual First Toggle Button -->
+        <!-- Manual Card Size Toggle Group -->
 
-        <button type="button" class="btn btn-outline-secondary btn-sm" id="layoutBtnVisual" title="Visual First Display">
+        <div class="btn-group" role="group" aria-label="Card Size Switcher" id="cardSizeButtonGroup">
 
-            <i class="fas fa-image"></i> Visual First
+            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" id="sizeBtnTiny" title="Tiny Cards">Tny</button>
 
-        </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" id="sizeBtnSmall" title="Small Cards">Sml</button>
+
+            <button type="button" class="btn btn-outline-secondary btn-sm active py-0 px-2" id="sizeBtnMedium" title="Medium Cards">Med</button>
+
+            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" id="sizeBtnLarge" title="Large Cards">Lrg</button>
+
+        </div>
 
 
 
@@ -32,19 +38,19 @@
 
         <div class="btn-group" role="group" aria-label="Board Layout Switcher">
 
-            <button type="button" class="btn btn-outline-secondary btn-sm active" id="layoutBtnHorizontal" title="Horizontal Layout">
+            <button type="button" class="btn btn-outline-secondary btn-sm active py-0 px-2" id="layoutBtnHorizontal" title="Horizontal Layout">
 
-                <i class="fas fa-columns"></i> Horizontal
-
-            </button>
-
-            <button type="button" class="btn btn-outline-secondary btn-sm" id="layoutBtnVertical" title="Vertical Layout">
-
-                <i class="fas fa-stream"></i> Vertical
+                <i class="fas fa-columns"></i> Rows
 
             </button>
 
-            <button type="button" class="btn btn-outline-secondary btn-sm" id="layoutBtnGrid" title="Grid Layout">
+            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" id="layoutBtnVertical" title="Vertical Layout">
+
+                <i class="fas fa-stream"></i> Stack
+
+            </button>
+
+            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" id="layoutBtnGrid" title="Grid Layout">
 
                 <i class="fas fa-th"></i> Grid
 
@@ -54,9 +60,9 @@
 
 
 
-        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addItemModal">
+        <button class="btn btn-primary btn-sm py-0 px-2" data-bs-toggle="modal" data-bs-target="#addItemModal" style="font-size: 0.8rem;">
 
-            <i class="fas fa-plus me-1"></i> Add Item to Stage
+            <i class="fas fa-plus me-1"></i> Add Item
 
         </button>
 
@@ -68,21 +74,21 @@
 
 <!-- Summary Quick-Glance Cards -->
 
-<div class="row text-center mb-3 g-2" id="summary-cards">
+<div class="row text-center mb-2 g-1" id="summary-cards">
 
-    <div class="col"><div class="card shadow-sm border-primary"><div class="card-body p-1.5"><span class="text-muted small" style="font-size: 0.7rem;">Cut</span><h5 class="mb-0 text-primary" id="sum-cut">{{ summary.total_cut or 0 }}</h5></div></div></div>
+    <div class="col"><div class="card shadow-sm border-primary"><div class="card-body p-1"><span class="text-muted small" style="font-size: 0.65rem;">Cut</span><h6 class="mb-0 text-primary" style="font-size: 0.9rem;" id="sum-cut">{{ summary.total_cut or 0 }}</h6></div></div></div>
 
-    <div class="col"><div class="card shadow-sm border-secondary"><div class="card-body p-1.5"><span class="text-muted small" style="font-size: 0.7rem;">Grind</span><h5 class="mb-0 text-secondary" id="sum-grind">{{ summary.total_grind or 0 }}</h5></div></div></div>
+    <div class="col"><div class="card shadow-sm border-secondary"><div class="card-body p-1"><span class="text-muted small" style="font-size: 0.65rem;">Grind</span><h6 class="mb-0 text-secondary" style="font-size: 0.9rem;" id="sum-grind">{{ summary.total_grind or 0 }}</h6></div></div></div>
 
-    <div class="col"><div class="card shadow-sm border-info"><div class="card-body p-1.5"><span class="text-muted small" style="font-size: 0.7rem;">Wash</span><h5 class="mb-0 text-info" id="sum-wash">{{ summary.total_wash or 0 }}</h5></div></div></div>
+    <div class="col"><div class="card shadow-sm border-info"><div class="card-body p-1"><span class="text-muted small" style="font-size: 0.65rem;">Wash</span><h6 class="mb-0 text-info" style="font-size: 0.9rem;" id="sum-wash">{{ summary.total_wash or 0 }}</h6></div></div></div>
 
-    <div class="col"><div class="card shadow-sm border-warning"><div class="card-body p-1.5"><span class="text-muted small" style="font-size: 0.7rem;">Foil</span><h5 class="mb-0 text-warning" id="sum-foil">{{ summary.total_foil or 0 }}</h5></div></div></div>
+    <div class="col"><div class="card shadow-sm border-warning"><div class="card-body p-1"><span class="text-muted small" style="font-size: 0.65rem;">Foil</span><h6 class="mb-0 text-warning" style="font-size: 0.9rem;" id="sum-foil">{{ summary.total_foil or 0 }}</h6></div></div></div>
 
-    <div class="col"><div class="card shadow-sm border-danger"><div class="card-body p-1.5"><span class="text-muted small" style="font-size: 0.7rem;">Solder</span><h5 class="mb-0 text-danger" id="sum-solder">{{ summary.total_solder or 0 }}</h5></div></div></div>
+    <div class="col"><div class="card shadow-sm border-danger"><div class="card-body p-1"><span class="text-muted small" style="font-size: 0.65rem;">Solder</span><h6 class="mb-0 text-danger" style="font-size: 0.9rem;" id="sum-solder">{{ summary.total_solder or 0 }}</h6></div></div></div>
 
-    <div class="col"><div class="card shadow-sm border-dark"><div class="card-body p-1.5"><span class="text-muted small" style="font-size: 0.7rem;">Polish</span><h5 class="mb-0 text-dark" id="sum-polish">{{ summary.total_polish or 0 }}</h5></div></div></div>
+    <div class="col"><div class="card shadow-sm border-dark"><div class="card-body p-1"><span class="text-muted small" style="font-size: 0.65rem;">Polish</span><h6 class="mb-0 text-dark" style="font-size: 0.9rem;" id="sum-polish">{{ summary.total_polish or 0 }}</h6></div></div></div>
 
-    <div class="col"><div class="card shadow-sm border-success"><div class="card-body p-1.5"><span class="text-muted small" style="font-size: 0.7rem;">Done</span><h5 class="mb-0 text-success" id="sum-done">{{ summary.total_done or 0 }}</h5></div></div></div>
+    <div class="col"><div class="card shadow-sm border-success"><div class="card-body p-1"><span class="text-muted small" style="font-size: 0.65rem;">Done</span><h6 class="mb-0 text-success" style="font-size: 0.9rem;" id="sum-done">{{ summary.total_done or 0 }}</h6></div></div></div>
 
 </div>
 
@@ -90,7 +96,7 @@
 
 <!-- Kanban Board Container -->
 
-<div id="kanbanBoardContainer" class="kanban-layout-horizontal pb-3">
+<div id="kanbanBoardContainer" class="kanban-layout-horizontal pb-2">
 
 
 
@@ -120,13 +126,13 @@
 
         <div class="card bg-light border-{{ color }} h-100">
 
-            <div class="card-header bg-{{ color }} text-white d-flex justify-content-between align-items-center py-1.5 px-2" style="font-size: 0.85rem;">
+            <div class="card-header bg-{{ color }} text-white d-flex justify-content-between align-items-center py-1 px-2" style="font-size: 0.8rem;">
 
                 <strong>{{ label }}</strong>
 
                 {% if key == 'done' %}
 
-                <button class="btn btn-light btn-sm py-0 px-1 text-success fw-bold" id="saveFinishedGlobalBtn" style="font-size: 0.7rem;" title="Save All Finished Items to Inventory">
+                <button class="btn btn-light btn-sm py-0 px-1 text-success fw-bold" id="saveFinishedGlobalBtn" style="font-size: 0.65rem;" title="Save All Finished Items to Inventory">
 
                     <i class="fas fa-save me-1"></i> Save
 
@@ -136,7 +142,9 @@
 
             </div>
 
-            <div class="card-body p-1.5 kanban-stage" data-stage="{{ key }}" data-stage-index="{{ loop.index0 }}" data-stage-label="{{ label }}" style="min-height: 400px; max-height: 65vh; overflow-y: auto;">
+            <!-- Stage card container -->
+
+            <div class="card-body p-1 kanban-stage" data-stage="{{ key }}" data-stage-index="{{ loop.index0 }}" data-stage-label="{{ label }}" style="min-height: 350px; max-height: 65vh; overflow-y: auto;">
 
                 {% for item in items %}
 
@@ -144,19 +152,17 @@
 
                     {% if count and count > 0 %}
 
-                    <div class="card mb-1.5 shadow-sm item-card" draggable="true" data-item-id="{{ item.ITEMID }}" data-item-name="{{ item.ITMNAME }}" data-current-stage="{{ key }}" data-current-index="{{ loop.index0 }}" data-available-qty="{{ count }}">
+                    <div class="card mb-1 shadow-sm item-card" draggable="true" data-item-id="{{ item.ITEMID }}" data-item-name="{{ item.ITMNAME }}" data-current-stage="{{ key }}" data-current-index="{{ loop.index0 }}" data-available-qty="{{ count }}">
 
-                        <!-- Extremely tightened inner padding -->
-
-                        <div class="card-body p-1.5">
+                        <div class="card-body p-1">
 
                             
 
-                            <!-- 1. Title Row (Hidden in Visual First mode via CSS) -->
+                            <!-- 1. Title Row -->
 
-                            <div class="mb-1 text-center card-element-standard">
+                            <div class="mb-0.5 text-center card-title-row">
 
-                                <h6 class="card-title mb-0 text-truncate" style="font-size: 0.85rem; line-height: 1.1;">
+                                <h6 class="card-title mb-0 text-truncate" style="font-size: 0.72rem; line-height: 1;">
 
                                     <a href="{{ url_for('item_bp.item_detail', item_id=item.ITEMID) }}" class="text-decoration-none text-dark" title="{{ item.ITMNAME }}">{{ item.ITMNAME }}</a>
 
@@ -166,13 +172,13 @@
 
 
 
-                            <!-- 2. Centered Image spanning the full width of the card interior, border removed, aspect ratio maintained -->
+                            <!-- 2. Centered Image: maintains aspect ratio -->
 
-                            <div class="text-center mb-1">
+                            <div class="text-center mb-0.5">
 
                                 {% if item.ITMIMG %}
 
-                                    <div class="w-100 overflow-hidden bg-white" style="cursor: pointer;" 
+                                    <div class="w-100 overflow-hidden bg-white rounded d-flex align-items-center justify-content-center item-img-wrapper" style="cursor: pointer;" 
 
                                          data-bs-toggle="modal" 
 
@@ -184,9 +190,9 @@
 
                                         <img src="{{ url_for('static', filename=item.ITMIMG) }}" 
 
-                                             class="w-100 d-block card-img-scaled" 
+                                             class="d-block card-img-scaled" 
 
-                                             style="max-height: 140px; object-fit: contain;" 
+                                             style="max-width: 100%; max-height: 80px; width: auto; height: auto; object-fit: contain;" 
 
                                              alt="{{ item.ITMNAME }}">
 
@@ -194,7 +200,7 @@
 
                                 {% else %}
 
-                                    <div class="bg-secondary rounded w-100 d-flex align-items-center justify-content-center text-white shadow-sm" style="height: 60px; font-size: 14px;"><i class="fas fa-cube"></i></div>
+                                    <div class="bg-secondary rounded w-100 d-flex align-items-center justify-content-center text-white shadow-sm item-img-placeholder" style="height: 50px; font-size: 11px;"><i class="fas fa-cube"></i></div>
 
                                 {% endif %}
 
@@ -204,33 +210,33 @@
 
                             <!-- 3. Quantity Row -->
 
-                            <div class="text-center mb-1" style="line-height: 1;">
+                            <div class="text-center mb-0.5" style="line-height: 1;">
 
-                                <span class="text-muted" style="font-size: 0.7rem;">Qty: <strong class="item-qty text-dark">{{ count }}</strong></span>
+                                <span class="text-muted" style="font-size: 0.6rem;">Qty: <strong class="item-qty text-dark">{{ count }}</strong></span>
 
                             </div>
 
                             
 
-                            <!-- Group Name on its own truncated line (Hidden in Visual First mode via CSS) -->
+                            <!-- Group Name Row -->
 
-                            <div class="mb-1 text-truncate card-element-standard">
+                            <div class="mb-0.5 text-truncate card-group-row">
 
-                                <span class="badge bg-light text-dark border w-100 text-truncate py-0.5" style="font-size: 0.65rem;" title="{{ item.ITMGRP or 'General' }}">{{ item.ITMGRP or 'General' }}</span>
+                                <span class="badge bg-light text-dark border w-100 text-truncate py-0" style="font-size: 0.55rem;" title="{{ item.ITMGRP or 'General' }}">{{ item.ITMGRP or 'General' }}</span>
 
                             </div>
 
 
 
-                            <!-- Controls: Move directional buttons & custom Qty adjustment modal trigger -->
+                            <!-- Controls -->
 
                             <div class="d-flex justify-content-between align-items-center">
 
-                                <button class="btn btn-outline-secondary btn-sm py-0 px-1 move-backward-btn" style="font-size: 0.7rem;" title="Move Backward"><i class="fas fa-arrow-left move-icon-h"></i><i class="fas fa-arrow-up move-icon-v" style="display:none;"></i></button>
+                                <button class="btn btn-outline-secondary btn-xxs py-0 px-1 move-backward-btn" style="font-size: 0.6rem;" title="Move Backward"><i class="fas fa-arrow-left move-icon-h"></i><i class="fas fa-arrow-up move-icon-v" style="display:none;"></i></button>
 
-                                <button class="btn btn-outline-secondary btn-sm py-0 px-1 qty-adjust-modal-btn" style="font-size: 0.7rem;" title="Adjust Quantity"><i class="fas fa-plus-minus"></i></button>
+                                <button class="btn btn-outline-secondary btn-xxs py-0 px-1 qty-adjust-modal-btn" style="font-size: 0.6rem;" title="Adjust Quantity"><i class="fas fa-plus-minus"></i></button>
 
-                                <button class="btn btn-outline-secondary btn-sm py-0 px-1 move-forward-btn" style="font-size: 0.7rem;" title="Move Forward"><i class="fas fa-arrow-right move-icon-h"></i><i class="fas fa-arrow-down move-icon-v" style="display:none;"></i></button>
+                                <button class="btn btn-outline-secondary btn-xxs py-0 px-1 move-forward-btn" style="font-size: 0.6rem;" title="Move Forward"><i class="fas fa-arrow-right move-icon-h"></i><i class="fas fa-arrow-down move-icon-v" style="display:none;"></i></button>
 
                             </div>
 
@@ -254,7 +260,7 @@
 
 
 
-<!-- Layout Dynamic Styling Rules & Tightened Spacing Overrides -->
+<!-- Layout & Card Size Styling Rules -->
 
 <style>
 
@@ -268,7 +274,7 @@
 
         overflow-x: visible;
 
-        gap: 0.4rem;
+        gap: 0.25rem;
 
     }
 
@@ -280,13 +286,17 @@
 
     }
 
+    
+
+    /* Vertical Layout: switches to a 2-column grid when Tiny is active, otherwise stacked */
+
     #kanbanBoardContainer.kanban-layout-vertical {
 
         display: flex;
 
         flex-direction: column;
 
-        gap: 0.75rem;
+        gap: 0.4rem;
 
     }
 
@@ -296,13 +306,25 @@
 
     }
 
+    #kanbanBoardContainer.kanban-layout-vertical.card-size-tiny {
+
+        display: grid;
+
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+
+        gap: 0.4rem;
+
+    }
+
+
+
     #kanbanBoardContainer.kanban-layout-grid {
 
         display: grid;
 
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 
-        gap: 0.75rem;
+        gap: 0.4rem;
 
     }
 
@@ -314,11 +336,151 @@
 
 
 
-    /* Visual First Mode: Hides text/badges to show only image, qty, and bottom controls */
+    /* Card Size Classes */
 
-    #kanbanBoardContainer.visual-first-mode .card-element-standard {
+    .kanban-stage {
+
+        display: grid;
+
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+
+        gap: 0.25rem;
+
+        align-content: start;
+
+    }
+
+
+
+    /* Size Mode: Tiny (Extra small, hides labels and reduces image constraints) */
+
+    #kanbanBoardContainer.card-size-tiny .kanban-stage {
+
+        grid-template-columns: repeat(auto-fill, minmax(55px, 1fr));
+
+    }
+
+    #kanbanBoardContainer.card-size-tiny .card-title-row,
+
+    #kanbanBoardContainer.card-size-tiny .card-group-row {
 
         display: none !important;
+
+    }
+
+    #kanbanBoardContainer.card-size-tiny .item-img-wrapper {
+
+        min-height: 28px;
+
+        max-height: 38px;
+
+    }
+
+    #kanbanBoardContainer.card-size-tiny .card-img-scaled {
+
+        max-height: 38px !important;
+
+    }
+
+    #kanbanBoardContainer.card-size-tiny .item-img-placeholder {
+
+        height: 28px !important;
+
+    }
+
+
+
+    /* Size Mode: Small */
+
+    #kanbanBoardContainer.card-size-small .kanban-stage {
+
+        grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+
+    }
+
+    #kanbanBoardContainer.card-size-small .card-group-row {
+
+        display: none !important;
+
+    }
+
+    #kanbanBoardContainer.card-size-small .item-img-wrapper {
+
+        min-height: 40px;
+
+        max-height: 55px;
+
+    }
+
+    #kanbanBoardContainer.card-size-small .card-img-scaled {
+
+        max-height: 55px !important;
+
+    }
+
+    #kanbanBoardContainer.card-size-small .item-img-placeholder {
+
+        height: 40px !important;
+
+    }
+
+
+
+    /* Size Mode: Medium (Default) */
+
+    #kanbanBoardContainer.card-size-medium .kanban-stage {
+
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+
+    }
+
+    #kanbanBoardContainer.card-size-medium .item-img-wrapper {
+
+        min-height: 50px;
+
+        max-height: 80px;
+
+    }
+
+    #kanbanBoardContainer.card-size-medium .card-img-scaled {
+
+        max-height: 80px !important;
+
+    }
+
+    #kanbanBoardContainer.card-size-medium .item-img-placeholder {
+
+        height: 50px !important;
+
+    }
+
+
+
+    /* Size Mode: Large */
+
+    #kanbanBoardContainer.card-size-large .kanban-stage {
+
+        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+
+    }
+
+    #kanbanBoardContainer.card-size-large .item-img-wrapper {
+
+        min-height: 70px;
+
+        max-height: 120px;
+
+    }
+
+    #kanbanBoardContainer.card-size-large .card-img-scaled {
+
+        max-height: 120px !important;
+
+    }
+
+    #kanbanBoardContainer.card-size-large .item-img-placeholder {
+
+        height: 70px !important;
 
     }
 
@@ -334,23 +496,23 @@
 
         <div class="modal-content">
 
-            <div class="modal-header">
+            <div class="modal-header py-2">
 
-                <h5 class="modal-title"><i class="fas fa-plus-circle me-1"></i> Add Item to Production Stage</h5>
+                <h5 class="modal-title fs-6"><i class="fas fa-plus-circle me-1"></i> Add Item to Production Stage</h5>
 
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 
             </div>
 
-            <div class="modal-body">
+            <div class="modal-body py-2">
 
                 <form id="addItemForm">
 
-                    <div class="row g-2 mb-3">
+                    <div class="row g-2 mb-2">
 
                         <div class="col-md-6">
 
-                            <label class="form-label small">Filter Group</label>
+                            <label class="form-label small mb-1">Filter Group</label>
 
                             <select id="filterGroup" class="form-select form-select-sm">
 
@@ -368,7 +530,7 @@
 
                         <div class="col-md-6">
 
-                            <label class="form-label small">Selling Status</label>
+                            <label class="form-label small mb-1">Selling Status</label>
 
                             <select id="filterCurrent" class="form-select form-select-sm">
 
@@ -384,25 +546,21 @@
 
                     </div>
 
-                    <div class="mb-3">
+                    <div class="mb-2">
 
-                        <label class="form-label">Select Base Item</label>
+                        <label class="form-label small mb-1">Select Item</label>
 
-                        <select id="baseItemSelect" class="form-select" required>
+                        <select id="baseItemSelect" class="form-select form-select-sm" required>
 
                             <option value="" disabled selected>-- Choose Item --</option>
 
                             {% for m in master_items %}
 
-                                {% if not m.PARENT %}
+                            <option value="{{ m.ITEMID }}" data-group="{{ m.ITMGRP or '' }}" data-current="{{ m.CURRENT if m.CURRENT is not none else '' }}">
 
-                                <option value="{{ m.ITEMID }}" data-group="{{ m.ITMGRP or '' }}" data-current="{{ m.CURRENT if m.CURRENT is not none else '' }}">
+                                {{ m.ITMNAME }}
 
-                                    {{ m.ITMNAME }}
-
-                                </option>
-
-                                {% endif %}
+                            </option>
 
                             {% endfor %}
 
@@ -410,33 +568,11 @@
 
                     </div>
 
-                    <div class="mb-3" id="variantWrapper" style="display: none;">
+                    <div class="mb-2">
 
-                        <label class="form-label">Select Variant</label>
+                        <label class="form-label small mb-1">Production Stage</label>
 
-                        <select id="variantItemSelect" class="form-select">
-
-                            <option value="">-- Base Item --</option>
-
-                            {% for m in master_items %}
-
-                                {% if m.PARENT %}
-
-                                <option value="{{ m.ITEMID }}" data-parent="{{ m.PARENT }}">{{ m.ITMNAME }}</option>
-
-                                {% endif %}
-
-                            {% endfor %}
-
-                        </select>
-
-                    </div>
-
-                    <div class="mb-3">
-
-                        <label class="form-label">Production Stage</label>
-
-                        <select id="targetStageSelect" class="form-select" required>
+                        <select id="targetStageSelect" class="form-select form-select-sm" required>
 
                             <option value="cut">Cut</option>
 
@@ -456,19 +592,19 @@
 
                     </div>
 
-                    <div class="mb-3">
+                    <div class="mb-2">
 
-                        <label class="form-label">Quantity</label>
+                        <label class="form-label small mb-1">Quantity</label>
 
-                        <input type="number" id="addItemQty" class="form-control" value="1" min="1" required>
+                        <input type="number" id="addItemQty" class="form-control form-control-sm" value="1" min="1" required>
 
                     </div>
 
                     <div class="text-end">
 
-                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-secondary btn-sm py-0 px-2" data-bs-dismiss="modal">Cancel</button>
 
-                        <button type="submit" class="btn btn-success btn-sm">Add</button>
+                        <button type="submit" class="btn btn-success btn-sm py-0 px-2">Add</button>
 
                     </div>
 
@@ -492,23 +628,23 @@
 
         <div class="modal-content">
 
-            <div class="modal-header py-2">
+            <div class="modal-header py-1.5 px-2">
 
-                <h6 class="modal-title"><i class="fas fa-exchange-alt me-1"></i> Move Item Stage</h6>
+                <h6 class="modal-title fs-6"><i class="fas fa-exchange-alt me-1"></i> Move Item Stage</h6>
 
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 
             </div>
 
-            <div class="modal-body">
+            <div class="modal-body py-2">
 
                 <form id="moveForm">
 
                     <p class="small mb-2 text-muted">Moving <strong id="moveItemName" class="text-dark"></strong> to <strong id="moveStageLabel" class="text-dark"></strong>.</p>
 
-                    <div class="mb-3">
+                    <div class="mb-2">
 
-                        <label class="form-label small">Quantity to Move (Max: <span id="moveMaxQty"></span>)</label>
+                        <label class="form-label small mb-1">Quantity to Move (Max: <span id="moveMaxQty"></span>)</label>
 
                         <input type="number" id="moveQuantityInput" class="form-control form-control-sm" min="1" required>
 
@@ -516,9 +652,9 @@
 
                     <div class="d-flex justify-content-end gap-1">
 
-                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-secondary btn-sm py-0 px-2" data-bs-dismiss="modal">Cancel</button>
 
-                        <button type="submit" class="btn btn-primary btn-sm">Confirm Move</button>
+                        <button type="submit" class="btn btn-primary btn-sm py-0 px-2">Confirm Move</button>
 
                     </div>
 
@@ -542,23 +678,23 @@
 
         <div class="modal-content">
 
-            <div class="modal-header py-2">
+            <div class="modal-header py-1.5 px-2">
 
-                <h6 class="modal-title"><i class="fas fa-plus-minus me-1"></i> Adjust Quantity</h6>
+                <h6 class="modal-title fs-6"><i class="fas fa-plus-minus me-1"></i> Adjust Quantity</h6>
 
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 
             </div>
 
-            <div class="modal-body">
+            <div class="modal-body py-2">
 
                 <form id="qtyAdjustForm">
 
                     <p class="small mb-2 text-muted">Item: <strong id="adjItemName" class="text-dark"></strong></p>
 
-                    <div class="mb-3">
+                    <div class="mb-2">
 
-                        <label class="form-label small">New Quantity</label>
+                        <label class="form-label small mb-1">New Quantity</label>
 
                         <input type="number" id="adjQuantityInput" class="form-control form-control-sm" min="0" required>
 
@@ -566,9 +702,9 @@
 
                     <div class="d-flex justify-content-end gap-1">
 
-                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-secondary btn-sm py-0 px-2" data-bs-dismiss="modal">Cancel</button>
 
-                        <button type="submit" class="btn btn-primary btn-sm">Save Quantity</button>
+                        <button type="submit" class="btn btn-primary btn-sm py-0 px-2">Save Quantity</button>
 
                     </div>
 
@@ -592,15 +728,15 @@
 
         <div class="modal-content bg-dark text-white border-0 shadow-lg">
 
-            <div class="modal-header border-secondary py-2">
+            <div class="modal-header border-secondary py-1.5 px-3">
 
-                <h6 class="modal-title"><i class="fas fa-image me-2 text-info"></i>Item Image Preview</h6>
+                <h6 class="modal-title fs-6"><i class="fas fa-image me-2 text-info"></i>Item Image Preview</h6>
 
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
 
             </div>
 
-            <div class="modal-body text-center p-4">
+            <div class="modal-body text-center p-2">
 
                 <img id="modalImagePreview" src="" class="img-fluid rounded shadow" style="max-height: 75vh; max-width: 100%; object-fit: contain;">
 
@@ -614,13 +750,11 @@
 
 
 
-<!-- JavaScript for Layout Toggle, Drag & Drop, Directional Arrows, and Modals -->
+<!-- JavaScript for Layout Toggle, Card Sizing, Drag & Drop, Directional Arrows, and Modals -->
 
 <script>
 
 document.addEventListener("DOMContentLoaded", () => {
-
-    // Exact column stage order matching the rendered Kanban columns
 
     const stagesList = ['cut', 'grnd', 'wash', 'foil', 'sldr', 'polish', 'done'];
 
@@ -652,7 +786,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
-    // --- Layout & Visual First Switcher Handlers ---
+    // --- Layout & Card Size Switcher Handlers ---
 
     const boardContainer = document.getElementById('kanbanBoardContainer');
 
@@ -662,7 +796,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const btnGrid = document.getElementById('layoutBtnGrid');
 
-    const btnVisual = document.getElementById('layoutBtnVisual');
+
+
+    const sizeBtnTiny = document.getElementById('sizeBtnTiny');
+
+    const sizeBtnSmall = document.getElementById('sizeBtnSmall');
+
+    const sizeBtnMedium = document.getElementById('sizeBtnMedium');
+
+    const sizeBtnLarge = document.getElementById('sizeBtnLarge');
 
 
 
@@ -732,25 +874,63 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
-    function toggleVisualFirst() {
+    function setCardSize(sizeType) {
 
-        const isActive = boardContainer.classList.toggle('visual-first-mode');
+        boardContainer.classList.remove('card-size-tiny', 'card-size-small', 'card-size-medium', 'card-size-large');
 
-        if (isActive) {
+        [sizeBtnTiny, sizeBtnSmall, sizeBtnMedium, sizeBtnLarge].forEach(btn => {
 
-            btnVisual.classList.add('active', 'btn-secondary');
+            if(btn) {
 
-            btnVisual.classList.remove('btn-outline-secondary');
+                btn.classList.remove('active', 'btn-secondary');
 
-            localStorage.setItem('visual_first_mode', 'true');
+                btn.classList.add('btn-outline-secondary');
+
+            }
+
+        });
+
+
+
+        if (sizeType === 'tiny') {
+
+            boardContainer.classList.add('card-size-tiny');
+
+            sizeBtnTiny.classList.add('active', 'btn-secondary');
+
+            sizeBtnTiny.classList.remove('btn-outline-secondary');
+
+            localStorage.setItem('card_size_mode', 'tiny');
+
+        } else if (sizeType === 'small') {
+
+            boardContainer.classList.add('card-size-small');
+
+            sizeBtnSmall.classList.add('active', 'btn-secondary');
+
+            sizeBtnSmall.classList.remove('btn-outline-secondary');
+
+            localStorage.setItem('card_size_mode', 'small');
+
+        } else if (sizeType === 'large') {
+
+            boardContainer.classList.add('card-size-large');
+
+            sizeBtnLarge.classList.add('active', 'btn-secondary');
+
+            sizeBtnLarge.classList.remove('btn-outline-secondary');
+
+            localStorage.setItem('card_size_mode', 'large');
 
         } else {
 
-            btnVisual.classList.remove('active', 'btn-secondary');
+            boardContainer.classList.add('card-size-medium');
 
-            btnVisual.classList.add('btn-outline-secondary');
+            sizeBtnMedium.classList.add('active', 'btn-secondary');
 
-            localStorage.setItem('visual_first_mode', 'false');
+            sizeBtnMedium.classList.remove('btn-outline-secondary');
+
+            localStorage.setItem('card_size_mode', 'medium');
 
         }
 
@@ -764,15 +944,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
-    if (localStorage.getItem('visual_first_mode') === 'true') {
+    const savedSize = localStorage.getItem('card_size_mode') || 'medium';
 
-        boardContainer.classList.add('visual-first-mode');
-
-        btnVisual.classList.add('active', 'btn-secondary');
-
-        btnVisual.classList.remove('btn-outline-secondary');
-
-    }
+    setCardSize(savedSize);
 
 
 
@@ -782,11 +956,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     btnGrid.addEventListener('click', () => setLayout('grid'));
 
-    if (btnVisual) {
 
-        btnVisual.addEventListener('click', toggleVisualFirst);
 
-    }
+    sizeBtnTiny.addEventListener('click', () => setCardSize('tiny'));
+
+    sizeBtnSmall.addEventListener('click', () => setCardSize('small'));
+
+    sizeBtnMedium.addEventListener('click', () => setCardSize('medium'));
+
+    sizeBtnLarge.addEventListener('click', () => setCardSize('large'));
 
 
 
@@ -1160,10 +1338,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const baseItemSelect = document.getElementById('baseItemSelect');
 
-    const variantWrapper = document.getElementById('variantWrapper');
-
-    const variantItemSelect = document.getElementById('variantItemSelect');
-
 
 
     function filterBaseItems() {
@@ -1200,42 +1374,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
-    if(baseItemSelect) {
-
-        baseItemSelect.addEventListener('change', () => {
-
-            const selectedId = baseItemSelect.value;
-
-            let hasVariants = false;
-
-            variantItemSelect.querySelectorAll('option').forEach(vOpt => {
-
-                if (!vOpt.value) return;
-
-                if (vOpt.getAttribute('data-parent') === selectedId) {
-
-                    vOpt.style.display = '';
-
-                    hasVariants = true;
-
-                } else {
-
-                    vOpt.style.display = 'none';
-
-                }
-
-            });
-
-            variantItemSelect.value = "";
-
-            variantWrapper.style.display = hasVariants ? 'block' : 'none';
-
-        });
-
-    }
-
-
-
     const addItemForm = document.getElementById('addItemForm');
 
     if(addItemForm) {
@@ -1244,7 +1382,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             e.preventDefault();
 
-            const finalItemId = variantItemSelect.value || baseItemSelect.value;
+            const finalItemId = baseItemSelect.value;
 
             const stage = document.getElementById('targetStageSelect').value;
 
@@ -1304,7 +1442,7 @@ if (saveFinishedBtn) {
 
 
 
-        if (!confirm('This will move all finished items into item inventory (ITMINV) with cumulative stock counts and reset their Done stage amounts to zero. Proceed?')) {
+        if (!confirm('This will move all finished items into item inventory and update stock counts. Proceed?')) {
 
             return;
 

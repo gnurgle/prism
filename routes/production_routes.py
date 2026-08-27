@@ -68,7 +68,7 @@ def production_board():
 
     
 
-    # Fetch raw master items (non-variants or parents) for modal selection
+    # Fetch all items directly, disregarding parent/variant hierarchies for the dropdown selection
 
     master_items = db.execute("""
 
@@ -123,7 +123,6 @@ def production_board():
         master_items=master_items
 
     )
-
 
 
 @production_bp.route('/production/add-item', methods=['POST'])
