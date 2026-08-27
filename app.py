@@ -100,6 +100,9 @@ def init_db():
         db.execute(
             "INSERT OR IGNORE INTO MST (MSITYPE) VALUES ('Solder'), ('Foil'), ('Came'), ('Rings'), ('Chain'), ('Consumables'), ('Decoration'), ('Other')"
         )
+        db.execute(
+            "INSERT OR IGNORE INTO PATINA (PATINA) VALUES ('Silver'), ('Copper'), ('Black')"
+        )
 
         # Setup automated AUDIT trigger on ITM table changes
         db.executescript("""

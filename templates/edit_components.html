@@ -4,6 +4,8 @@
 
 {% block content %}
 
+
+
 <!-- Reference the separate stylesheet for 25% transparency and effects -->
 
 <link rel="stylesheet" href="{{ url_for('static', filename='css/svg_effects.css') }}">
@@ -48,7 +50,7 @@
 
                 <div class="mb-3">
 
-                    <label for="comp_num" class="form-label fw-bold">Component Number (COMPNUM)</label>
+                    <label for="comp_num" class="form-label fw-bold">Component Number</label>
 
                     <input type="number" class="form-control" id="comp_num" oninput="stageComponentChanges()">
 
@@ -58,7 +60,7 @@
 
                 <div class="mb-3">
 
-                    <label for="comp_name" class="form-label fw-bold">Component Name (COMPNAME)</label>
+                    <label for="comp_name" class="form-label fw-bold">Component Name</label>
 
                     <input type="text" class="form-control" id="comp_name" oninput="stageComponentChanges()">
 
@@ -70,7 +72,7 @@
 
                     <div class="col-6 mb-3">
 
-                        <label for="comp_len" class="form-label fw-bold">Length (COMPLEN)</label>
+                        <label for="comp_len" class="form-label fw-bold">Length</label>
 
                         <input type="number" step="any" class="form-control" id="comp_len" oninput="stageComponentChanges()">
 
@@ -78,7 +80,7 @@
 
                     <div class="col-6 mb-3">
 
-                        <label for="comp_wid" class="form-label fw-bold">Width (COMPWID)</label>
+                        <label for="comp_wid" class="form-label fw-bold">Width</label>
 
                         <input type="number" step="any" class="form-control" id="comp_wid" oninput="stageComponentChanges()">
 
@@ -90,7 +92,7 @@
 
                 <div class="mb-3">
 
-                    <label for="glass_id" class="form-label fw-bold">Component Glass (GSI)</label>
+                    <label for="glass_id" class="form-label fw-bold">Component Glass</label>
 
                     <select class="form-select" id="glass_id" onchange="handleGlassChange();">
 
@@ -124,7 +126,7 @@
 
                     <input type="checkbox" class="form-check-input" id="isscrap" onchange="stageComponentChanges()">
 
-                    <label class="form-check-label" for="isscrap">Is Scrap (ISSCRAP)</label>
+                    <label class="form-check-label" for="isscrap">Is Scrap</label>
 
                 </div>
 
@@ -134,7 +136,7 @@
 
                     <input type="checkbox" class="form-check-input" id="isgrain" onchange="stageComponentChanges()">
 
-                    <label class="form-check-label" for="isgrain">Grain Specific (ISGRAIN)</label>
+                    <label class="form-check-label" for="isgrain">Grain Specific</label>
 
                 </div>
 
@@ -150,49 +152,33 @@
 
     <div class="col-md-8 d-flex flex-column align-items-center justify-content-center bg-light p-3" style="height: 80vh;">
 
-        <!-- Header row with Title and Save Button on the right -->
+        <!-- Header row with Title and Save Button -->
 
-<!-- Header row with Title and Save Button + Loading Spinner -->
+        <div class="d-flex justify-content-between align-items-center w-100 mb-2 px-2">
 
-<div class="d-flex justify-content-between align-items-center w-100 mb-2 px-2">
+            <h5 class="text-secondary mb-0">{{ item.ITMNAME }} - Interactive Layout</h5>
 
-    <h5 class="text-secondary mb-0">{{ item.ITMNAME }} - Interactive Layout</h5>
+            <div class="d-flex align-items-center gap-2">
 
-    <div class="d-flex align-items-center gap-2">
+                <div id="save-spinner" class="spinner-border spinner-border-sm text-success" role="status" style="display: none;">
 
-        <div id="save-spinner" class="spinner-border spinner-border-sm text-success" role="status" style="display: none;">
+                    <span class="visually-hidden">Loading...</span>
 
-            <span class="visually-hidden">Loading...</span>
+                </div>
+
+                <button id="save-btn" type="button" class="btn btn-success btn-sm shadow-sm" onclick="saveAllComponents()">Save All Changes</button>
+
+            </div>
 
         </div>
 
-        <button id="save-btn" type="button" class="btn btn-success btn-sm shadow-sm" onclick="saveAllComponents()">Save All Changes</button>
-
-    </div>
-
-</div>
-
-
-
         
 
-        <!-- SVG Container with relative positioning for absolute toggle buttons in top-right -->
+        <!-- SVG Container -->
 
         <div id="svg-wrapper" class="svg-container border rounded bg-white p-2 shadow-sm w-100 h-100 d-flex justify-content-center align-items-center overflow-hidden position-relative" style="background-color: #ffffff; transition: background 0.3s ease;">
 
             
-
-            <!-- Top-left overlay buttons for appearance mode -->
-
-            <div style="position: absolute; top: 10px; left: 10px; z-index: 10; display: flex; gap: 5px;">
-
-                <button id="mode-chex-btn" type="button" class="btn btn-sm btn-secondary active" title="Color by Palette (CHEX)" onclick="setAppearanceMode('chex')">🎨</button>
-
-                <button id="mode-img-btn" type="button" class="btn btn-sm btn-light" title="Fill with Image (GLSIMG)" onclick="setAppearanceMode('image')">🖼️</button>
-
-            </div>
-
-
 
             <!-- Background Toggle Buttons (Top-Right) -->
 
@@ -238,25 +224,25 @@
 
             <div style="position: absolute; bottom: 10px; right: 10px; z-index: 10; display: flex; flex-direction: column; gap: 5px; align-items: flex-end;">
 
-                <!-- Stroke Color Buttons -->
+                <!-- Stroke Color / Patina Buttons -->
 
                 <div class="btn-group shadow-sm" role="group" aria-label="Stroke Color">
 
-                    <button id="stroke-silver-btn" type="button" class="btn btn-sm btn-light active border" title="Silver Stroke" onclick="setStrokeColor('#C0C0C0')">
+                    <button id="stroke-silver-btn" type="button" class="btn btn-sm btn-light active border" title="Silver Patina" onclick="setPatinaChoice('Silver')">
 
-                        <span style="display:inline-block; width:12px; height:12px; background:#C0C0C0; border:1px solid #888; vertical-align:middle;"></span>
-
-                    </button>
-
-                    <button id="stroke-copper-btn" type="button" class="btn btn-sm btn-light border" title="Copper Stroke" onclick="setStrokeColor('#B87333')">
-
-                        <span style="display:inline-block; width:12px; height:12px; background:#B87333; border:1px solid #888; vertical-align:middle;"></span>
+                        <span style="display:inline-block; width:12px; height:12px; background:#C0C0C0; border:1px solid #888; vertical-align:middle;"></span> Silver
 
                     </button>
 
-                    <button id="stroke-black-btn" type="button" class="btn btn-sm btn-light border" title="Black Stroke" onclick="setStrokeColor('#000000')">
+                    <button id="stroke-copper-btn" type="button" class="btn btn-sm btn-light border" title="Copper Patina" onclick="setPatinaChoice('Copper')">
 
-                        <span style="display:inline-block; width:12px; height:12px; background:#000000; border:1px solid #888; vertical-align:middle;"></span>
+                        <span style="display:inline-block; width:12px; height:12px; background:#B87333; border:1px solid #888; vertical-align:middle;"></span> Copper
+
+                    </button>
+
+                    <button id="stroke-black-btn" type="button" class="btn btn-sm btn-light border" title="Black Patina" onclick="setPatinaChoice('Black')">
+
+                        <span style="display:inline-block; width:12px; height:12px; background:#000000; border:1px solid #888; vertical-align:middle;"></span> Black
 
                     </button>
 
@@ -286,6 +272,8 @@
 
 <!-- Global Configurations for JS files -->
 
+<!-- Global Configurations for JS files -->
+
 <script>
 
     let componentsData = {{ components_json | tojson }};
@@ -295,6 +283,8 @@
     const glassImgBaseUrl = "{{ url_for('static', filename='/') }}";
 
     const effectImgBaseUrl = "{{ url_for('static', filename='images/effects/') }}";
+
+    const initialPatina = "{{ patina_choice | default('Silver') }}";
 
 </script>
 
@@ -314,6 +304,103 @@
 
 let localComponentsData = JSON.parse(JSON.stringify(componentsData));
 
+
+
+// Set global stroke color right away before DOM content loads so svg_renderer reads it correctly
+
+let currentPatina = (initialPatina && ['Silver', 'Copper', 'Black'].includes(initialPatina)) ? initialPatina : 'Silver';
+
+let currentStrokeColor = currentPatina === 'Copper' ? '#B87333' : (currentPatina === 'Black' ? '#000000' : '#C0C0C0');
+
+
+
+window.addEventListener('DOMContentLoaded', () => {
+
+    // Force image fill mode by default
+
+    if (typeof setAppearanceMode === 'function') {
+
+        setAppearanceMode('image');
+
+    }
+
+
+
+    // Initialize button highlights for the loaded patina
+
+    setPatinaChoice(currentPatina, true);
+
+});
+
+
+
+function setPatinaChoice(patina, triggerRender = true) {
+
+    currentPatina = ['Silver', 'Copper', 'Black'].includes(patina) ? patina : 'Silver';
+
+    
+
+    if (currentPatina === 'Silver') {
+
+        currentStrokeColor = '#C0C0C0';
+
+    } else if (currentPatina === 'Copper') {
+
+        currentStrokeColor = '#B87333';
+
+    } else if (currentPatina === 'Black') {
+
+        currentStrokeColor = '#000000';
+
+    }
+
+
+
+    // Update active button states
+
+    const silverBtn = document.getElementById('stroke-silver-btn');
+
+    const copperBtn = document.getElementById('stroke-copper-btn');
+
+    const blackBtn = document.getElementById('stroke-black-btn');
+
+
+
+    if (silverBtn && copperBtn && blackBtn) {
+
+        silverBtn.classList.toggle('active', currentPatina === 'Silver');
+
+        silverBtn.classList.toggle('btn-secondary', currentPatina === 'Silver');
+
+        silverBtn.classList.toggle('btn-light', currentPatina !== 'Silver');
+
+
+
+        copperBtn.classList.toggle('active', currentPatina === 'Copper');
+
+        copperBtn.classList.toggle('btn-secondary', currentPatina === 'Copper');
+
+        copperBtn.classList.toggle('btn-light', currentPatina !== 'Copper');
+
+
+
+        blackBtn.classList.toggle('active', currentPatina === 'Black');
+
+        blackBtn.classList.toggle('btn-secondary', currentPatina === 'Black');
+
+        blackBtn.classList.toggle('btn-light', currentPatina !== 'Black');
+
+    }
+
+
+
+    if (triggerRender && typeof renderSvgContent === 'function') {
+
+        renderSvgContent();
+
+    }
+
+}
 
 
 function populateSidebar(regionId) {
@@ -394,6 +481,8 @@ function stageComponentChanges() {
 
 }
 
+
+
 function saveAllComponents() {
 
     const saveBtn = document.getElementById('save-btn');
@@ -401,8 +490,6 @@ function saveAllComponents() {
     const spinner = document.getElementById('save-spinner');
 
     
-
-    // Show loading state
 
     saveBtn.disabled = true;
 
@@ -414,113 +501,7 @@ function saveAllComponents() {
 
         item_id: "{{ item.ITEMID }}",
 
-        components: Object.values(localComponentsData)
-
-    };
-
-
-
-    // 1. Save component batch updates to the database
-
-    fetch("{{ url_for('component_bp.update_components_batch') }}", {
-
-        method: 'POST',
-
-        headers: {
-
-            'Content-Type': 'application/json'
-
-        },
-
-        body: JSON.stringify(payload)
-
-    })
-
-    .then(response => response.json())
-
-    .then(data => {
-
-        if (data.success) {
-
-            // 2. If the main SVG renderer already has a canvas snapshot function or if we can capture it,
-
-            // alternatively, we can fetch the export endpoint's JSON data and trigger the save directly:
-
-            return fetch("{{ url_for('component_bp.api_export_components_image', item_id=item.ITEMID) }}");
-
-        } else {
-
-            throw new Error(data.message || 'Error saving changes.');
-
-        }
-
-    })
-
-    .then(response => response.json())
-
-    .then(exportData => {
-
-        if (!exportData.success) {
-
-            throw new Error('Failed to fetch export component data.');
-
-        }
-
-
-
-        // 3. Programmatically generate the image canvas snapshot right here
-
-        // (Reusing the same rendering approach as the export view)
-
-        return generateAndSaveCanvasImage(exportData);
-
-    })
-
-    .then(saveResult => {
-
-        spinner.style.display = 'none';
-
-        saveBtn.disabled = false;
-
-        console.log('Saved and image updated successfully:', saveResult);
-
-    })
-
-    .catch(error => {
-
-        console.error('Error:', error);
-
-        alert('An error occurred: ' + error.message);
-
-        spinner.style.display = 'none';
-
-        saveBtn.disabled = false;
-
-    });
-
-}
-
-
-
-function saveAllComponents() {
-
-    const saveBtn = document.getElementById('save-btn');
-
-    const spinner = document.getElementById('save-spinner');
-
-    
-
-    // Show loading state
-
-    saveBtn.disabled = true;
-
-    spinner.style.display = 'inline-block';
-
-
-
-    const payload = {
-
-        item_id: "{{ item.ITEMID }}",
+        patina_choice: currentPatina,
 
         components: Object.values(localComponentsData)
 
@@ -528,7 +509,7 @@ function saveAllComponents() {
 
 
 
-    // 1. Save component batch updates to the database
+    // 1. Save component batch updates and patina choice to the database
 
     fetch("{{ url_for('component_bp.update_components_batch') }}", {
 
@@ -556,7 +537,7 @@ function saveAllComponents() {
 
 
 
-        // 2. Fetch the export data mapping for this item
+        // 2. Fetch export data mapping for snapshot generation
 
         return fetch("{{ url_for('component_bp.api_export_components_image', item_id=item.ITEMID) }}");
 
@@ -574,7 +555,7 @@ function saveAllComponents() {
 
 
 
-        // 3. Render the SVG and components onto an off-screen canvas to generate the WebP snapshot
+        // 3. Render SVG snapshot and post image
 
         return generateAndPostImageSnapshot(exportData);
 
@@ -590,15 +571,11 @@ function saveAllComponents() {
 
 
 
-        // Finish up
-
         spinner.style.display = 'none';
 
         saveBtn.disabled = false;
 
-        console.log('Changes saved and image updated successfully!');
-
-        alert('Changes saved and component image updated successfully!');
+        alert('Changes, patina, and component image updated successfully!');
 
     })
 
@@ -622,8 +599,6 @@ function generateAndPostImageSnapshot(exportData) {
 
     return new Promise((resolve, reject) => {
 
-        // 1. Create a hidden iframe to load the export page and execute its canvas rendering scripts fully
-
         const iframe = document.createElement('iframe');
 
         iframe.style.position = 'fixed';
@@ -646,8 +621,6 @@ function generateAndPostImageSnapshot(exportData) {
 
         iframe.onload = function() {
 
-            // 2. Give the iframe's internal scripts and canvas renderer time to complete drawing
-
             setTimeout(() => {
 
                 try {
@@ -665,8 +638,6 @@ function generateAndPostImageSnapshot(exportData) {
                         document.body.removeChild(iframe);
 
 
-
-                        // 3. Post the captured WebP base64 string directly to the backend save route
 
                         fetch("{{ url_for('component_bp.save_components_image', item_id=item.ITEMID) }}", {
 
@@ -704,7 +675,7 @@ function generateAndPostImageSnapshot(exportData) {
 
                 }
 
-            }, 4000); // 4 seconds allows images, SVG files, and canvas scripts to paint completely
+            }, 4000);
 
         };
 
@@ -725,6 +696,7 @@ function generateAndPostImageSnapshot(exportData) {
     });
 
 }
+
 
 
 function handleGlassChange() {
@@ -776,56 +748,6 @@ function handleGlassChange() {
     componentsData = localComponentsData;
 
 
-
-    if (typeof renderSvgContent === 'function') {
-
-        renderSvgContent();
-
-    }
-
-}
-
-
-
-// Default stroke color set to Silver
-
-let currentStrokeColor = '#C0C0C0';
-
-
-
-function setStrokeColor(colorHex) {
-
-    currentStrokeColor = colorHex;
-
-
-
-    // Update active states on color buttons
-
-    document.getElementById('stroke-silver-btn').classList.toggle('active', colorHex === '#C0C0C0');
-
-    document.getElementById('stroke-silver-btn').classList.toggle('btn-secondary', colorHex === '#C0C0C0');
-
-    document.getElementById('stroke-silver-btn').classList.toggle('btn-light', colorHex !== '#C0C0C0');
-
-
-
-    document.getElementById('stroke-copper-btn').classList.toggle('active', colorHex === '#B87333');
-
-    document.getElementById('stroke-copper-btn').classList.toggle('btn-secondary', colorHex === '#B87333');
-
-    document.getElementById('stroke-copper-btn').classList.toggle('btn-light', colorHex !== '#B87333');
-
-
-
-    document.getElementById('stroke-black-btn').classList.toggle('active', colorHex === '#000000');
-
-    document.getElementById('stroke-black-btn').classList.toggle('btn-secondary', colorHex === '#000000');
-
-    document.getElementById('stroke-black-btn').classList.toggle('btn-light', colorHex !== '#000000');
-
-
-
-    // Trigger SVG re-render to apply stroke color change
 
     if (typeof renderSvgContent === 'function') {
 
