@@ -690,132 +690,6 @@ def api_export_components_image(item_id):
     return jsonify(result), (200 if result['success'] else 404)
 
 
-@component_bp.route('/edit_components/<int:item_id>', methods=['GET'])
-
-def edit_components(item_id):
-
-    db = get_db()
-
-
-
-    item = db.execute('SELECT * FROM ITM WHERE ITEMID = ?', (item_id,)).fetchone()
-
-    if not item:
-
-        flash('Item not found.', 'danger')
-
-        return redirect(url_for('index'))
-
-
-
-    svg_filename = item['ITMSVG'] if 'ITMSVG' in item.keys() else None
-
-    svg_url = url_for('static', filename=svg_filename) if svg_filename else ''
-
-    
-
-    # Safely fetch PATINA and default to 'Silver' if missing or not recognized
-
-    raw_patina = item['PATINA'] if 'PATINA' in item.keys() else None
-
-    patina_choice = raw_patina if raw_patina in ['Silver', 'Copper', 'Black'] else 'Silver'
-
-
-
-    glass_options = db.execute('''
-
-        SELECT g.GLASSID, g.GLSNAME, g.GLSTEX, g.GLSIMG, c.CHEX, t.GTRNSV 
-
-        FROM GSI g
-
-        LEFT JOIN COLOR c ON g.COLOR = c.COLOR
-
-        LEFT JOIN GTRNS t ON g.GTRNSN = t.GTRNSN
-
-        WHERE g.ISACTIVE = 1
-
-    ''').fetchall()
-
-
-
-    components = db.execute('''
-
-        SELECT 
-
-            i.COMPID, i.COMPNAME, i.ITEMID, i.COMPNUM, i.SVGREG, 
-
-            i.GLASSID, i.COMPLEN, i.COMPWID, i.COMPNOTE,
-
-            i.ISSCRAP, i.ISGRAIN, i.ISACTIVE,
-
-            c.CHEX, g.GLSTEX, g.GTRNSN, g.GLSIMG, t.GTRNSV
-
-        FROM IGC i
-
-        LEFT JOIN GSI g ON i.GLASSID = g.GLASSID
-
-        LEFT JOIN COLOR c ON g.COLOR = c.COLOR
-
-        LEFT JOIN GTRNS t ON g.GTRNSN = t.GTRNSN
-
-        WHERE i.ITEMID = ?
-
-    ''', (item_id,)).fetchall()
-
-
-
-    comp_map = {}
-
-    for comp in components:
-
-        comp_map[comp['SVGREG']] = {
-
-            'COMPID': comp['COMPID'],
-
-            'COMPNAME': comp['COMPNAME'] or '',
-
-            'COMPNUM': comp['COMPNUM'] or '',
-
-            'SVGREG': comp['SVGREG'],
-
-            'GLASSID': comp['GLASSID'] or '',
-
-            'COMPLEN': comp['COMPLEN'] or '',
-
-            'COMPWID': comp['COMPWID'] or '',
-
-            'ISSCRAP': 1 if comp['ISSCRAP'] else 0,
-
-            'ISGRAIN': 1 if comp['ISGRAIN'] else 0,
-
-            'CHEX': comp['CHEX'] or 'cccccc',
-
-            'GLSIMG': comp['GLSIMG'] or '',
-
-            'GLSTEX': comp['GLSTEX'] or '',
-
-            'GTRNSV': comp['GTRNSV']
-
-        }
-
-
-
-    return render_template(
-
-        'edit_components.html', 
-
-        item=item, 
-
-        svg_url=svg_url, 
-
-        glass_options=glass_options, 
-
-        components_json=comp_map,
-
-        patina_choice=patina_choice
-
-    )
-
 
 
 
@@ -933,3 +807,142 @@ def update_components_batch():
         db.rollback()
 
         return jsonify({'success': False, 'message': str(e)}), 400
+
+
+@component_bp.route('/edit_components/<int:item_id>', methods=['GET'])
+
+def edit_components(item_id):
+
+    db = get_db()
+
+
+
+    item = db.execute('SELECT * FROM ITM WHERE ITEMID = ?', (item_id,)).fetchone()
+
+    if not item:
+
+        flash('Item not found.', 'danger')
+
+        return redirect(url_for('index'))
+
+
+
+    svg_filename = item['ITMSVG'] if 'ITMSVG' in item.keys() else None
+
+    svg_url = url_for('static', filename=svg_filename) if svg_filename else ''
+
+    
+
+    raw_patina = item['PATINA'] if 'PATINA' in item.keys() else None
+
+    patina_choice = raw_patina if raw_patina in ['Silver', 'Copper', 'Black'] else 'Silver'
+
+
+
+    # Fetch available colors for the color grid
+
+    colors = db.execute('SELECT COLOR, CHEX FROM COLOR WHERE ISACTIVE = 1').fetchall()
+
+
+
+    # Fetch glass options including price and source info
+
+    glass_options = db.execute('''
+
+        SELECT g.GLASSID, g.GLSNAME, g.GLSTEX, g.GLSIMG, g.COLOR, g.GLSOURCE, 
+
+               c.CHEX, t.GTRNSV, COALESCE(p.GLSPRICE, 0.00) as GLSPRICE 
+
+        FROM GSI g
+
+        LEFT JOIN COLOR c ON g.COLOR = c.COLOR
+
+        LEFT JOIN GTRNS t ON g.GTRNSN = t.GTRNSN
+
+        LEFT JOIN GPC p ON g.GLASSID = p.GLASSID
+
+        WHERE g.ISACTIVE = 1
+
+    ''').fetchall()
+
+
+
+    components = db.execute('''
+
+        SELECT 
+
+            i.COMPID, i.COMPNAME, i.ITEMID, i.COMPNUM, i.SVGREG, 
+
+            i.GLASSID, i.COMPLEN, i.COMPWID, i.COMPNOTE,
+
+            i.ISSCRAP, i.ISGRAIN, i.ISACTIVE,
+
+            c.CHEX, g.GLSTEX, g.GTRNSN, g.GLSIMG, t.GTRNSV
+
+        FROM IGC i
+
+        LEFT JOIN GSI g ON i.GLASSID = g.GLASSID
+
+        LEFT JOIN COLOR c ON g.COLOR = c.COLOR
+
+        LEFT JOIN GTRNS t ON g.GTRNSN = t.GTRNSN
+
+        WHERE i.ITEMID = ?
+
+    ''', (item_id,)).fetchall()
+
+
+
+    comp_map = {}
+
+    for comp in components:
+
+        comp_map[comp['SVGREG']] = {
+
+            'COMPID': comp['COMPID'],
+
+            'COMPNAME': comp['COMPNAME'] or '',
+
+            'COMPNUM': comp['COMPNUM'] or '',
+
+            'SVGREG': comp['SVGREG'],
+
+            'GLASSID': comp['GLASSID'] or '',
+
+            'COMPLEN': comp['COMPLEN'] or '',
+
+            'COMPWID': comp['COMPWID'] or '',
+
+            'ISSCRAP': 1 if comp['ISSCRAP'] else 0,
+
+            'ISGRAIN': 1 if comp['ISGRAIN'] else 0,
+
+            'CHEX': comp['CHEX'] or 'cccccc',
+
+            'GLSIMG': comp['GLSIMG'] or '',
+
+            'GLSTEX': comp['GLSTEX'] or '',
+
+            'GTRNSV': comp['GTRNSV']
+
+        }
+
+
+
+    return render_template(
+
+        'edit_components.html', 
+
+        item=item, 
+
+        svg_url=svg_url, 
+
+        colors=colors,
+
+        glass_options=glass_options, 
+
+        components_json=comp_map,
+
+        patina_choice=patina_choice
+
+    )

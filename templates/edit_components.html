@@ -90,49 +90,69 @@
 
 
 
+                <!-- Component Glass Selector & Direct Color Grid -->
+
                 <div class="mb-3">
 
-                    <label for="glass_id" class="form-label fw-bold">Component Glass</label>
+                    <label class="form-label fw-bold">Component Glass</label>
 
-                    <select class="form-select" id="glass_id" onchange="handleGlassChange();">
+                    <input type="hidden" id="glass_id" onchange="handleGlassChange()">
 
-                        <option value="">-- Select Glass --</option>
+                    
 
-                        {% for glass in glass_options %}
+                    <!-- Active Selected Glass Indicator -->
 
-                            <option value="{{ glass.GLASSID }}" 
+                    <div id="selected-glass-display" class="border rounded p-2 mb-2 bg-light d-flex align-items-center justify-content-between">
 
-                                    data-hex="{{ glass.CHEX | default('cccccc') }}"
+                        <span id="selected-glass-label" class="text-muted small">No glass selected</span>
 
-                                    data-tex="{{ glass.GLSTEX | default('') }}"
+                        <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" id="clear-glass-btn" style="display:none;" onclick="clearGlassSelection()">Clear</button>
 
-                                    data-img="{{ glass.GLSIMG | default('') }}"
+                    </div>
 
-                                    data-trns="{{ glass.GTRNSV | default(75) }}">
 
-                                {{ glass.GLSNAME }} (ID: {{ glass.GLASSID }})
 
-                            </option>
+                    <!-- Direct Color Grid in the Sidebar (Color Squares) -->
+
+                    <label class="form-label small text-muted mb-1">Select Color:</label>
+
+                    <div class="d-flex flex-wrap gap-1 p-2 border rounded bg-white" style="max-height: 140px; overflow-y: auto;">
+
+                        {% for color in colors %}
+
+                            <div class="color-square shadow-sm" 
+
+                                 style="width: 28px; height: 28px; background-color: #{{ color.CHEX }}; border: 1px solid #ccc; cursor: pointer; border-radius: 3px;"
+
+                                 title="{{ color.COLOR }}"
+
+                                 data-color-name="{{ color.COLOR }}"
+
+                                 onclick="openGlassGridModal('{{ color.COLOR }}')">
+
+                            </div>
 
                         {% endfor %}
 
-                    </select>
+                    </div>
 
                 </div>
 
 
+                <div class="row">
 
-                <div class="mb-3 form-check">
+
+                <div class="col-4 mb-3 form-check">
 
                     <input type="checkbox" class="form-check-input" id="isscrap" onchange="stageComponentChanges()">
 
-                    <label class="form-check-label" for="isscrap">Is Scrap</label>
+                    <label class="form-check-label" for="isscrap">Scrap</label>
 
                 </div>
 
 
 
-                <div class="mb-3 form-check">
+                <div class="col-8 mb-3 form-check">
 
                     <input type="checkbox" class="form-check-input" id="isgrain" onchange="stageComponentChanges()">
 
@@ -140,6 +160,7 @@
 
                 </div>
 
+            </div>
             </div>
 
         </form>
@@ -270,7 +291,74 @@
 
 
 
-<!-- Global Configurations for JS files -->
+<!-- GLASS GRID MODAL -->
+
+<div class="modal fade" id="glassGridModal" tabindex="-1" aria-hidden="true">
+
+    <div class="modal-dialog modal-xl modal-dialog-scrollable modal-dialog-centered">
+
+        <div class="modal-content">
+
+            <div class="modal-header">
+
+                <h5 class="modal-title" id="glassModalTitle">Glass Selection</h5>
+
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+
+            </div>
+
+            <div class="modal-body bg-light">
+
+                <div id="glass-cards-container" class="row row-cols-1 row-cols-md-3 g-3">
+
+                    <!-- Populated dynamically via JS -->
+
+                </div>
+
+            </div>
+
+            <div class="modal-footer bg-white sticky-bottom shadow-sm justify-content-between">
+
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Back to Colors</button>
+
+                <button type="button" class="btn btn-primary" id="use-glass-btn" onclick="confirmGlassSelection()" disabled>Use glass</button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<!-- MAGNIFYING GLASS ZOOM MODAL -->
+
+<div class="modal fade" id="imageZoomModal" tabindex="-1" aria-hidden="true">
+
+    <div class="modal-dialog modal-dialog-centered modal-fullscreen p-4">
+
+        <div class="modal-content bg-dark bg-opacity-75 border-0">
+
+            <div class="modal-body text-center position-relative d-flex align-items-center justify-content-center p-0">
+
+                <div class="position-relative d-inline-block border border-3 border-white rounded shadow-lg bg-black">
+
+                    <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-2 z-3 bg-secondary p-2 rounded-circle shadow" data-bs-dismiss="modal" aria-label="Close" style="opacity: 1;"></button>
+
+                    <img id="zoomed-glass-img" src="" class="img-fluid rounded max-vh-85 object-fit-contain" alt="Zoomed Glass" style="max-height: 85vh;">
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
 
 <!-- Global Configurations for JS files -->
 
@@ -280,13 +368,220 @@
 
     const outsideBgUrl = "{{ url_for('static', filename='images/backgrounds/outside.jpg') }}";
 
-    const glassImgBaseUrl = "{{ url_for('static', filename='/') }}";
+    const glassImgBaseUrl = "{{ url_for('static', filename='') }}";
 
     const effectImgBaseUrl = "{{ url_for('static', filename='images/effects/') }}";
 
     const initialPatina = "{{ patina_choice | default('Silver') }}";
 
+
+
+    // Deduplicate unique glass options mapping array
+
+    const rawGlassOptions = [
+
+        {% for glass in glass_options %}
+
+        {
+
+            id: "{{ glass.GLASSID }}",
+
+            name: "{{ glass.GLSNAME }}",
+
+            color: "{{ glass.COLOR }}",
+
+            source: "{{ glass.GLSOURCE | default('Unknown') }}",
+
+            price: "{{ '%.2f' | format(glass.GLSPRICE) }}",
+
+            image: "{% if glass.GLSIMG %}{{ url_for('static', filename=glass.GLSIMG.replace('static/', '').lstrip('/')) }}{% endif %}",
+
+            hex: "{{ glass.CHEX | default('cccccc') }}",
+
+            tex: "{{ glass.GLSTEX | default('') }}",
+
+            trns: "{{ glass.GTRNSV | default(75) }}"
+
+        },
+
+        {% endfor %}
+
+    ];
+
+
+
+    const allGlassOptions = Array.from(new Map(rawGlassOptions.map(item => [item.id, item])).values());
+
+    let selectedTemporaryGlass = null;
+
+    
+
+    function openGlassGridModal(colorName) {
+
+        document.getElementById('glassModalTitle').innerText = `Glass Selection: ${colorName}`;
+
+        const container = document.getElementById('glass-cards-container');
+
+        container.innerHTML = '';
+
+
+
+        const filteredGlass = allGlassOptions.filter(g => g.color === colorName);
+
+
+
+        if (filteredGlass.length === 0) {
+
+            container.innerHTML = `<div class="col-12 text-center text-muted py-4">No glass found for this color.</div>`;
+
+        } else {
+
+            filteredGlass.forEach(glass => {
+
+                const cardHtml = `
+
+                    <div class="col">
+
+                        <div class="card h-100 shadow-sm glass-card" data-glass-id="${glass.id}" style="cursor: pointer;" onclick="selectCard('${glass.id}')">
+
+                            <div class="position-relative bg-secondary bg-opacity-10 text-center" style="height: 150px; overflow: hidden;">
+
+                                <img src="${glass.image}" class="w-100 h-100 object-fit-cover" alt="${glass.name}" onerror="this.src='{{ url_for('static', filename='images/placeholder.png') }}'">
+
+                                <button type="button" class="btn btn-light btn-sm position-absolute top-0 end-0 m-2 rounded-circle shadow-sm p-1" title="Zoom image" onclick="event.stopPropagation(); zoomGlassImage('${glass.image}')">
+
+                                    🔍
+
+                                </button>
+
+                            </div>
+
+                            <div class="card-body p-2 d-flex flex-column justify-content-between">
+
+                                <div>
+
+                                    <h6 class="card-title text-truncate mb-1" title="${glass.name}">${glass.name}</h6>
+
+                                    <p class="card-text small text-muted mb-1">Source: ${glass.source}</p>
+
+                                </div>
+
+                                <p class="card-text fw-bold text-success mb-0">$${glass.price}</p>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                `;
+
+                container.innerHTML += cardHtml;
+
+            });
+
+        }
+
+
+
+        selectedTemporaryGlass = null;
+
+        document.getElementById('use-glass-btn').disabled = true;
+
+
+
+        const glassModal = new bootstrap.Modal(document.getElementById('glassGridModal'));
+
+        glassModal.show();
+
+    }
+
+
+
+    function selectCard(glassId) {
+
+        document.querySelectorAll('.glass-card').forEach(c => c.classList.remove('border-primary', 'bg-light', 'border-3'));
+
+        const selectedCardEl = document.querySelector(`.glass-card[data-glass-id="${glassId}"]`);
+
+        if (selectedCardEl) {
+
+            selectedCardEl.classList.add('border-primary', 'bg-light', 'border-3');
+
+        }
+
+        selectedTemporaryGlass = allGlassOptions.find(g => String(g.id) === String(glassId));
+
+        document.getElementById('use-glass-btn').disabled = false;
+
+    }
+
+
+
+    function zoomGlassImage(imgUrl) {
+
+        document.getElementById('zoomed-glass-img').src = imgUrl;
+
+        const zoomModal = new bootstrap.Modal(document.getElementById('imageZoomModal'));
+
+        zoomModal.show();
+
+    }
+
+
+
+    function confirmGlassSelection() {
+
+        if (!selectedTemporaryGlass) return;
+
+
+
+        document.getElementById('glass_id').value = selectedTemporaryGlass.id;
+
+        document.getElementById('selected-glass-label').innerText = `${selectedTemporaryGlass.name} (ID: ${selectedTemporaryGlass.id})`;
+
+        document.getElementById('selected-glass-label').classList.remove('text-muted');
+
+        document.getElementById('clear-glass-btn').style.display = 'inline-block';
+
+
+
+        handleGlassChange();
+
+
+
+        const glassModalEl = document.getElementById('glassGridModal');
+
+        const glassModalInstance = bootstrap.Modal.getInstance(glassModalEl) || bootstrap.Modal.getOrCreateInstance(glassModalEl);
+
+        if (glassModalInstance) {
+
+            glassModalInstance.hide();
+
+        }
+
+    }
+
+
+
+    function clearGlassSelection() {
+
+        document.getElementById('glass_id').value = '';
+
+        document.getElementById('selected-glass-label').innerText = 'No glass selected';
+
+        document.getElementById('selected-glass-label').classList.add('text-muted');
+
+        document.getElementById('clear-glass-btn').style.display = 'none';
+
+
+
+        handleGlassChange();
+
+    }
+
 </script>
+
 
 
 
@@ -306,8 +601,6 @@ let localComponentsData = JSON.parse(JSON.stringify(componentsData));
 
 
 
-// Set global stroke color right away before DOM content loads so svg_renderer reads it correctly
-
 let currentPatina = (initialPatina && ['Silver', 'Copper', 'Black'].includes(initialPatina)) ? initialPatina : 'Silver';
 
 let currentStrokeColor = currentPatina === 'Copper' ? '#B87333' : (currentPatina === 'Black' ? '#000000' : '#C0C0C0');
@@ -316,17 +609,11 @@ let currentStrokeColor = currentPatina === 'Copper' ? '#B87333' : (currentPatina
 
 window.addEventListener('DOMContentLoaded', () => {
 
-    // Force image fill mode by default
-
     if (typeof setAppearanceMode === 'function') {
 
         setAppearanceMode('image');
 
     }
-
-
-
-    // Initialize button highlights for the loaded patina
 
     setPatinaChoice(currentPatina, true);
 
@@ -355,8 +642,6 @@ function setPatinaChoice(patina, triggerRender = true) {
     }
 
 
-
-    // Update active button states
 
     const silverBtn = document.getElementById('stroke-silver-btn');
 
@@ -403,6 +688,7 @@ function setPatinaChoice(patina, triggerRender = true) {
 }
 
 
+
 function populateSidebar(regionId) {
 
     document.getElementById('no-selection-msg').style.display = 'none';
@@ -429,7 +715,47 @@ function populateSidebar(regionId) {
 
     document.getElementById('comp_wid').value = comp.COMPWID || '';
 
-    document.getElementById('glass_id').value = comp.GLASSID || '';
+    
+
+    const glassId = comp.GLASSID !== null && comp.GLASSID !== undefined ? String(comp.GLASSID) : '';
+
+    document.getElementById('glass_id').value = glassId;
+
+
+
+    if (glassId) {
+
+        const glassObj = allGlassOptions.find(g => String(g.id) === glassId);
+
+        if (glassObj) {
+
+            document.getElementById('selected-glass-label').innerText = `${glassObj.name} (ID: ${glassObj.id})`;
+
+            document.getElementById('selected-glass-label').classList.remove('text-muted');
+
+            document.getElementById('clear-glass-btn').style.display = 'inline-block';
+
+        } else {
+
+            document.getElementById('selected-glass-label').innerText = `Glass ID: ${glassId}`;
+
+            document.getElementById('selected-glass-label').classList.remove('text-muted');
+
+            document.getElementById('clear-glass-btn').style.display = 'inline-block';
+
+        }
+
+    } else {
+
+        document.getElementById('selected-glass-label').innerText = 'No glass selected';
+
+        document.getElementById('selected-glass-label').classList.add('text-muted');
+
+        document.getElementById('clear-glass-btn').style.display = 'none';
+
+    }
+
+
 
     document.getElementById('isscrap').checked = comp.ISSCRAP === 1;
 
@@ -501,15 +827,13 @@ function saveAllComponents() {
 
         item_id: "{{ item.ITEMID }}",
 
-        patina_choice: currentPatina, // Sends the active patina ('Silver', 'Copper', or 'Black')
+        patina_choice: currentPatina,
 
         components: Object.values(localComponentsData)
 
     };
 
 
-
-    // 1. Save component batch updates and patina choice to the database
 
     fetch("{{ url_for('component_bp.update_components_batch') }}", {
 
@@ -531,8 +855,6 @@ function saveAllComponents() {
 
         }
 
-        // 2. Fetch export data mapping for snapshot generation
-
         return fetch("{{ url_for('component_bp.api_export_components_image', item_id=item.ITEMID) }}");
 
     })
@@ -546,8 +868,6 @@ function saveAllComponents() {
             throw new Error('Failed to retrieve component export mapping.');
 
         }
-
-        // 3. Render SVG snapshot with updated patina and post image
 
         return generateAndPostImageSnapshot(exportData);
 
@@ -582,6 +902,7 @@ function saveAllComponents() {
     });
 
 }
+
 
 
 function generateAndPostImageSnapshot(exportData) {
@@ -687,7 +1008,6 @@ function generateAndPostImageSnapshot(exportData) {
 }
 
 
-
 function handleGlassChange() {
 
     const regionId = document.getElementById('active_region_id').value;
@@ -702,23 +1022,43 @@ function handleGlassChange() {
 
 
 
-    const glassSelect = document.getElementById('glass_id');
+    const glassIdVal = document.getElementById('glass_id').value;
 
-    const selectedOption = glassSelect.options[glassSelect.selectedIndex];
+    const glassObj = allGlassOptions.find(g => String(g.id) === String(glassIdVal));
 
 
 
-    comp.GLASSID = glassSelect.value;
+    comp.GLASSID = glassIdVal ? parseInt(glassIdVal, 10) : null;
 
-    if (selectedOption && selectedOption.value) {
+    if (glassObj) {
 
-        comp.CHEX = selectedOption.dataset.hex || 'cccccc';
+        comp.CHEX = glassObj.hex || 'cccccc';
 
-        comp.GLSTEX = selectedOption.dataset.tex || '';
+        comp.GLSTEX = glassObj.tex || '';
 
-        comp.GLSIMG = selectedOption.dataset.img || '';
+        
 
-        comp.GTRNSV = selectedOption.dataset.trns !== undefined ? selectedOption.dataset.trns : 75;
+        // Clean the image path so it never doubles up /static/ when rendered in the SVG
+
+        let cleanImg = glassObj.image || '';
+
+        if (cleanImg) {
+
+            // Remove full URL or static prefixes if present
+
+            cleanImg = cleanImg.replace(/^.*\/static\//, 'static/'); // handle absolute paths containing static
+
+            cleanImg = cleanImg.replace(/^static\//, ''); // remove leading static/
+
+            cleanImg = cleanImg.replace(/^\/+/, ''); // remove leading slashes
+
+        }
+
+        comp.GLSIMG = cleanImg;
+
+
+
+        comp.GTRNSV = glassObj.trns !== undefined ? glassObj.trns : 75;
 
     } else {
 
@@ -738,13 +1078,15 @@ function handleGlassChange() {
 
 
 
-    if (typeof renderSvgContent === 'function') {
+    if (typeof stageComponentChanges === 'function') {
 
-        renderSvgContent();
+        stageComponentChanges();
 
     }
 
 }
+
+
 
 </script>
 
