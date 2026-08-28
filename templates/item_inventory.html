@@ -1,0 +1,899 @@
+{% extends 'base.html' %}
+
+
+
+{% block content %}
+
+
+
+<style>
+
+    /* Dynamic sizing variables for the item grid container and rows */
+
+    #inventoryGridContainer.size-s {
+
+        --img-height: 90px;
+
+        font-size: 0.85rem;
+
+    }
+
+    #inventoryGridContainer.size-s .card-body {
+
+        padding: 0.5rem;
+
+    }
+
+    #inventoryGridContainer.size-s .card-title {
+
+        font-size: 0.95rem;
+
+        margin-bottom: 0.25rem !important;
+
+    }
+
+
+
+    #inventoryGridContainer.size-m {
+
+        --img-height: 140px;
+
+        font-size: 0.9rem;
+
+    }
+
+    #inventoryGridContainer.size-m .card-body {
+
+        padding: 0.75rem;
+
+    }
+
+    #inventoryGridContainer.size-m .card-title {
+
+        font-size: 1.05rem;
+
+        margin-bottom: 0.35rem !important;
+
+    }
+
+
+
+    #inventoryGridContainer.size-l {
+
+        --img-height: 200px;
+
+        font-size: 1rem;
+
+    }
+
+    #inventoryGridContainer.size-l .card-body {
+
+        padding: 1rem;
+
+    }
+
+    #inventoryGridContainer.size-l .card-title {
+
+        font-size: 1.25rem;
+
+        margin-bottom: 0.5rem !important;
+
+    }
+
+
+
+    /* Apply the dynamic image container height */
+
+    #inventoryGridContainer .card-img-container {
+
+        height: var(--img-height, 200px);
+
+        transition: height 0.2s ease-in-out;
+
+    }
+
+</style>
+
+
+
+<!-- Title Block on Top -->
+
+<div class="mb-2">
+
+    <h2 class="mb-0 fs-3">Item Inventory</h2>
+
+    <small class="text-muted">{{ inventory_items|length }} item(s) found</small>
+
+</div>
+
+
+
+<!-- Controls Bar on a Separate Line Underneath -->
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-nowrap overflow-x-auto gap-3 py-1">
+
+    <!-- Left Side: Filter and View dropdown buttons -->
+
+    <div class="d-flex align-items-center gap-2 flex-shrink-0">
+
+        {% set stock_mode = filters.stock_display | default('selling') %}
+
+        <button type="button" id="stockDisplayToggleBtn" class="btn btn-outline-secondary btn-sm text-nowrap" onclick="cycleStockDisplay()" title="Cycle stock status">
+
+            📦 <span class="d-none d-md-inline">
+
+                {% if stock_mode == 'selling' %}Selling Only
+
+                {% elif stock_mode == 'all' %}Show All
+
+                {% else %}Inactive/Other{% endif %}
+
+            </span>
+
+        </button>
+
+
+
+        <button type="button" class="btn btn-outline-secondary btn-sm text-nowrap" data-bs-toggle="modal" data-bs-target="#filterModal">
+
+            🔍 Filter
+
+            {% if filters.q or filters.itmgrp or filters.stock_filter or filters.oneoff or filters.is_active != '1' or (stock_mode and stock_mode != 'selling') %}
+
+                <span class="badge bg-primary rounded-pill">!</span>
+
+            {% endif %}
+
+        </button>
+
+    </div>
+
+
+
+    <!-- Middle: S, M, L Card Size Toggles -->
+
+    <div id="sizeToggleWrapper" class="btn-group btn-group-sm flex-shrink-0" role="group" aria-label="Card Size Toggle">
+
+        <input type="radio" class="btn-check" name="cardSizeRadio" id="sizeS" autocomplete="off" onclick="setCardSize('S')">
+
+        <label class="btn btn-outline-secondary" for="sizeS">S</label>
+
+
+
+        <input type="radio" class="btn-check" name="cardSizeRadio" id="sizeM" autocomplete="off" onclick="setCardSize('M')">
+
+        <label class="btn btn-outline-secondary" for="sizeM">M</label>
+
+
+
+        <input type="radio" class="btn-check" name="cardSizeRadio" id="sizeL" autocomplete="off" checked onclick="setCardSize('L')">
+
+        <label class="btn btn-outline-secondary" for="sizeL">L</label>
+
+    </div>
+
+
+
+    <!-- Right Side: View Mode Toggles with icons only -->
+
+    <div class="btn-group btn-group-sm flex-shrink-0" role="group" aria-label="Layout View Toggle">
+
+        <button type="button" id="btnViewVisual" class="btn btn-outline-primary active px-3" onclick="switchViewMode('visual')" title="Visual Gallery View">
+
+            🖼️
+
+        </button>
+
+        <button type="button" id="btnViewList" class="btn btn-outline-primary px-3" onclick="switchViewMode('list')" title="Compact List View">
+
+            📋
+
+        </button>
+
+    </div>
+
+</div>
+
+
+
+{# --- Active Filter Indicators --- #}
+
+{% if filters.q or filters.itmgrp or filters.stock_filter or filters.oneoff or filters.is_active != '1' or (stock_mode and stock_mode != 'selling') %}
+
+<div class="alert alert-info py-2 px-3 d-flex align-items-center justify-content-between mb-3">
+
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+
+        <small class="fw-bold">Active Filters:</small>
+
+        {% if filters.q %}<span class="badge bg-light text-dark border">Search: "{{ filters.q }}"</span>{% endif %}
+
+        {% if filters.is_active == '0' %}<span class="badge bg-light text-dark border">Status: Inactive Only</span>{% elif filters.is_active == 'all' %}<span class="badge bg-light text-dark border">Status: All</span>{% endif %}
+
+        {% if stock_mode == 'selling' %}<span class="badge bg-light text-dark border">Display: Currently Selling</span>{% elif stock_mode == 'all' %}<span class="badge bg-light text-dark border">Display: All Items</span>{% endif %}
+
+        {% if filters.stock_filter %}
+
+            <span class="badge bg-light text-dark border">Stock Filter: 
+
+                {% if filters.stock_filter == 'out' %}Out of Stock (0){% elif filters.stock_filter == 'in' %}In Stock (>0){% endif %}
+
+            </span>
+
+        {% endif %}
+
+        {% if filters.itmgrp %}<span class="badge bg-light text-dark border">Group: {{ filters.itmgrp }}</span>{% endif %}
+
+        {% if filters.oneoff == '1' %}<span class="badge bg-light text-dark border">One-Off Only</span>{% endif %}
+
+    </div>
+
+    <a href="{{ url_for('item_bp.item_inventory') }}" class="btn btn-sm btn-link text-decoration-none p-0">Clear All</a>
+
+</div>
+
+{% endif %}
+
+
+
+<!-- 1. Visual Gallery View Mode Container -->
+
+<div id="visualViewContainer">
+
+    <div id="inventoryGridContainer" class="row row-cols-1 g-3 size-l">
+
+        {% for item in inventory_items %}
+
+        {% set stock = item.CURRENT_STOCK if item.CURRENT_STOCK is not none else 0 %}
+
+        
+
+        {% set img_src = item.ITMIMG %}
+
+        {% if img_src %}
+
+            {% if not img_src.startswith('http') and not img_src.startswith('/') and not img_src.startswith('static/') %}
+
+                {% set img_src = 'static/' + img_src %}
+
+            {% endif %}
+
+        {% endif %}
+
+
+
+        <div class="col">
+
+            <div class="card h-100 shadow-sm border position-relative">
+
+                
+
+                <div class="card-header py-1 px-2 d-flex justify-content-between align-items-center 
+
+                    {% if stock <= 0 %}bg-danger text-white{% else %}bg-light text-dark border-bottom{% endif %}">
+
+                    <span class="small fw-bold">Stock:</span>
+
+                    <span class="badge {% if stock <= 0 %}bg-white text-danger{% else %}bg-success text-white{% endif %} fs-6 px-2 py-0">
+
+                        {{ stock }}
+
+                    </span>
+
+                </div>
+
+
+
+                <div class="bg-dark text-center overflow-hidden position-relative card-img-container">
+
+                    {% if img_src %}
+
+                        {% set resolved_img_url = url_for('static', filename=img_src.replace('static/', '')) if img_src.startswith('static/') else img_src %}
+
+                        <a href="javascript:void(0);" data-bs-toggle="modal" data-bs-target="#imagePreviewModal" 
+
+                           data-imgsrc="{{ resolved_img_url }}" data-itemname="{{ item.ITMNAME }}">
+
+                            <img src="{{ resolved_img_url }}" class="w-100 h-100" style="object-fit: contain; background-color: #f8f9fa; transition: transform 0.2s;" alt="{{ item.ITMNAME }}"
+
+                                 onmouseover="this.style.transform='scale(1.02)';" onmouseout="this.style.transform='scale(1.00)';">
+
+                        </a>
+
+                    {% else %}
+
+                        <div class="w-100 h-100 d-flex flex-column align-items-center justify-content-center bg-secondary text-white">
+
+                            <span style="font-size: 2rem;">📷</span>
+
+                            <small class="mt-1">No Image Available</small>
+
+                        </div>
+
+                    {% endif %}
+
+                </div>
+
+
+
+                <div class="card-body d-flex flex-column">
+
+                    <div class="mb-1 text-muted small">
+
+                        {% if item.ITMGRP %}<span class="badge bg-secondary">{{ item.ITMGRP }}</span>{% endif %}
+
+                        {% if item.ONEOFF %}<span class="badge bg-warning text-dark">One-Off</span>{% endif %}
+
+                    </div>
+
+
+
+                    <h5 class="card-title mb-2">
+
+                        <a href="{{ url_for('item_bp.item_detail', item_id=item.ITEMID) }}" class="text-decoration-none text-dark stretched-link">
+
+                            {{ item.ITMNAME }}
+
+                        </a>
+
+                    </h5>
+
+
+
+                    <div class="mt-auto pt-2 border-top d-flex justify-content-between align-items-center">
+
+                        <span class="fw-bold text-success">
+
+                            {% if item.ITMPRICE %}${{ "%.2f"|format(item.ITMPRICE) }}{% else %}—{% endif %}
+
+                        </span>
+
+                        <span class="text-muted small">
+
+                            {% if item.LAST_UPDATED %}{{ item.LAST_UPDATED.split('T')[0].split(' ')[0] }}{% else %}Never{% endif %}
+
+                        </span>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        {% else %}
+
+        <div class="col-12">
+
+            <div class="text-center py-5 text-muted bg-white rounded shadow-sm border">
+
+                <h4>No items match your criteria.</h4>
+
+                <p class="mb-3">Try adjusting your filters or search options.</p>
+
+                <a href="{{ url_for('item_bp.item_inventory') }}" class="btn btn-outline-primary btn-sm">Reset Filters</a>
+
+            </div>
+
+        </div>
+
+        {% endfor %}
+
+    </div>
+
+</div>
+
+
+
+<!-- 2. Compact List View Mode Container with Dark Header & Column Sorting -->
+
+<div id="listViewContainer" style="display: none;">
+
+    <div class="card shadow-sm border">
+
+        <div class="table-responsive">
+
+            <table class="table table-hover align-middle mb-0">
+
+                <thead class="table-dark text-white">
+
+                    <tr>
+
+                        <th style="width: 60px;">Image</th>
+
+                        <th>
+
+                            <a href="{{ url_for('item_bp.item_inventory', sort_by='ITMNAME', order='desc' if current_sort == 'ITMNAME' and current_order == 'asc' else 'asc', q=filters.q, itmgrp=filters.itmgrp, stock_filter=filters.stock_filter, stock_display=filters.stock_display, is_active=filters.is_active, oneoff=filters.oneoff) }}" class="text-white text-decoration-none">
+
+                                Item Name {% if current_sort == 'ITMNAME' %}{% if current_order == 'asc' %}▲{% else %}▼{% endif %}{% endif %}
+
+                            </a>
+
+                        </th>
+
+                        <th>
+
+                            <a href="{{ url_for('item_bp.item_inventory', sort_by='ITMGRP', order='desc' if current_sort == 'ITMGRP' and current_order == 'asc' else 'asc', q=filters.q, itmgrp=filters.itmgrp, stock_filter=filters.stock_filter, stock_display=filters.stock_display, is_active=filters.is_active, oneoff=filters.oneoff) }}" class="text-white text-decoration-none">
+
+                                Group {% if current_sort == 'ITMGRP' %}{% if current_order == 'asc' %}▲{% else %}▼{% endif %}{% endif %}
+
+                            </a>
+
+                        </th>
+
+                        <th class="text-center">One-Off</th>
+
+                        <th class="text-end">Price</th>
+
+                        <th class="text-center">
+
+                            <a href="{{ url_for('item_bp.item_inventory', sort_by='CURRENT_STOCK', order='desc' if current_sort == 'CURRENT_STOCK' and current_order == 'asc' else 'asc', q=filters.q, itmgrp=filters.itmgrp, stock_filter=filters.stock_filter, stock_display=filters.stock_display, is_active=filters.is_active, oneoff=filters.oneoff) }}" class="text-white text-decoration-none">
+
+                                Current Stock {% if current_sort == 'CURRENT_STOCK' %}{% if current_order == 'asc' %}▲{% else %}▼{% endif %}{% endif %}
+
+                            </a>
+
+                        </th>
+
+                        <th class="text-end">
+
+                            <a href="{{ url_for('item_bp.item_inventory', sort_by='LAST_UPDATED', order='desc' if current_sort == 'LAST_UPDATED' and current_order == 'asc' else 'asc', q=filters.q, itmgrp=filters.itmgrp, stock_filter=filters.stock_filter, stock_display=filters.stock_display, is_active=filters.is_active, oneoff=filters.oneoff) }}" class="text-white text-decoration-none">
+
+                                Last Updated {% if current_sort == 'LAST_UPDATED' %}{% if current_order == 'asc' %}▲{% else %}▼{% endif %}{% endif %}
+
+                            </a>
+
+                        </th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    {% for item in inventory_items %}
+
+                    {% set stock = item.CURRENT_STOCK if item.CURRENT_STOCK is not none else 0 %}
+
+                    {% set img_src = item.ITMIMG %}
+
+                    {% if img_src and not img_src.startswith('http') and not img_src.startswith('/') and not img_src.startswith('static/') %}
+
+                        {% set img_src = 'static/' + img_src %}
+
+                    {% endif %}
+
+                    <tr>
+
+                        <td>
+
+                            {% if img_src %}
+
+                                {% set resolved_img_url = url_for('static', filename=img_src.replace('static/', '')) if img_src.startswith('static/') else img_src %}
+
+                                <a href="javascript:void(0);" data-bs-toggle="modal" data-bs-target="#imagePreviewModal" 
+
+                                   data-imgsrc="{{ resolved_img_url }}" data-itemname="{{ item.ITMNAME }}">
+
+                                    <img src="{{ resolved_img_url }}" class="rounded border" style="width: 40px; height: 40px; object-fit: cover;" alt="">
+
+                                </a>
+
+                            {% else %}
+
+                                <span class="text-muted small">N/A</span>
+
+                            {% endif %}
+
+                        </td>
+
+                        <td class="fw-bold">
+
+                            <a href="{{ url_for('item_bp.item_detail', item_id=item.ITEMID) }}" class="text-decoration-none">
+
+                                {{ item.ITMNAME }}
+
+                            </a>
+
+                        </td>
+
+                        <td>
+
+                            {% if item.ITMGRP %}<span class="badge bg-secondary">{{ item.ITMGRP }}</span>{% else %}<span class="text-muted">—</span>{% endif %}
+
+                        </td>
+
+                        <td class="text-center">
+
+                            {% if item.ONEOFF %}<span class="badge bg-warning text-dark">Yes</span>{% else %}<span class="text-muted">No</span>{% endif %}
+
+                        </td>
+
+                        <td class="text-end fw-bold text-success">
+
+                            {% if item.ITMPRICE %}${{ "%.2f"|format(item.ITMPRICE) }}{% else %}—{% endif %}
+
+                        </td>
+
+                        <td class="text-center">
+
+                            <span class="badge {% if stock <= 0 %}bg-danger{% else %}bg-success{% endif %} px-2 py-1">
+
+                                {{ stock }}
+
+                            </span>
+
+                        </td>
+
+                        <td class="text-end text-muted small">
+
+                            {% if item.LAST_UPDATED %}{{ item.LAST_UPDATED.split('T')[0].split(' ')[0] }}{% else %}Never{% endif %}
+
+                        </td>
+
+                    </tr>
+
+                    {% else %}
+
+                    <tr>
+
+                        <td colspan="7" class="text-center py-4 text-muted">No items match your criteria.</td>
+
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<!-- Image Preview Modal -->
+
+<div class="modal fade" id="imagePreviewModal" tabindex="-1" aria-labelledby="imagePreviewModalLabel" aria-hidden="true">
+
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+
+        <div class="modal-content">
+
+            <div class="modal-header bg-dark text-white">
+
+                <h5 class="modal-title" id="imagePreviewModalLabel">Item Image Preview</h5>
+
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+
+            </div>
+
+            <div class="modal-body text-center bg-light">
+
+                <img id="modalPreviewImg" src="" alt="Item Preview" class="img-fluid rounded shadow-sm" style="max-height: 75vh; object-fit: contain;">
+
+            </div>
+
+            <div class="modal-footer justify-content-between">
+
+                <span id="modalImageCaption" class="text-muted fw-bold"></span>
+
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<!-- Filter Modal Popup -->
+
+<div class="modal fade" id="filterModal" tabindex="-1" aria-labelledby="filterModalLabel" aria-hidden="true">
+
+    <div class="modal-dialog modal-dialog-centered">
+
+        <div class="modal-content">
+
+            <div class="modal-header bg-dark text-white">
+
+                <h5 class="modal-title" id="filterModalLabel">Filter Item Inventory</h5>
+
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+
+            </div>
+
+            <form action="{{ url_for('item_bp.item_inventory') }}" method="GET" id="filterForm">
+
+                <input type="hidden" name="sort_by" value="{{ current_sort }}">
+
+                <input type="hidden" name="order" value="{{ current_order }}">
+
+                <input type="hidden" name="stock_display" id="stockDisplayInput" value="{{ stock_mode }}">
+
+
+
+                <div class="modal-body">
+
+                    <div class="mb-3">
+
+                        <label class="form-label fw-bold">Search Item Name</label>
+
+                        <input type="text" name="q" class="form-control" value="{{ filters.q }}" placeholder="Keywords...">
+
+                    </div>
+
+
+
+                    <div class="row mb-3">
+
+                        <div class="col-md-6">
+
+                            <label for="is_active" class="form-label fw-bold">Status</label>
+
+                            <select class="form-select" id="is_active" name="is_active">
+
+                                <option value="1" {% if filters.is_active == '1' %}selected{% endif %}>Active Only</option>
+
+                                <option value="0" {% if filters.is_active == '0' %}selected{% endif %}>Inactive Only</option>
+
+                                <option value="all" {% if filters.is_active == 'all' %}selected{% endif %}>All Statuses</option>
+
+                            </select>
+
+                        </div>
+
+                        <div class="col-md-6">
+
+                            <label class="form-label fw-bold">Stock Status Level</label>
+
+                            <select name="stock_filter" class="form-select">
+
+                                <option value="">-- All Stock Levels --</option>
+
+                                <option value="out" {% if filters.stock_filter == 'out' %}selected{% endif %}>Out of Stock (0)</option>
+
+                                <option value="in" {% if filters.stock_filter == 'in' %}selected{% endif %}>In Stock (&gt; 0)</option>
+
+                            </select>
+
+                        </div>
+
+                    </div>
+
+
+
+                    <div class="mb-3">
+
+                        <label class="form-label fw-bold">Item Group</label>
+
+                        <select name="itmgrp" class="form-select">
+
+                            <option value="">-- All Groups --</option>
+
+                            {% for g in groups %}
+
+                                <option value="{{ g.ITMGRP }}" {% if filters.itmgrp == g.ITMGRP %}selected{% endif %}>{{ g.ITMGRP }}</option>
+
+                            {% endfor %}
+
+                        </select>
+
+                    </div>
+
+
+
+                    <div class="mb-3">
+
+                        <label class="form-label fw-bold">One-Off Filter</label>
+
+                        <select name="oneoff" class="form-select">
+
+                            <option value="">-- Any --</option>
+
+                            <option value="1" {% if filters.oneoff == '1' %}selected{% endif %}>One-Off Items Only</option>
+
+                            <option value="0" {% if filters.oneoff == '0' %}selected{% endif %}>Regular Catalog Items</option>
+
+                        </select>
+
+                    </div>
+
+                </div>
+
+                <div class="modal-footer justify-content-between">
+
+                    <a href="{{ url_for('item_bp.item_inventory') }}" class="btn btn-outline-secondary">Clear Filters</a>
+
+                    <button type="submit" class="btn btn-primary">Apply Filters</button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<script>
+
+function cycleStockDisplay() {
+
+    const urlParams = new URLSearchParams(window.location.search);
+
+    let currentMode = urlParams.get('stock_display') || 'selling';
+
+    
+
+    let nextMode = 'selling';
+
+    if (currentMode === 'selling') {
+
+        nextMode = 'all';
+
+    } else if (currentMode === 'all') {
+
+        nextMode = 'inactive_selling';
+
+    } else {
+
+        nextMode = 'selling';
+
+    }
+
+    
+
+    urlParams.set('stock_display', nextMode);
+
+    window.location.search = urlParams.toString();
+
+}
+
+
+
+function setCardSize(size) {
+
+    const grid = document.getElementById('inventoryGridContainer');
+
+    
+
+    grid.classList.remove('size-s', 'size-m', 'size-l', 'row-cols-sm-3', 'row-cols-md-4', 'row-cols-lg-6', 'row-cols-sm-2', 'row-cols-md-3', 'row-cols-lg-5', 'row-cols-lg-4', 'g-4', 'g-3');
+
+    grid.classList.add('g-3');
+
+
+
+    if (size === 'S') {
+
+        grid.classList.add('size-s', 'row-cols-sm-3', 'row-cols-md-4', 'row-cols-lg-6');
+
+    } else if (size === 'M') {
+
+        grid.classList.add('size-m', 'row-cols-sm-2', 'row-cols-md-3', 'row-cols-lg-5');
+
+    } else {
+
+        grid.classList.add('size-l', 'row-cols-sm-2', 'row-cols-md-3', 'row-cols-lg-4', 'g-4');
+
+    }
+
+    
+
+    localStorage.setItem('preferredItemCardSize', size);
+
+}
+
+
+
+function switchViewMode(mode) {
+
+    const visualContainer = document.getElementById('visualViewContainer');
+
+    const listContainer = document.getElementById('listViewContainer');
+
+    const btnVisual = document.getElementById('btnViewVisual');
+
+    const btnList = document.getElementById('btnViewList');
+
+    const sizeToggleWrapper = document.getElementById('sizeToggleWrapper');
+
+
+
+    if (mode === 'list') {
+
+        visualContainer.style.display = 'none';
+
+        listContainer.style.display = 'block';
+
+        btnList.classList.add('active');
+
+        btnVisual.classList.remove('active');
+
+        // Hide S/M/L buttons when in list view since sizing only applies to visual cards
+
+        if (sizeToggleWrapper) sizeToggleWrapper.style.visibility = 'hidden';
+
+    } else {
+
+        visualContainer.style.display = 'block';
+
+        listContainer.style.display = 'none';
+
+        btnVisual.classList.add('active');
+
+        btnList.classList.remove('active');
+
+        if (sizeToggleWrapper) sizeToggleWrapper.style.visibility = 'visible';
+
+    }
+
+    localStorage.setItem('preferredItemViewMode', mode);
+
+}
+
+
+
+document.addEventListener('DOMContentLoaded', function() {
+
+    // Restore preferred view mode
+
+    const savedViewMode = localStorage.getItem('preferredItemViewMode') || 'visual';
+
+    switchViewMode(savedViewMode);
+
+
+
+    // Restore preferred card size
+
+    const savedSize = localStorage.getItem('preferredItemCardSize') || 'L';
+
+    const radioBtn = document.getElementById('size' + savedSize);
+
+    if (radioBtn) {
+
+        radioBtn.checked = true;
+
+        setCardSize(savedSize);
+
+    }
+
+
+
+    const imagePreviewModal = document.getElementById('imagePreviewModal');
+
+    if (imagePreviewModal) {
+
+        imagePreviewModal.addEventListener('show.bs.modal', function (event) {
+
+            const button = event.relatedTarget;
+
+            const imgSrc = button.getAttribute('data-imgsrc');
+
+            const itemName = button.getAttribute('data-itemname');
+
+            
+
+            document.getElementById('modalPreviewImg').src = imgSrc;
+
+            document.getElementById('modalImageCaption').textContent = itemName;
+
+        });
+
+    }
+
+});
+
+</script>
+
+{% endblock %}

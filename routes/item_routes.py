@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 
 import os
 
@@ -1965,3 +1965,221 @@ def color_variation_select():
     
 
     return render_template('item_color_variation_select.html', groups=groups, items=items)
+
+@item_bp.route('/item/inventory', methods=['GET'])
+
+def item_inventory():
+
+    db = get_db()
+
+
+
+    sort_by = request.args.get('sort_by', 'ITMNAME')
+
+    order = request.args.get('order', 'asc').lower()
+
+    if order not in ['asc', 'desc']:
+
+        order = 'asc'
+
+
+
+    q = request.args.get('q', '').strip()
+
+    itmgrp = request.args.get('itmgrp', '').strip()
+
+    stock_filter = request.args.get('stock_filter', '').strip()
+
+    stock_display_mode = request.args.get('stock_display', 'selling')  # Default to currently selling items
+
+    is_active = request.args.get('is_active', '1').strip()
+
+    oneoff = request.args.get('oneoff', '').strip()
+
+
+
+    # Column mapping for sorting
+
+    sql_sort_column = {
+
+        'ITEMID': 'ITEMID', 
+
+        'ITMNAME': 'ITMNAME', 
+
+        'ITMGRP': 'ITMGRP',
+
+        'CURRENT_STOCK': 'CURRENT_STOCK',
+
+        'CURRENT': 'CURRENT',
+
+        'LAST_UPDATED': 'LAST_UPDATED'
+
+    }.get(sort_by, 'ITMNAME')
+
+
+
+    where_clauses = []
+
+    params = []
+
+
+
+    if is_active != 'all':
+
+        where_clauses.append("i.ISACTIVE = ?")
+
+        params.append(1 if is_active == '1' else 0)
+
+
+
+    if stock_display_mode == 'selling':
+
+        where_clauses.append("i.CURRENT = 1")
+
+    elif stock_display_mode == 'inactive_selling':
+
+        where_clauses.append("i.CURRENT = 0")
+
+
+
+    if q:
+
+        where_clauses.append("(i.ITMNAME LIKE ? OR i.ITMNOTE LIKE ?)")
+
+        params.extend([f"%{q}%", f"%{q}%"])
+
+    if itmgrp:
+
+        where_clauses.append("i.ITMGRP = ?")
+
+        params.append(itmgrp)
+
+    if oneoff:
+
+        where_clauses.append("i.ONEOFF = ?")
+
+        params.append(1 if oneoff == '1' else 0)
+
+
+
+    where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+
+
+
+    stock_where_clauses = []
+
+    if stock_filter == 'out':
+
+        stock_where_clauses.append("CURRENT_STOCK = 0")
+
+    elif stock_filter == 'in':
+
+        stock_where_clauses.append("CURRENT_STOCK > 0")
+
+
+
+    stock_where_sql = f"WHERE {' AND '.join(stock_where_clauses)}" if stock_where_clauses else ""
+
+
+
+    query = f"""
+
+        SELECT ITEMID, ITMNAME, ITMGRP, ITMLEN, ITMWID, ONEOFF, CURRENT, 
+
+               ITMIMG, ITMNOTE, ISACTIVE, ITMPRICE, CURRENT_STOCK, LAST_UPDATED
+
+        FROM (
+
+            SELECT ITEMID, ITMNAME, ITMGRP, ITMLEN, ITMWID, ONEOFF, CURRENT, 
+
+                   ITMIMG, ITMNOTE, ISACTIVE, ITMPRICE, CURRENT_STOCK, LAST_UPDATED
+
+            FROM (
+
+                SELECT i.ITEMID, i.ITMNAME, i.ITMGRP, i.ITMLEN, i.ITMWID, i.ONEOFF, i.CURRENT, 
+
+                       i.ITMIMG, i.ITMNOTE, i.ISACTIVE, p.ITMPRICE,
+
+                       COALESCE((
+
+                           SELECT ii.ITMSTOCK FROM ITMINV ii 
+
+                           WHERE ii.ITEMID = i.ITEMID 
+
+                           ORDER BY ii.TS DESC, ii.ITMTRNID DESC LIMIT 1
+
+                       ), 0) AS CURRENT_STOCK,
+
+                       (
+
+                           SELECT ii.TS FROM ITMINV ii 
+
+                           WHERE ii.ITEMID = i.ITEMID 
+
+                           ORDER BY ii.TS DESC, ii.ITMTRNID DESC LIMIT 1
+
+                       ) AS LAST_UPDATED
+
+                FROM ITM i
+
+                LEFT JOIN (
+
+                    SELECT ITEMID, ITMPRICE 
+
+                    FROM IPC 
+
+                    WHERE ENDDATE IS NULL OR ENDDATE >= DATE('now')
+
+                ) p ON i.ITEMID = p.ITEMID
+
+                {where_sql}
+
+            ) inner_sub
+
+        ) sub
+
+        {stock_where_sql}
+
+        ORDER BY {sql_sort_column} {order.upper()}
+
+    """
+
+    inventory_items = db.execute(query, params).fetchall()
+
+
+
+    groups = db.execute("SELECT DISTINCT ITMGRP FROM ITM WHERE ITMGRP IS NOT NULL AND ITMGRP != '' ORDER BY ITMGRP ASC").fetchall()
+
+
+
+    return render_template(
+
+        'item_inventory.html',
+
+        inventory_items=inventory_items, 
+
+        groups=groups,
+
+        current_sort=sort_by,
+
+        current_order=order,
+
+        today_date=date.today().isoformat(),
+
+        filters={
+
+            'q': q, 
+
+            'itmgrp': itmgrp, 
+
+            'stock_filter': stock_filter, 
+
+            'stock_display': stock_display_mode,
+
+            'is_active': is_active, 
+
+            'oneoff': oneoff
+
+        }
+
+    )
