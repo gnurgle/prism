@@ -60,21 +60,13 @@
                             <input type="number" name="id_val" class="form-control" placeholder="Item ID" required>
                             <button class="btn btn-outline-primary" type="submit">Prices</button>
                         </form>
-                        <form action="" method="GET" class="input-group input-group-sm" onsubmit="this.action = '/template/whitespaces/' + this.id_val.value; return true;">
-                            <input type="number" name="id_val" class="form-control" placeholder="Item ID" required>
-                            <button class="btn btn-outline-primary" type="submit">Spaces</button>
-                        </form>
                         <form action="" method="GET" class="input-group input-group-sm" onsubmit="this.action = '/template/' + this.id_val.value + '/edit'; return true;">
                             <input type="number" name="id_val" class="form-control" placeholder="Item ID" required>
                             <button class="btn btn-outline-primary" type="submit">Tmpl Edit</button>
                         </form>
                         <form action="" method="GET" class="input-group input-group-sm" onsubmit="this.action = '/edit_components/' + this.id_val.value; return true;">
                             <input type="number" name="id_val" class="form-control" placeholder="Item ID" required>
-                            <button class="btn btn-outline-primary" type="submit">Comps A</button>
-                        </form>
-                        <form action="" method="GET" class="input-group input-group-sm" onsubmit="this.action = '/edit_componentsb/' + this.id_val.value; return true;">
-                            <input type="number" name="id_val" class="form-control" placeholder="Item ID" required>
-                            <button class="btn btn-outline-primary" type="submit">Comps B</button>
+                            <button class="btn btn-outline-primary" type="submit">Comps Edit</button>
                         </form>
                     </div>
                 </div>
@@ -85,6 +77,8 @@
                     <div class="d-grid gap-1 mt-2">
                         <a href="{{ url_for('item_bp.create_item') }}" class="btn btn-sm btn-light border text-start">Create Item</a>
                         <a href="{{ url_for('item_bp.color_variation_select') }}" class="btn btn-sm btn-light border text-start">Create Color Variation Item</a>
+                        <a href="{{ url_for('item_bp.item_inventory') }}" class="btn btn-sm btn-light border text-start">Item Inventory</a>
+                        <a href="{{ url_for('item_bp.item_list') }}" class="btn btn-sm btn-light border text-start">Item List</a>
                         <a href="{{ url_for('component_bp.build_components') }}" class="btn btn-sm btn-light border text-start">Build Components</a>
                     </div>
                 </div>

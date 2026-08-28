@@ -2183,3 +2183,153 @@ def item_inventory():
         }
 
     )
+
+
+
+@item_bp.route('/item/list', methods=['GET'])
+
+def item_list():
+
+    db = get_db()
+
+
+
+    sort_by = request.args.get('sort_by', 'ITMNAME')
+
+    order = request.args.get('order', 'asc').lower()
+
+    if order not in ['asc', 'desc']:
+
+        order = 'asc'
+
+
+
+    q = request.args.get('q', '').strip()
+
+    itmgrp = request.args.get('itmgrp', '').strip()
+
+    oneoff = request.args.get('oneoff', '').strip()
+
+    is_active = request.args.get('is_active', '1').strip()
+
+    actively_selling = request.args.get('actively_selling', '').strip()
+
+
+
+    # Explicitly enforce case-insensitive alphabetical collation for text fields
+
+    sql_sort_column = {
+
+        'ITMNAME': 'i.ITMNAME COLLATE NOCASE',
+
+        'ITMGRP': 'i.ITMGRP COLLATE NOCASE',
+
+        'ONEOFF': 'i.ONEOFF',
+
+        'ITMPRICE': 'p.ITMPRICE',
+
+        'ISACTIVE': 'i.ISACTIVE'
+
+    }.get(sort_by, 'i.ITMNAME COLLATE NOCASE')
+
+
+
+    where_clauses = []
+
+    params = []
+
+
+
+    if is_active != 'all':
+
+        where_clauses.append("i.ISACTIVE = ?")
+
+        params.append(1 if is_active == '1' else 0)
+
+
+
+    if q:
+
+        where_clauses.append("(i.ITMNAME LIKE ? OR i.ITMNOTE LIKE ?)")
+
+        params.extend([f"%{q}%", f"%{q}%"])
+
+    if itmgrp:
+
+        where_clauses.append("i.ITMGRP = ?")
+
+        params.append(itmgrp)
+
+    if oneoff:
+
+        where_clauses.append("i.ONEOFF = ?")
+
+        params.append(oneoff)
+
+    
+
+    if actively_selling == '1':
+
+        where_clauses.append("i.CURRENT = 1")
+
+    elif actively_selling == '0':
+
+        where_clauses.append("i.CURRENT = 0")
+
+
+
+    where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+
+
+
+    query = f"""
+
+        SELECT DISTINCT i.*, p.ITMPRICE
+
+        FROM ITM i
+
+        LEFT JOIN (
+
+            SELECT ITEMID, ITMPRICE 
+
+            FROM IPC 
+
+            WHERE ENDDATE IS NULL OR ENDDATE >= DATE('now')
+
+        ) p ON i.ITEMID = p.ITEMID
+
+        {where_sql}
+
+        ORDER BY {sql_sort_column} {order.upper()}
+
+    """
+
+    raw_items = db.execute(query, params).fetchall()
+
+    items = [dict(row) for row in raw_items]
+
+
+
+    groups = db.execute("SELECT DISTINCT ITMGRP FROM ITM WHERE ITMGRP IS NOT NULL AND ITMGRP != '' ORDER BY ITMGRP COLLATE NOCASE").fetchall()
+
+
+
+    return render_template(
+
+        'item_list.html',
+
+        items=items,
+
+        groups=groups,
+
+        current_sort=sort_by,
+
+        current_order=order,
+
+        filters={
+
+            'q': q, 'itmgrp': itmgrp, 'oneoff': oneoff, 'is_active': is_active, 'actively_selling': actively_selling
+
+        }
+
+    )

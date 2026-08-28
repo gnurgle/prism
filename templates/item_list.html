@@ -1,0 +1,646 @@
+{% extends 'base.html' %}
+
+
+
+{% block content %}
+
+<style>
+
+    /* Dynamic sizing variables for the item grid container */
+
+    #itemGridContainer.size-s { --img-height: 90px; font-size: 0.85rem; }
+
+    #itemGridContainer.size-s .card-body { padding: 0.5rem; }
+
+    #itemGridContainer.size-s .card-title { font-size: 0.95rem; margin-bottom: 0.25rem !important; }
+
+
+
+    #itemGridContainer.size-m { --img-height: 140px; font-size: 0.9rem; }
+
+    #itemGridContainer.size-m .card-body { padding: 0.75rem; }
+
+    #itemGridContainer.size-m .card-title { font-size: 1.05rem; margin-bottom: 0.35rem !important; }
+
+
+
+    #itemGridContainer.size-l { --img-height: 200px; font-size: 1rem; }
+
+    #itemGridContainer.size-l .card-body { padding: 1rem; }
+
+    #itemGridContainer.size-l .card-title { font-size: 1.25rem; margin-bottom: 0.5rem !important; }
+
+
+
+    #itemGridContainer .card-img-container { height: var(--img-height, 200px); transition: height 0.2s ease-in-out; }
+
+</style>
+
+
+
+<div class="d-flex justify-content-between align-items-center mb-2">
+
+    <div>
+
+        <h2 class="mb-0 fs-3">Item Directory</h2>
+
+        <small class="text-muted">Showing {{ items|length }} item(s)</small>
+
+    </div>
+
+    <div class="d-flex gap-2">
+
+        <a href="{{ url_for('item_bp.create_item') }}" class="btn btn-primary btn-sm">+ Add New Item</a>
+
+        <a href="{{ url_for('item_bp.color_variation_select') }}" class="btn btn-outline-primary btn-sm">+ Add New Color Variation</a>
+
+    </div>
+
+</div>
+
+
+<!-- Controls Bar: View Mode Toggles, Card Size S/M/L Toggles, and Filter Button Swapped to the Right -->
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-nowrap overflow-x-auto gap-3 py-1">
+
+    <!-- View Mode Toggles (Gallery vs List) on the Left -->
+
+    <div class="d-flex align-items-center gap-2 flex-shrink-0">
+
+        <div class="btn-group btn-group-sm" role="group" aria-label="Layout View Toggle">
+
+            <button type="button" id="btnViewVisual" class="btn btn-outline-primary px-3" onclick="switchViewMode('visual')" title="Visual Gallery View">🖼️</button>
+
+            <button type="button" id="btnViewList" class="btn btn-outline-primary active px-3" onclick="switchViewMode('list')" title="Compact List View">📋</button>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- S, M, L Card Size Toggles (Visible in Visual Mode) -->
+
+    <div id="sizeToggleWrapper" class="btn-group btn-group-sm flex-shrink-0" role="group" aria-label="Card Size Toggle" style="display: none;">
+
+        <input type="radio" class="btn-check" name="cardSizeRadio" id="sizeS" autocomplete="off" onclick="setCardSize('S')">
+
+        <label class="btn btn-outline-secondary" for="sizeS">S</label>
+
+        <input type="radio" class="btn-check" name="cardSizeRadio" id="sizeM" autocomplete="off" onclick="setCardSize('M')">
+
+        <label class="btn btn-outline-secondary" for="sizeM">M</label>
+
+        <input type="radio" class="btn-check" name="cardSizeRadio" id="sizeL" autocomplete="off" checked onclick="setCardSize('L')">
+
+        <label class="btn btn-outline-secondary" for="sizeL">L</label>
+
+    </div>
+
+
+
+    <!-- Filter Results Button on the Right -->
+
+    <div class="d-flex align-items-center gap-2 flex-shrink-0">
+
+        <button type="button" class="btn btn-outline-secondary btn-sm text-nowrap" data-bs-toggle="modal" data-bs-target="#filterModal">
+
+            🔍 Filter Results
+
+            {% if filters.q or filters.itmgrp or filters.oneoff or filters.actively_selling or (filters.is_active and filters.is_active != '1') %}
+
+                <span class="badge bg-primary rounded-pill">Active</span>
+
+            {% endif %}
+
+        </button>
+
+    </div>
+
+</div>
+
+
+
+{# --- Active Filter Indicators --- #}
+
+{% if filters.q or filters.itmgrp or filters.oneoff or filters.actively_selling or (filters.is_active and filters.is_active != '1') %}
+
+<div class="alert alert-info py-2 px-3 d-flex align-items-center justify-content-between mb-3">
+
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+
+        <small class="fw-bold">Active Filters:</small>
+
+        {% if filters.q %}<span class="badge bg-light text-dark border">Search: "{{ filters.q }}"</span>{% endif %}
+
+        {% if filters.itmgrp %}<span class="badge bg-light text-dark border">Group: {{ filters.itmgrp }}</span>{% endif %}
+
+        {% if filters.oneoff == '1' %}<span class="badge bg-light text-dark border">One-Off Only</span>{% endif %}
+
+        {% if filters.actively_selling == '1' %}<span class="badge bg-light text-dark border">Actively Selling (Current)</span>{% endif %}
+
+        {% if filters.is_active == '0' %}<span class="badge bg-secondary text-white">Inactive Only</span>
+
+        {% elif filters.is_active == 'all' %}<span class="badge bg-secondary text-white">All Statuses</span>{% endif %}
+
+    </div>
+
+    <a href="{{ url_for('item_bp.item_list') }}" class="btn btn-sm btn-link text-decoration-none p-0">Clear All</a>
+
+</div>
+
+{% endif %}
+
+
+
+<!-- 1. Visual Gallery View Mode Container -->
+
+<div id="visualViewContainer" style="display: none;">
+
+    <div id="itemGridContainer" class="row row-cols-1 g-3 size-l">
+
+        {% for item in items %}
+
+        {% set img_src = item.ITMIMG %}
+
+        {% if img_src and not img_src.startswith('http') and not img_src.startswith('/') and not img_src.startswith('static/') %}
+
+            {% set img_src = 'static/' + img_src %}
+
+        {% endif %}
+
+        <div class="col">
+
+            <div class="card h-100 shadow-sm border position-relative">
+
+                <div class="bg-dark text-center overflow-hidden position-relative card-img-container">
+
+                    {% if img_src %}
+
+                        {% set resolved_img_url = url_for('static', filename=img_src.replace('static/', '')) if img_src.startswith('static/') else img_src %}
+
+                        <a href="javascript:void(0);" data-bs-toggle="modal" data-bs-target="#imagePreviewModal" data-imgsrc="{{ resolved_img_url }}" data-itemname="{{ item.ITMNAME }}">
+
+                            <img src="{{ resolved_img_url }}" class="w-100 h-100" style="object-fit: contain; background-color: #f8f9fa;" alt="{{ item.ITMNAME }}">
+
+                        </a>
+
+                    {% else %}
+
+                        <div class="w-100 h-100 d-flex flex-column align-items-center justify-content-center bg-secondary text-white">
+
+                            <span style="font-size: 2rem;">📷</span>
+
+                            <small class="mt-1">No Image</small>
+
+                        </div>
+
+                    {% endif %}
+
+                </div>
+
+                <div class="card-body d-flex flex-column">
+
+                    <div class="mb-1 text-muted small">
+
+                        {% if item.ITMGRP %}<span class="badge bg-secondary">{{ item.ITMGRP }}</span>{% endif %}
+
+                        {% if item.ONEOFF %}<span class="badge bg-warning text-dark">One-Off</span>{% endif %}
+
+                    </div>
+
+                    <h5 class="card-title mb-2">
+
+                        <a href="{{ url_for('item_bp.item_detail', item_id=item.ITEMID) }}" class="text-decoration-none text-dark stretched-link">
+
+                            {{ item.ITMNAME }}
+
+                        </a>
+
+                    </h5>
+
+                    <div class="mt-auto pt-2 border-top d-flex justify-content-between align-items-center">
+
+                        <span class="fw-bold text-success">
+
+                            {% if item.ITMPRICE %}${{ "%.2f"|format(item.ITMPRICE) }}{% else %}—{% endif %}
+
+                        </span>
+
+                        <span class="badge {{ 'bg-success' if item.ISACTIVE == 1 else 'bg-secondary' }}">
+
+                            {{ 'Active' if item.ISACTIVE == 1 else 'Inactive' }}
+
+                        </span>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        {% else %}
+
+        <div class="col-12">
+
+            <div class="text-center py-5 text-muted bg-white rounded shadow-sm border">
+
+                <h4>No items match your criteria.</h4>
+
+                <a href="{{ url_for('item_bp.item_list') }}" class="btn btn-outline-primary btn-sm mt-2">Reset Filters</a>
+
+            </div>
+
+        </div>
+
+        {% endfor %}
+
+    </div>
+
+</div>
+
+
+
+<!-- Macro helper for sortable headers -->
+
+{% macro sortable_th(column_key, label, align_class='') %}
+
+{% set next_order = 'desc' if current_sort == column_key and current_order == 'asc' else 'asc' %}
+
+<th class="{{ align_class }}">
+
+    <a href="{{ url_for('item_bp.item_list', sort_by=column_key, order=next_order, q=filters.q, itmgrp=filters.itmgrp, oneoff=filters.oneoff, is_active=filters.is_active, actively_selling=filters.actively_selling) }}" class="text-decoration-none text-white d-block">
+
+        {{ label }}
+
+        {% if current_sort == column_key %}
+
+            <span>{{ '▲' if current_order == 'asc' else '▼' }}</span>
+
+        {% else %}
+
+            <span class="text-muted" style="font-size: 0.75rem;">↕</span>
+
+        {% endif %}
+
+    </a>
+
+</th>
+
+{% endmacro %}
+
+
+
+<!-- 2. Compact List View Mode Container (Default View) -->
+
+<div id="listViewContainer">
+
+    <div class="card shadow-sm border">
+
+        <div class="table-responsive">
+
+            <table class="table table-hover align-middle mb-0">
+
+                <thead class="table-dark text-white">
+
+                    <tr>
+
+                        <th style="width: 60px;">Image</th>
+
+                        {{ sortable_th('ITMNAME', 'Name') }}
+
+                        {{ sortable_th('ITMGRP', 'Group') }}
+
+                        {{ sortable_th('ONEOFF', 'One-Off', 'text-center') }}
+
+                        {{ sortable_th('ITMPRICE', 'Price', 'text-end') }}
+
+                        {{ sortable_th('ISACTIVE', 'Status', 'text-center') }}
+
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    {% for item in items %}
+
+                    {% set img_src = item.ITMIMG %}
+
+                    {% if img_src and not img_src.startswith('http') and not img_src.startswith('/') and not img_src.startswith('static/') %}
+
+                        {% set img_src = 'static/' + img_src %}
+
+                    {% endif %}
+
+                    <tr>
+
+                        <td>
+
+                            {% if img_src %}
+
+                                {% set resolved_img_url = url_for('static', filename=img_src.replace('static/', '')) if img_src.startswith('static/') else img_src %}
+
+                                <img src="{{ resolved_img_url }}" class="rounded border" style="width: 40px; height: 40px; object-fit: cover;" alt="">
+
+                            {% else %}
+
+                                <span class="text-muted small">N/A</span>
+
+                            {% endif %}
+
+                        </td>
+
+                        <td class="fw-bold">
+
+                            <a href="{{ url_for('item_bp.item_detail', item_id=item.ITEMID) }}" class="text-decoration-none">
+
+                                {{ item.ITMNAME }}
+
+                            </a>
+
+                        </td>
+
+                        <td>
+
+                            {% if item.ITMGRP %}<span class="badge bg-secondary">{{ item.ITMGRP }}</span>{% else %}<span class="text-muted">—</span>{% endif %}
+
+                        </td>
+
+                        <td class="text-center">
+
+                            {% if item.ONEOFF %}<span class="badge bg-warning text-dark">Yes</span>{% else %}<span class="text-muted">No</span>{% endif %}
+
+                        </td>
+
+                        <td class="text-end fw-bold text-success">
+
+                            {% if item.ITMPRICE %}${{ "%.2f"|format(item.ITMPRICE) }}{% else %}—{% endif %}
+
+                        </td>
+
+                        <td class="text-center">
+
+                            <span class="badge {{ 'bg-success' if item.ISACTIVE == 1 else 'bg-secondary' }}">
+
+                                {{ 'Active' if item.ISACTIVE == 1 else 'Inactive' }}
+
+                            </span>
+
+                        </td>
+
+                    </tr>
+
+                    {% else %}
+
+                    <tr>
+
+                        <td colspan="6" class="text-center py-4 text-muted">No items match your criteria.</td>
+
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<!-- Filter Modal Popup -->
+
+<div class="modal fade" id="filterModal" tabindex="-1" aria-labelledby="filterModalLabel" aria-hidden="true">
+
+    <div class="modal-dialog modal-dialog-centered">
+
+        <div class="modal-content">
+
+            <div class="modal-header bg-dark text-white">
+
+                <h5 class="modal-title" id="filterModalLabel">Filter Item Directory</h5>
+
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+
+            </div>
+
+            <form action="{{ url_for('item_bp.item_list') }}" method="GET">
+
+                <input type="hidden" name="sort_by" value="{{ current_sort }}">
+
+                <input type="hidden" name="order" value="{{ current_order }}">
+
+                <div class="modal-body">
+
+                    <div class="mb-3">
+
+                        <label class="form-label fw-bold">Search Keywords</label>
+
+                        <input type="text" name="q" class="form-control" value="{{ filters.q }}" placeholder="Item name or notes...">
+
+                    </div>
+
+
+
+                    <div class="mb-3">
+
+                        <label class="form-label fw-bold">Active Status Filter</label>
+
+                        <select name="is_active" class="form-select">
+
+                            <option value="1" {% if filters.is_active == '1' %}selected{% endif %}>Active Only</option>
+
+                            <option value="0" {% if filters.is_active == '0' %}selected{% endif %}>Inactive Only</option>
+
+                            <option value="all" {% if filters.is_active == 'all' %}selected{% endif %}>All Items</option>
+
+                        </select>
+
+                    </div>
+
+
+
+                    <div class="mb-3">
+
+                        <label class="form-label fw-bold">Selling Availability (ITM.CURRENT)</label>
+
+                        <select name="actively_selling" class="form-select">
+
+                            <option value="">-- Any --</option>
+
+                            <option value="1" {% if filters.actively_selling == '1' %}selected{% endif %}>Current / Actively Selling (CURRENT = 1)</option>
+
+                            <option value="0" {% if filters.actively_selling == '0' %}selected{% endif %}>Not Current (CURRENT = 0)</option>
+
+                        </select>
+
+                    </div>
+
+
+
+                    <div class="mb-3">
+
+                        <label class="form-label fw-bold">Item Group</label>
+
+                        <select name="itmgrp" class="form-select">
+
+                            <option value="">-- All Groups --</option>
+
+                            {% for g in groups %}
+
+                                <option value="{{ g.ITMGRP }}" {% if filters.itmgrp == g.ITMGRP %}selected{% endif %}>{{ g.ITMGRP }}</option>
+
+                            {% endfor %}
+
+                        </select>
+
+                    </div>
+
+
+
+                    <div class="mb-3">
+
+                        <label class="form-label fw-bold">One-Off Filter</label>
+
+                        <select name="oneoff" class="form-select">
+
+                            <option value="">-- Any --</option>
+
+                            <option value="1" {% if filters.oneoff == '1' %}selected{% endif %}>One-Off Items Only</option>
+
+                            <option value="0" {% if filters.oneoff == '0' %}selected{% endif %}>Regular Catalog Items</option>
+
+                        </select>
+
+                    </div>
+
+                </div>
+
+                <div class="modal-footer justify-content-between">
+
+                    <a href="{{ url_for('item_bp.item_list') }}" class="btn btn-outline-secondary">Clear Filters</a>
+
+                    <button type="submit" class="btn btn-primary">Apply Filters</button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<script>
+
+function setCardSize(size) {
+
+    const grid = document.getElementById('itemGridContainer');
+
+    grid.classList.remove('size-s', 'size-m', 'size-l', 'row-cols-sm-3', 'row-cols-md-4', 'row-cols-lg-6', 'row-cols-sm-2', 'row-cols-md-3', 'row-cols-lg-5', 'row-cols-lg-4', 'g-4', 'g-3');
+
+    grid.classList.add('g-3');
+
+
+
+    if (size === 'S') {
+
+        grid.classList.add('size-s', 'row-cols-sm-3', 'row-cols-md-4', 'row-cols-lg-6');
+
+    } else if (size === 'M') {
+
+        grid.classList.add('size-m', 'row-cols-sm-2', 'row-cols-md-3', 'row-cols-lg-5');
+
+    } else {
+
+        grid.classList.add('size-l', 'row-cols-sm-2', 'row-cols-md-3', 'row-cols-lg-4', 'g-4');
+
+    }
+
+    localStorage.setItem('preferredItemDirectoryCardSize', size);
+
+}
+
+
+
+function switchViewMode(mode) {
+
+    const visualContainer = document.getElementById('visualViewContainer');
+
+    const listContainer = document.getElementById('listViewContainer');
+
+    const btnVisual = document.getElementById('btnViewVisual');
+
+    const btnList = document.getElementById('btnViewList');
+
+    const sizeToggleWrapper = document.getElementById('sizeToggleWrapper');
+
+
+
+    if (mode === 'list') {
+
+        visualContainer.style.display = 'none';
+
+        listContainer.style.display = 'block';
+
+        btnList.classList.add('active');
+
+        btnVisual.classList.remove('active');
+
+        if (sizeToggleWrapper) sizeToggleWrapper.style.display = 'none';
+
+    } else {
+
+        visualContainer.style.display = 'block';
+
+        listContainer.style.display = 'none';
+
+        btnVisual.classList.add('active');
+
+        btnList.classList.remove('active');
+
+        if (sizeToggleWrapper) sizeToggleWrapper.style.display = 'inline-flex';
+
+    }
+
+    localStorage.setItem('preferredItemDirectoryViewMode', mode);
+
+}
+
+
+
+document.addEventListener('DOMContentLoaded', function() {
+
+    const savedViewMode = localStorage.getItem('preferredItemDirectoryViewMode') || 'list';
+
+    switchViewMode(savedViewMode);
+
+
+
+    const savedSize = localStorage.getItem('preferredItemDirectoryCardSize') || 'L';
+
+    const radioBtn = document.getElementById('size' + savedSize);
+
+    if (radioBtn) {
+
+        radioBtn.checked = true;
+
+        setCardSize(savedSize);
+
+    }
+
+});
+
+</script>
+
+{% endblock %}
