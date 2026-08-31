@@ -221,7 +221,7 @@ def create_glass():
                 file_obj=file,
                 upload_subfolder='images/glass',
                 custom_filename_base=pattern_name,
-                target_size=(256, 256)
+                target_size=(512, 512)
             )
             db.execute("UPDATE GSI SET GLSIMG = ? WHERE GLASSID = ?", (glsimg_path, glass_id))
 
@@ -333,7 +333,7 @@ def edit_glass(glass_id):
                 file_obj=file,
                 upload_subfolder='images/glass',
                 custom_filename_base=pattern_name,
-                target_size=(256, 256)
+                target_size=(512, 512)
             )
         else:
             glsimg = request.form.get('GLSIMG') or glass['GLSIMG']

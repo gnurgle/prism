@@ -1,0 +1,634 @@
+{% extends 'base.html' %}
+
+
+
+{% block content %}
+
+<div class="row justify-content-center">
+
+    <div class="col-md-8">
+
+        <!-- Scraper Top Bar Card -->
+
+        <div class="card shadow-sm mb-4">
+
+            <div class="card-header bg-primary text-white">
+
+                <h4 class="mb-0">Scrape Glass Product</h4>
+
+            </div>
+
+            <div class="card-body">
+
+                <form method="POST" id="fetch-form">
+
+                    <input type="hidden" name="action" value="fetch">
+
+                    <input type="hidden" name="crop_margin" id="crop_margin_input" value="{{ glass.crop_margin if glass else 50 }}">
+
+                    <input type="hidden" name="offset_x" id="offset_x_input" value="{{ glass.offset_x if glass else 0 }}">
+
+                    <input type="hidden" name="offset_y" id="offset_y_input" value="{{ glass.offset_y if glass else 0 }}">
+
+                    
+
+                    <div class="row g-3 align-items-end">
+
+                        <div class="col-md-10">
+
+                            <label class="form-label">Product URL</label>
+
+                            <input type="url" name="url" id="url-input-field" class="form-control" value="{{ scraped_url }}" placeholder="https://www.hobbylobby.com/..." required>
+
+                        </div>
+
+
+                        <div class="col-md-2">
+
+                            <button type="submit" class="btn btn-primary w-100">Fetch</button>
+
+                        </div>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- Glass Creation / Review Form Card -->
+
+        <div class="card shadow-sm">
+
+            <div class="card-header bg-dark text-white">
+
+                <h4 class="mb-0">Review & Save Scraped Glass Sheet</h4>
+
+            </div>
+
+            <div class="card-body">
+
+                <form method="POST" id="save-glass-form">
+
+                    <input type="hidden" name="action" value="save">
+
+                    <input type="hidden" name="crop_margin" id="save_crop_margin" value="{{ glass.crop_margin if glass else 50 }}">
+
+                    <input type="hidden" name="offset_x" id="save_offset_x" value="{{ glass.offset_x if glass else 0 }}">
+
+                    <input type="hidden" name="offset_y" id="save_offset_y" value="{{ glass.offset_y if glass else 0 }}">
+
+                    <input type="hidden" name="glsrawimg" id="save_glsrawimg" value="{{ glass.glsrawimg if glass and glass.glsrawimg is defined else '' }}">
+
+                    
+
+                    <div class="mb-3">
+
+                        <label class="form-label">Purchase URL</label>
+
+                        <input type="text" name="GLLINK" class="form-control" value="{{ glass.gllink if glass else (scraped_url if scraped_url else '') }}">
+
+                        {% if glass and glass.gllink %}
+
+                        <div class="form-text text-truncate">
+
+                            Link: <a href="{{ glass.gllink }}" target="_blank">{{ glass.gllink }}</a>
+
+                        </div>
+
+                        {% endif %}
+
+                    </div>
+
+
+
+                    <div class="row mb-3">
+
+                        <div class="col-md-6">
+
+                            <label class="form-label">Glass Name</label>
+
+                            <input type="text" name="GLSNAME" class="form-control" value="{{ glass.glsname if glass else '' }}" required maxlength="25">
+
+                        </div>
+
+                        <div class="col-md-6">
+
+                            <label class="form-label">Manufacturer</label>
+
+                            <input type="text" name="GLSMANF" class="form-control" value="{{ glass.glsmanf if glass else '' }}" maxlength="25">
+
+                        </div>
+
+                    </div>
+
+
+
+                    <div class="row mb-3">
+
+                        <div class="col-md-6">
+
+                            <label class="form-label">Glass Texture</label>
+
+                            <select name="GLSTEX" class="form-select">
+
+                                <option value="">-- Select Texture --</option>
+
+                                {% for t in textures %}
+
+                                    <option value="{{ t.GLSTEX }}">{{ t.GLSTEX }}</option>
+
+                                {% endfor %}
+
+                            </select>
+
+                        </div>
+
+                        <div class="col-md-6">
+
+                            <label for="GTRNSN" class="form-label">Transparency</label>
+
+                            <select class="form-select" id="GTRNSN" name="GTRNSN">
+
+                                <option value="">-- Select Transparency --</option>
+
+                                {% for t in transparency %}
+
+                                    <option value="{{ t.GTRNSN }}" {% if (glass and glass.gtrnsn == t.GTRNSN) or (not glass and t.GTRNSN == 'Translucent') %}selected{% endif %}>
+
+                                        {{ t.GTRNSN }}
+
+                                    </option>
+
+                                {% endfor %}
+
+                            </select>
+
+                        </div>
+
+                    </div>
+
+
+
+                    <div class="row mb-3">
+
+                        <div class="col-md-6">
+
+                            <label class="form-label">Glass Color</label>
+
+                            <input type="hidden" name="COLOR" id="selected-color-input" value="">
+
+                            <div class="dropdown">
+
+                                <button class="btn btn-outline-secondary dropdown-toggle w-100 d-flex align-items-center justify-content-between bg-white text-dark" 
+
+                                        type="button" id="colorDropdownBtn" data-bs-toggle="dropdown" aria-expanded="false">
+
+                                    <span id="selected-color-label" class="d-flex align-items-center gap-2">
+
+                                        <span class="text-muted">-- Select Color --</span>
+
+                                    </span>
+
+                                </button>
+
+                                <ul class="dropdown-menu w-100 shadow-sm" aria-labelledby="colorDropdownBtn" style="max-height: 250px; overflow-y: auto;">
+
+                                    <li>
+
+                                        <a class="dropdown-item d-flex align-items-center gap-2" href="javascript:void(0);" onclick="selectColor('', '', '-- Select Color --')">
+
+                                            <span class="text-muted">-- Select Color --</span>
+
+                                        </a>
+
+                                    </li>
+
+                                    <li><hr class="dropdown-divider"></li>
+
+                                    {% for c in colors %}
+
+                                    <li>
+
+                                        <a class="dropdown-item d-flex align-items-center gap-2" href="javascript:void(0);" onclick="selectColor('{{ c.COLOR }}', '{{ c.CHEX or 'ffffff' }}', '{{ c.COLOR }}')">
+
+                                            <span class="d-inline-block rounded border flex-shrink-0" style="width: 18px; height: 18px; background-color: #{{ c.CHEX|string|replace('#', '') if c.CHEX else 'ffffff' }};"></span>
+
+                                            <span>{{ c.COLOR }}</span>
+
+                                        </a>
+
+                                    </li>
+
+                                    {% endfor %}
+
+                                </ul>
+
+                            </div>
+
+                        </div>
+
+
+
+                        <div class="col-md-6">
+
+                            <label class="form-label d-block">Glass Image Preview</label>
+
+                            <div class="d-flex align-items-center gap-3">
+
+                                {% if glass and glass.glsimg %}
+
+                                <div>
+
+                                    <img src="{{ url_for('static', filename=glass.glsimg) }}" alt="Glass Preview" class="img-thumbnail rounded" style="width: 100px; height: 100px; object-fit: cover;" id="preview-img-thumb">
+
+                                </div>
+
+                                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#cropModal">
+
+                                    <i class="bi bi-crop"></i> Adjust Crop
+
+                                </button>
+
+                                {% else %}
+
+                                <span class="text-muted small">Fetch a product URL to preview image</span>
+
+                                {% endif %}
+
+                            </div>
+
+                            
+
+                            <input type="hidden" name="GLSIMG" id="GLSIMG" value="{{ glass.glsimg if glass else '' }}">
+
+                        </div>
+
+                    </div>
+
+
+
+                    <div class="row mb-3">
+
+                        <div class="col-md-4">
+
+                            <label class="form-label">Length</label>
+
+                            <input type="number" step="any" name="GLSLEN" class="form-control" value="{{ glass.glslen if glass and glass.glslen else '' }}" placeholder="inches">
+
+                        </div>
+
+                        <div class="col-md-4">
+
+                            <label class="form-label">Width</label>
+
+                            <input type="number" step="any" name="GLSWID" class="form-control" value="{{ glass.glswid if glass and glass.glswid else '' }}" placeholder="inches">
+
+                        </div>
+
+                        <div class="col-md-4">
+
+                            <label class="form-label">Thickness</label>
+
+                            <input type="number" step="any" name="GLSTHK" class="form-control" value="{{ glass.glsthk if glass and glass.glsthk else 3 }}" placeholder="mm">
+
+                        </div>
+
+                    </div>
+
+
+
+                    <div class="row mb-3">
+
+                        <div class="col-md-6">
+
+                            <label class="form-label">Sheet Pricing</label>
+
+                            <div class="input-group">
+
+                                <span class="input-group-text">$</span>
+
+                                <input type="number" step="0.01" min="0" name="GLSPRICE" class="form-control" value="{{ glass.glsprice if glass else '' }}" placeholder="0.00">
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+
+                    <div class="mb-3">
+
+                        <label class="form-label">Visual Properties</label>
+
+                        <div class="form-check">
+
+                            <input class="form-check-input" type="checkbox" name="GLSIRI" id="GLSIRI">
+
+                            <label class="form-check-label" for="GLSIRI">Iridescent</label>
+
+                        </div>
+
+                        <div class="form-check">
+
+                            <input class="form-check-input" type="checkbox" name="GLSOPAL" id="GLSOPAL">
+
+                            <label class="form-check-label" for="GLSOPAL">Opalescent</label>
+
+                        </div>
+
+                    </div>
+
+
+
+                    <div class="mb-3">
+
+                        <label class="form-label">Notes (SKU)</label>
+
+                        <textarea name="GLSNOTE" class="form-control" rows="2">{{ glass.glsnote if glass else '' }}</textarea>
+
+                    </div>
+
+
+
+                    <div class="d-flex justify-content-between align-items-center">
+
+                        <a href="{{ url_for('glass_bp.list_glass') }}" class="btn btn-secondary">Cancel</a>
+
+                        <button type="submit" class="btn btn-success">Save Scraped Glass Sheet</button>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<!-- Crop Adjustment Modal -->
+
+{% if glass and glass.glsimg %}
+
+<div class="modal fade" id="cropModal" tabindex="-1" aria-labelledby="cropModalLabel" aria-hidden="true">
+
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+
+        <div class="modal-content">
+
+            <div class="modal-header bg-secondary text-white">
+
+                <h5 class="modal-title" id="cropModalLabel">Adjust Image Crop & Position (Live Preview)</h5>
+
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+
+            </div>
+
+            <div class="modal-body">
+
+                <div class="row">
+
+                    <div class="col-md-7 text-center d-flex flex-column align-items-center justify-content-center bg-dark rounded p-2">
+
+                        <canvas id="cropCanvas" class="img-fluid rounded shadow-sm" style="max-height: 320px; object-fit: contain;"></canvas>
+
+                        <div class="form-text text-light mt-2 small">Full original uncropped image with dark overlay representing cropped-out bounds.</div>
+
+                    </div>
+
+                    <div class="col-md-5">
+
+                        <div class="mb-3">
+
+                            <label class="form-label">Crop Margin (px)</label>
+
+                            <input type="number" id="modal_crop_margin" class="form-control" value="{{ glass.crop_margin if glass.crop_margin is defined else 50 }}" min="0" max="300">
+
+                        </div>
+
+                        
+
+                        <div class="mb-3">
+
+                            <label class="form-label">Horizontal Offset (X)</label>
+
+                            <input type="number" id="modal_offset_x" class="form-control" value="{{ glass.offset_x if glass.offset_x is defined else 0 }}" min="-300" max="300">
+
+                            <div class="form-text small">Negative shifts left, positive right.</div>
+
+                        </div>
+
+
+
+                        <div class="mb-3">
+
+                            <label class="form-label">Vertical Offset (Y)</label>
+
+                            <input type="number" id="modal_offset_y" class="form-control" value="{{ glass.offset_y if glass.offset_y is defined else 0 }}" min="-300" max="300">
+
+                            <div class="form-text small">Negative shifts up, positive down.</div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="modal-footer">
+
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+
+                <button type="button" class="btn btn-primary" id="apply-crop-btn" data-bs-dismiss="modal">Done / Save Parameters</button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<script>
+
+document.addEventListener("DOMContentLoaded", function() {
+
+    const modal = document.getElementById('cropModal');
+
+    if (!modal) return;
+
+
+
+    const canvas = document.getElementById('cropCanvas');
+
+    const ctx = canvas.getContext('2d');
+
+    
+
+    const inputMargin = document.getElementById('modal_crop_margin');
+
+    const inputOffsetX = document.getElementById('modal_offset_x');
+
+    const inputOffsetY = document.getElementById('modal_offset_y');
+
+
+
+    const imgObj = new Image();
+
+    // Use the raw uncropped image for the live modal preview
+
+    imgObj.src = "{{ url_for('static', filename=glass.glsrawimg if glass.glsrawimg is defined and glass.glsrawimg else glass.glsimg) }}";
+
+
+
+    imgObj.onload = function() {
+
+        canvas.width = imgObj.naturalWidth || 600;
+
+        canvas.height = imgObj.naturalHeight || 600;
+
+        drawPreview();
+
+    };
+
+
+
+    function drawPreview() {
+
+        if (!imgObj.complete) return;
+
+
+
+        const imgW = canvas.width;
+
+        const imgH = canvas.height;
+
+
+
+        let margin = parseInt(inputMargin.value) || 0;
+
+        let ox = parseInt(inputOffsetX.value) || 0;
+
+        let oy = parseInt(inputOffsetY.value) || 0;
+
+
+
+        ctx.clearRect(0, 0, imgW, imgH);
+
+        
+
+        // 1. Draw the whole uncropped image first
+
+        ctx.drawImage(imgObj, 0, 0, imgW, imgH);
+
+
+
+        // 2. Calculate crop box coordinates using per-side logic and reversed Y-axis offset
+
+        let left = margin + ox;
+
+        let top = margin - oy;
+
+        let right = imgW - margin + ox;
+
+        let bottom = imgH - margin - oy;
+
+
+
+        // Safeguard box limits
+
+        left = Math.max(0, Math.min(left, imgW - 10));
+
+        top = Math.max(0, Math.min(top, imgH - 10));
+
+        right = Math.max(left + 10, Math.min(right, imgW));
+
+        bottom = Math.max(top + 10, Math.min(bottom, imgH));
+
+
+
+        let cropW = right - left;
+
+        let cropH = bottom - top;
+
+
+
+        // 3. Apply a darker semi-transparent overlay over the entire image canvas
+
+        ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+
+        ctx.fillRect(0, 0, imgW, imgH);
+
+
+
+        // 4. "Punch out" the crop section so the full uncropped image shows clearly inside the active crop box
+
+        ctx.save();
+
+        ctx.beginPath();
+
+        ctx.rect(left, top, cropW, cropH);
+
+        ctx.clip();
+
+        ctx.clearRect(0, 0, imgW, imgH);
+
+        ctx.drawImage(imgObj, 0, 0, imgW, imgH);
+
+        ctx.restore();
+
+
+
+        // 5. Draw border outline around the active selection zone
+
+        ctx.strokeStyle = "#0d6efd";
+
+        ctx.lineWidth = Math.max(2, imgW * 0.005);
+
+        ctx.strokeRect(left, top, cropW, cropH);
+
+    }
+
+
+
+    [inputMargin, inputOffsetX, inputOffsetY].forEach(input => {
+
+        input.addEventListener('input', drawPreview);
+
+    });
+
+
+
+    document.getElementById('apply-crop-btn').addEventListener('click', function() {
+
+        document.getElementById('save_crop_margin').value = inputMargin.value;
+
+        document.getElementById('save_offset_x').value = inputOffsetX.value;
+
+        document.getElementById('save_offset_y').value = inputOffsetY.value;
+
+    });
+
+});
+
+</script>
+
+{% endif %}
+
+
+
+<script src="{{ url_for('static', filename='js/color_dropdown.js') }}"></script>
+
+{% endblock %}
