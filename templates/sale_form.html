@@ -1,0 +1,498 @@
+{% extends 'base.html' %}
+
+
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+
+    <div>
+
+        <h2 class="mb-0">Sales Register</h2>
+
+        <small class="text-muted">Showing {{ sales|length }} sale record(s)</small>
+
+    </div>
+
+    <div class="d-flex gap-2">
+
+        <button type="button" class="btn btn-outline-secondary d-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#filterModal">
+
+            🔍 Filter Sales
+
+            {% if filters.q or filters.itmgrp or filters.venue or filters.start_date or filters.end_date or filters.year or filters.min_price or filters.max_price or filters.min_total or filters.max_total or filters.min_units or filters.max_units or filters.group_totals %}
+
+                <span class="badge bg-primary rounded-pill">Active</span>
+
+            {% endif %}
+
+        </button>
+
+    </div>
+
+</div>
+
+
+
+{# --- Active Filter Indicators --- #}
+
+{% if filters.q or filters.itmgrp or filters.venue or filters.start_date or filters.end_date or filters.year or filters.min_price or filters.max_price or filters.min_total or filters.max_total or filters.min_units or filters.max_units or filters.group_totals %}
+
+<div class="alert alert-info py-2 px-3 d-flex align-items-center justify-content-between mb-3">
+
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+
+        <small class="fw-bold">Active Filters:</small>
+
+        {% if filters.q %}<span class="badge bg-light text-dark border">Search: "{{ filters.q }}"</span>{% endif %}
+
+        {% if filters.itmgrp %}<span class="badge bg-light text-dark border">Group: {{ filters.itmgrp }}</span>{% endif %}
+
+        {% if filters.venue %}<span class="badge bg-light text-dark border">Venue: {{ filters.venue }}</span>{% endif %}
+
+        {% if filters.year %}<span class="badge bg-light text-dark border">Year: {{ filters.year }}</span>{% endif %}
+
+        {% if filters.start_date %}<span class="badge bg-light text-dark border">From: {{ filters.start_date }}</span>{% endif %}
+
+        {% if filters.end_date %}<span class="badge bg-light text-dark border">To: {{ filters.end_date }}</span>{% endif %}
+
+        {% if filters.min_price %}<span class="badge bg-light text-dark border">Min Price: ${{ filters.min_price }}</span>{% endif %}
+
+        {% if filters.max_price %}<span class="badge bg-light text-dark border">Max Price: ${{ filters.max_price }}</span>{% endif %}
+
+        {% if filters.min_total %}<span class="badge bg-light text-dark border">Min Total: ${{ filters.min_total }}</span>{% endif %}
+
+        {% if filters.max_total %}<span class="badge bg-light text-dark border">Max Total: ${{ filters.max_total }}</span>{% endif %}
+
+        {% if filters.min_units %}<span class="badge bg-light text-dark border">Min Units: {{ filters.min_units }}</span>{% endif %}
+
+        {% if filters.max_units %}<span class="badge bg-light text-dark border">Max Units: {{ filters.max_units }}</span>{% endif %}
+
+        {% if filters.group_totals %}<span class="badge bg-secondary text-white">Group Totals Enabled</span>{% endif %}
+
+    </div>
+
+    <a href="{{ url_for('sales_list') }}" class="btn btn-sm btn-link text-decoration-none p-0">Clear All</a>
+
+</div>
+
+{% endif %}
+
+
+
+{# Helper macro to generate clickable sortable table headers #}
+
+{% macro sort_header(col_key, label) %}
+
+    {% set new_order = 'desc' if current_sort == col_key and current_order == 'asc' else 'asc' %}
+
+    <a href="{{ url_for('sales_list', sort_by=col_key, order=new_order, per_page=per_page, **filters) }}" class="text-white text-decoration-none d-flex align-items-center justify-content-between px-1">
+
+        {{ label }}
+
+        {% if current_sort == col_key %}
+
+            <small>{{ '▲' if current_order == 'asc' else '▼' }}</small>
+
+        {% else %}
+
+            <small class="text-muted" style="opacity: 0.4;">↕</small>
+
+        {% endif %}
+
+    </a>
+
+{% endmacro %}
+
+
+
+<div class="card shadow-sm">
+
+    <div class="card-body p-0">
+
+        <table class="table table-striped table-hover mb-0 align-middle">
+
+            <thead class="table-dark">
+
+                <tr>
+
+                    <th>{{ sort_header('SALEID', 'Sale ID') }}</th>
+
+                    <th>{{ sort_header('ITMNAME', 'Item Sold') }}</th>
+
+                    <th>{{ sort_header('SUNITS', 'Units Sold') }}</th>
+
+                    <th>{{ sort_header('SOLDPINCE', 'Price Sold At') }}</th>
+
+                    <th>{{ sort_header('TOTALPRICE', 'Total Sales') }}</th>
+
+                    <th>{{ sort_header('SDATE', 'Sale Date') }}</th>
+
+                    <th>{{ sort_header('VENUENAME', 'Venue Name') }}</th>
+
+                </tr>
+
+            </thead>
+
+            <tbody>
+
+                {% for s in sales %}
+
+                <tr>
+
+                    <td><strong>#{{ s.SALEID }}</strong></td>
+
+                    <td>
+
+                        <a href="{{ url_for('item_bp.item_detail', item_id=s.ITEMID) }}" class="fw-bold text-decoration-none text-primary">
+
+                            {{ s.ITMNAME }}
+
+                        </a>
+
+                    </td>
+
+                    <td><span class="badge bg-primary fs-6">{{ s.SUNITS }}</span></td>
+
+                    <td>
+
+                        {% if s.SOLDPINCE is not none %}
+
+                            ${{ "%.2f"|format(s.SOLDPINCE) }}
+
+                        {% elif s.PRICE_RANGE %}
+
+                            <span class="text-muted" title="Price range for group items">{{ s.PRICE_RANGE }}</span>
+
+                        {% else %}
+
+                            <span class="text-muted">—</span>
+
+                        {% endif %}
+
+                    </td>
+
+                    <td>
+
+                        {% if s.TOTALPRICE is not none %}
+
+                            <strong class="text-success">${{ "%.2f"|format(s.TOTALPRICE) }}</strong>
+
+                        {% else %}
+
+                            <span class="text-muted">—</span>
+
+                        {% endif %}
+
+                    </td>
+
+                    <td>{{ s.SDATE }}</td>
+
+                    <td>{{ s.VENUENAME or 'Direct / Studio Sale' }}</td>
+
+                </tr>
+
+                {% else %}
+
+                <tr>
+
+                    <td colspan="7" class="text-center py-5 text-muted">
+
+                        No sales records match your criteria.
+
+                        {% if filters.q or filters.itmgrp or filters.venue or filters.start_date or filters.end_date or filters.year or filters.min_price or filters.max_price or filters.min_total or filters.max_total or filters.min_units or filters.max_units or filters.group_totals %}
+
+                            <br><a href="{{ url_for('sales_list') }}">Reset filters</a>
+
+                        {% endif %}
+
+                    </td>
+
+                </tr>
+
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+
+
+<!-- Pagination & Items Per Page Controls Bar -->
+
+<div class="d-flex justify-content-between align-items-center mt-3 px-2">
+
+    <div class="d-flex align-items-center gap-2">
+
+        <span class="text-muted small">Rows per page:</span>
+
+        <div class="btn-group btn-group-sm" role="group" aria-label="Per page limits">
+
+            <a href="{{ url_for('sales_list', per_page=25, sort_by=current_sort, order=current_order, **filters) }}" class="btn btn-outline-secondary {% if per_page == 25 %}active{% endif %}">25</a>
+
+            <a href="{{ url_for('sales_list', per_page=50, sort_by=current_sort, order=current_order, **filters) }}" class="btn btn-outline-secondary {% if per_page == 50 %}active{% endif %}">50</a>
+
+            <a href="{{ url_for('sales_list', per_page=100, sort_by=current_sort, order=current_order, **filters) }}" class="btn btn-outline-secondary {% if per_page == 100 %}active{% endif %}">100</a>
+
+        </div>
+
+    </div>
+
+
+
+    {% if total_pages and total_pages > 1 %}
+
+    <nav aria-label="Sales Page Navigation">
+
+        <ul class="pagination pagination-sm mb-0">
+
+            <li class="page-item {% if current_page <= 1 %}disabled{% endif %}">
+
+                <a class="page-link" href="{{ url_for('sales_list', page=current_page-1, per_page=per_page, sort_by=current_sort, order=current_order, **filters) }}">Previous</a>
+
+            </li>
+
+            {% for p in range(1, total_pages + 1) %}
+
+                <li class="page-item {% if p == current_page %}active{% endif %}">
+
+                    <a class="page-link" href="{{ url_for('sales_list', page=p, per_page=per_page, sort_by=current_sort, order=current_order, **filters) }}">{{ p }}</a>
+
+                </li>
+
+            {% endfor %}
+
+            <li class="page-item {% if current_page >= total_pages %}disabled{% endif %}">
+
+                <a class="page-link" href="{{ url_for('sales_list', page=current_page+1, per_page=per_page, sort_by=current_sort, order=current_order, **filters) }}">Next</a>
+
+            </li>
+
+        </ul>
+
+    </nav>
+
+    {% endif %}
+
+</div>
+
+
+
+<!-- Filter Modal Popup -->
+
+<div class="modal fade" id="filterModal" tabindex="-1" aria-labelledby="filterModalLabel" aria-hidden="true">
+
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+
+        <div class="modal-content">
+
+            <div class="modal-header bg-dark text-white">
+
+                <h5 class="modal-title" id="filterModalLabel">Filter Sales Register</h5>
+
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+
+            </div>
+
+            <form action="{{ url_for('sales_list') }}" method="GET">
+
+                <input type="hidden" name="sort_by" value="{{ current_sort }}">
+
+                <input type="hidden" name="order" value="{{ current_order }}">
+
+                <input type="hidden" name="per_page" value="{{ per_page }}">
+
+
+
+                <div class="modal-body">
+
+                    <div class="mb-3">
+
+                        <label class="form-label fw-bold">Search Item Name or Notes</label>
+
+                        <input type="text" name="q" class="form-control" value="{{ filters.q }}" placeholder="Keywords...">
+
+                    </div>
+
+
+
+                    <div class="row mb-3">
+
+                        <div class="col-md-6">
+
+                            <label class="form-label fw-bold">Item Group</label>
+
+                            <select name="itmgrp" class="form-select">
+
+                                <option value="">-- All Groups --</option>
+
+                                {% for g in groups %}
+
+                                    <option value="{{ g.ITMGRP }}" {% if filters.itmgrp == g.ITMGRP %}selected{% endif %}>{{ g.ITMGRP }}</option>
+
+                                {% endfor %}
+
+                            </select>
+
+                        </div>
+
+                        <div class="col-md-6">
+
+                            <label class="form-label fw-bold">Venue</label>
+
+                            <select name="venue" class="form-select">
+
+                                <option value="">-- All Venues --</option>
+
+                                {% for v in venues %}
+
+                                    <option value="{{ v.VENUENAME }}" {% if filters.venue == v.VENUENAME %}selected{% endif %}>{{ v.VENUENAME }}</option>
+
+                                {% endfor %}
+
+                            </select>
+
+                        </div>
+
+                    </div>
+
+
+
+                    <div class="row mb-3">
+
+                        <div class="col-md-4">
+
+                            <label class="form-label fw-bold">Year</label>
+
+                            <input type="number" name="year" class="form-control" value="{{ filters.year }}" placeholder="e.g. 2026">
+
+                        </div>
+
+                        <div class="col-md-4">
+
+                            <label class="form-label fw-bold">Start Date</label>
+
+                            <input type="date" name="start_date" class="form-control" value="{{ filters.start_date }}">
+
+                        </div>
+
+                        <div class="col-md-4">
+
+                            <label class="form-label fw-bold">End Date</label>
+
+                            <input type="date" name="end_date" class="form-control" value="{{ filters.end_date }}">
+
+                        </div>
+
+                    </div>
+
+
+
+                    <div class="row mb-3">
+
+                        <div class="col-md-6">
+
+                            <label class="form-label fw-bold">Min Unit Price ($)</label>
+
+                            <input type="number" step="0.01" name="min_price" class="form-control" value="{{ filters.min_price }}" placeholder="0.00">
+
+                        </div>
+
+                        <div class="col-md-6">
+
+                            <label class="form-label fw-bold">Max Unit Price ($)</label>
+
+                            <input type="number" step="0.01" name="max_price" class="form-control" value="{{ filters.max_price }}" placeholder="100.00">
+
+                        </div>
+
+                    </div>
+
+
+
+                    <div class="row mb-3">
+
+                        <div class="col-md-6">
+
+                            <label class="form-label fw-bold">Min Total Price ($)</label>
+
+                            <input type="number" step="0.01" name="min_total" class="form-control" value="{{ filters.min_total }}" placeholder="0.00">
+
+                        </div>
+
+                        <div class="col-md-6">
+
+                            <label class="form-label fw-bold">Max Total Price ($)</label>
+
+                            <input type="number" step="0.01" name="max_total" class="form-control" value="{{ filters.max_total }}" placeholder="500.00">
+
+                        </div>
+
+                    </div>
+
+
+
+                    <div class="row mb-3">
+
+                        <div class="col-md-6">
+
+                            <label class="form-label fw-bold">Min Amounts Sold</label>
+
+                            <input type="number" name="min_units" class="form-control" value="{{ filters.min_units }}" placeholder="1">
+
+                        </div>
+
+                        <div class="col-md-6">
+
+                            <label class="form-label fw-bold">Max Amounts Sold</label>
+
+                            <input type="number" name="max_units" class="form-control" value="{{ filters.max_units }}" placeholder="10">
+
+                        </div>
+
+                    </div>
+
+
+
+                    <div class="mb-3 p-3 bg-light rounded border">
+
+                        <div class="form-check">
+
+                            <input class="form-check-input" type="checkbox" name="group_totals" value="1" id="groupTotalsCheck" {% if filters.group_totals == '1' %}checked{% endif %}>
+
+                            <label class="form-check-label fw-bold text-dark" for="groupTotalsCheck">
+
+                                Display group totals instead of item totals (aggregates all items in a group sold that day)
+
+                            </label>
+
+                            <div class="form-text text-muted small mt-1">When enabled, sales for items belonging to the same group on the same day are aggregated, and price ranges are displayed if prices differ.</div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="modal-footer justify-content-between">
+
+                    <a href="{{ url_for('sales_list') }}" class="btn btn-outline-secondary">Clear Filters</a>
+
+                    <button type="submit" class="btn btn-primary">Apply Filters</button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}
+
