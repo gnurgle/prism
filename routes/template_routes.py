@@ -1,5 +1,7 @@
 import os
 
+from PIL import Image, ImageOps, ImageChops
+
 import sqlite3
 
 import xml.etree.ElementTree as ET
@@ -50,8 +52,6 @@ def get_db():
 
 
 
-
-
 @templates_bp.route("/template/upload", methods=["GET", "POST"])
 
 @templates_bp.route("/template/upload/<int:item_id>", methods=["GET", "POST"])
@@ -65,6 +65,8 @@ def upload_template(item_id=None):
         selected_item_id = item_id or request.form.get("ITEMID")
 
         file = request.files.get("template_image")
+
+        is_full_sheet = request.form.get("full_sheet")
 
 
 
@@ -94,13 +96,15 @@ def upload_template(item_id=None):
 
         file_ext = os.path.splitext(file.filename)[1] or '.png'
 
-        filename = f"{item['ITEMID']}_{safe_item_name}{file_ext}"
+        filename = f"{selected_item_id}_{safe_item_name}{file_ext}"
 
         
 
         # Save uploaded raster image
 
-        img_path = os.path.join(UPLOAD_FOLDER_TEMPLATES, filename)
+        img_path = os.path.join(current_app.root_path, UPLOAD_FOLDER_TEMPLATES, filename)
+
+        os.makedirs(os.path.dirname(img_path), exist_ok=True)
 
         file.save(img_path)
 
@@ -118,9 +122,11 @@ def upload_template(item_id=None):
 
         # Automatically convert to SVG using the reusable method
 
-        svg_filename = f"{item['ITEMID']}_{safe_item_name}.svg"
+        svg_filename = f"{selected_item_id}_{safe_item_name}.svg"
 
-        svg_path = os.path.join(UPLOAD_FOLDER_SVG, svg_filename)
+        svg_path = os.path.join(current_app.root_path, UPLOAD_FOLDER_SVG, svg_filename)
+
+        os.makedirs(os.path.dirname(svg_path), exist_ok=True)
 
         
 
@@ -134,7 +140,99 @@ def upload_template(item_id=None):
 
             db.commit()
 
-            flash("Template uploaded and converted to SVG via pyautotrace successfully!", "success")
+            
+
+            # Trace outline and save measurements to the database
+
+            trace_result = process_trace_outline(selected_item_id)
+
+            
+
+            # If Full Sheet is checked, calculate width and height from the resulting SVG outline at 166 DPI
+
+            if is_full_sheet:
+
+                try:
+
+                    svg_data = trace_result.get('outline_content') or trace_result.get('svg_content')
+
+                    if svg_data:
+
+                        if isinstance(svg_data, bytes):
+
+                            svg_data = svg_data.decode('utf-8')
+
+                        
+
+                        root = ET.fromstring(svg_data)
+
+                        width_px, height_px = None, None
+
+                        view_box = root.attrib.get('viewBox')
+
+                        
+
+                        if view_box:
+
+                            parts = [float(p) for p in view_box.replace(',', ' ').split() if p.strip()]
+
+                            if len(parts) == 4:
+
+                                width_px = parts[2]
+
+                                height_px = parts[3]
+
+                        
+
+                        if not width_px or not height_px:
+
+                            w_attr = root.attrib.get('width', '').replace('px', '').strip()
+
+                            h_attr = root.attrib.get('height', '').replace('px', '').strip()
+
+                            if w_attr and h_attr:
+
+                                width_px = float(w_attr)
+
+                                height_px = float(h_attr)
+
+                        
+
+                        if width_px and height_px:
+
+                            # Swap mapping: assign horizontal pixels to width (ITMWID) and vertical to length (ITMLEN)
+
+                            raw_width_in = width_px / 225.0
+
+                            raw_height_in = height_px / 225.0
+
+                            
+
+                            # Round to the nearest 1/8th (0.125)
+
+                            length_in = round(round(raw_height_in / 0.125) * 0.125, 3)
+
+                            width_in = round(round(raw_width_in / 0.125) * 0.125, 3)
+
+                            
+
+                            db.execute(
+
+                                "UPDATE ITM SET ITMLEN = ?, ITMWID = ? WHERE ITEMID = ?", 
+
+                                (str(length_in), str(width_in), selected_item_id)
+
+                            )
+
+                            db.commit()
+
+                except Exception as e:
+
+                    print(f"Error calculating dimensions from SVG outline: {e}")
+
+            
+
+            flash("Template uploaded, converted to SVG, and outline traced successfully!", "success")
 
         else:
 
@@ -149,8 +247,6 @@ def upload_template(item_id=None):
     items = db.execute("SELECT ITEMID, ITMNAME FROM ITM").fetchall()
 
     return render_template("template_upload.html", items=items, selected_item_id=item_id)
-
-
 
 
 @templates_bp.route("/template/whitespaces/<int:item_id>")

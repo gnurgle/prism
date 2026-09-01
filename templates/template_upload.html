@@ -60,6 +60,18 @@
 
 
 
+                    <!-- Prechecked Full Sheet Checkbox -->
+
+                    <div class="mb-3 form-check">
+
+                        <input type="checkbox" name="full_sheet" id="fullSheetCheckbox" class="form-check-input" value="1" checked>
+
+                        <label class="form-check-label" for="fullSheetCheckbox">Full Sheet?</label>
+
+                    </div>
+
+
+
                     <!-- Loading Spinner Container (Hidden by default) -->
 
                     <div id="loadingContainer" class="mb-3 d-none text-center py-3 border rounded bg-light">
@@ -162,8 +174,6 @@ document.getElementById('uploadForm').addEventListener('submit', function(e) {
 
 
 
-    // List of unique status strings
-
     const randomMessages = [
 
         "Processing image matrix...",
@@ -178,44 +188,6 @@ document.getElementById('uploadForm').addEventListener('submit', function(e) {
 
         "Defining regions...",
 
-        "Compressing XML...",
-
-        "Computing Bezier Curves...",
-
-        "Drawing Points...",
-
-        "Sketching Lines...",
-
-        "Filling in Regions...",
-
-        "Numbering Components...",
-
-        "Comparing template...",
-
-        "Converting path data...",
-
-        "Removing excess space...",
-
-        "Guessing at the right shape...",
-
-        "Planning path information...",
-
-        "Determining optimal path...",
-
-        "Lining the outline of lines with outlines...",
-
-        "Dialing W for Wumbo...",
-
-        "Thinking about boys kissing...",
-
-        "Making a little snack...",
-
-        "Watching One Piece...",
-
-        "Taking a break to watch reels...",
-
-        "Doing things and stuff...",
-
         "Preparing preview data..."
 
     ];
@@ -226,13 +198,9 @@ document.getElementById('uploadForm').addEventListener('submit', function(e) {
 
 
 
-    // Function to pick a unique string, or fallback if exhausted
-
     function setNextMessage() {
 
         if (isRequestCompleted) return;
-
-        
 
         if (randomMessages.length > 0) {
 
@@ -242,11 +210,7 @@ document.getElementById('uploadForm').addEventListener('submit', function(e) {
 
             progressStatusText.textContent = message;
 
-
-
-            const randomDelay = Math.floor(Math.random() * 5000) + 2000;
-
-            setTimeout(setNextMessage, randomDelay);
+            setTimeout(setNextMessage, 3000);
 
         } else {
 
@@ -258,13 +222,9 @@ document.getElementById('uploadForm').addEventListener('submit', function(e) {
 
 
 
-    const initialDelay = Math.floor(Math.random() * 5000) + 2000;
-
-    setTimeout(setNextMessage, initialDelay);
+    setTimeout(setNextMessage, 2000);
 
 
-
-    // Asynchronous backend request
 
     fetch(form.action || window.location.href, {
 
