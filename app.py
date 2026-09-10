@@ -19,7 +19,7 @@ from routes.venue_routes import venue_bp
 from routes.template_routes import templates_bp
 from routes.component_routes import component_bp
 from routes.scraper_routes import scraper_bp
-
+from routes.visuals_routes import visuals_bp
 
 app = Flask(__name__, static_folder='static')
 app.secret_key = "changethislatertoaenv"
@@ -135,6 +135,7 @@ app.register_blueprint(venue_bp)
 app.register_blueprint(templates_bp)
 app.register_blueprint(component_bp)
 app.register_blueprint(scraper_bp)
+app.register_blueprint(visuals_bp)
 
 
 # ============================================================================

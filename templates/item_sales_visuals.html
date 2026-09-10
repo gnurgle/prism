@@ -1,0 +1,2280 @@
+{% extends 'base.html' %}
+
+
+
+{% block content %}
+
+<style>
+
+    .clickable-row {
+
+        cursor: pointer;
+
+        transition: background-color 0.15s ease-in-out;
+
+        user-select: none;
+
+    }
+
+    .clickable-row:hover {
+
+        background-color: #e9ecef !important;
+
+    }
+
+    .clickable-row.selected-row {
+
+        background-color: #cfe2ff !important;
+
+        font-weight: 500;
+
+    }
+
+    .master-row.selected-row {
+
+        background-color: #d1e7dd !important;
+
+    }
+
+    .item-group-header {
+
+        background-color: #f1f3f5;
+
+        font-size: 0.75rem;
+
+        font-weight: bold;
+
+        color: #495057;
+
+        text-transform: uppercase;
+
+        letter-spacing: 0.5px;
+
+        cursor: default;
+
+    }
+
+    #chart-tooltip {
+
+        position: absolute;
+
+        display: none;
+
+        background: rgba(0, 0, 0, 0.85);
+
+        color: #fff;
+
+        padding: 6px 10px;
+
+        border-radius: 4px;
+
+        font-size: 12px;
+
+        pointer-events: none;
+
+        z-index: 1000;
+
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+
+        align-items: center;
+
+        gap: 8px;
+
+    }
+
+    #chart-tooltip img {
+
+        width: 32px;
+
+        height: 32px;
+
+        object-fit: cover;
+
+        border-radius: 3px;
+
+        border: 1px solid #fff;
+
+    }
+
+</style>
+
+
+
+<div id="chart-tooltip"></div>
+
+
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+
+    <div>
+
+        <a href="{{ url_for('item_bp.list_sales') }}" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Sales Register</a>
+
+        <h2>Item Sales Visualizations</h2>
+
+
+    </div>
+
+    <div>
+
+        <button class="btn btn-outline-primary btn-sm" onclick="resetFilters()">🔄 Reset All Filters</button>
+
+    </div>
+
+</div>
+
+
+
+<!-- Progressive Filter Panel -->
+
+<div class="card shadow-sm mb-4 border-0">
+
+    <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between align-items-center">
+
+        <span>Filter Sales Data</span>
+
+        <button class="btn btn-sm btn-outline-light" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse">
+
+            Toggle Filters
+
+        </button>
+
+    </div>
+
+    <div class="collapse show" id="filterCollapse">
+
+        <div class="card-body bg-light">
+
+            <div class="row g-3">
+
+                <div class="col-md-3">
+
+                    <label class="form-label fw-bold small">Date Options & Limits</label>
+
+                    <div class="d-flex align-items-center gap-2 mt-1">
+
+                        <button type="button" class="btn btn-outline-secondary btn-sm text-nowrap" onclick="applyVenueDates()">Venue Dates</button>
+
+                        <div class="form-check ms-1">
+
+                            <input class="form-check-input" type="checkbox" id="allTimeCheck" onchange="toggleAllTime()">
+
+                            <label class="form-check-label small fw-bold text-secondary" for="allTimeCheck">All-Time</label>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="col-md-3">
+
+                    <label class="form-label fw-bold small">Start Date</label>
+
+                    <input type="date" id="startDate" class="form-control form-control-sm" onchange="onDateChange()">
+
+                </div>
+
+                <div class="col-md-3">
+
+                    <label class="form-label fw-bold small">End Date</label>
+
+                    <input type="date" id="endDate" class="form-control form-control-sm" value="{{ today_date }}" onchange="onDateChange()">
+
+                </div>
+
+                <div class="col-md-3">
+
+                    <label class="form-label fw-bold small">Catalog Status</label>
+
+                    <select id="activeFilter" class="form-select form-select-sm" onchange="triggerFilterRefresh()">
+
+                        <option value="all">All Items</option>
+
+                        <option value="1" selected>Actively Selling Only</option>
+
+                        <option value="0">Inactive / Not Actively Selling</option>
+
+                    </select>
+
+                </div>
+
+
+
+                <div class="col-md-4">
+
+                    <label class="form-label fw-bold small">Venue</label>
+
+                    <div class="border bg-white rounded p-0 custom-multiselect-box shadow-sm" style="height: 180px; overflow-y: auto;" id="venueContainer">
+
+                        <div class="px-3 py-2 border-bottom bg-light sticky-top clickable-row master-row selected-row m-0" onclick="selectVenueMaster(event)">
+
+                            <span class="small fw-bold text-primary w-100">-- All Venues --</span>
+
+                        </div>
+
+                        <div id="venueOptionsList">
+
+                            {% for v in venues %}
+
+                                <div class="px-3 py-2 border-bottom clickable-row m-0" data-value="{{ v.VENUEID }}" onclick="selectVenueItem(this, event)">
+
+                                    <span class="small w-100">{{ v.VENNAME }}</span>
+
+                                </div>
+
+                            {% endfor %}
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+
+                <div class="col-md-4">
+
+                    <label class="form-label fw-bold small">Item Groups</label>
+
+                    <div class="border bg-white rounded p-0 custom-multiselect-box shadow-sm" style="height: 180px; overflow-y: auto;" id="groupContainer">
+
+                        <div class="form-check px-3 py-2 border-bottom bg-light sticky-top clickable-row master-row selected-row m-0" onclick="toggleMaster('groupContainer', event)">
+
+                            <span class="small fw-bold text-primary w-100">-- All Item Groups --</span>
+
+                        </div>
+
+                        <div id="groupOptionsList"></div>
+
+                    </div>
+
+                </div>
+
+
+
+                <div class="col-md-4">
+
+                    <label class="form-label fw-bold small">Specific Items</label>
+
+                    <div class="border bg-white rounded p-0 custom-multiselect-box shadow-sm" style="height: 180px; overflow-y: auto;" id="itemContainer">
+
+                        <div class="form-check px-3 py-2 border-bottom bg-light clickable-row master-row selected-row m-0" onclick="toggleMaster('itemContainer', event)">
+
+                            <span class="small fw-bold text-primary w-100">-- All Items --</span>
+
+                        </div>
+
+                        <div class="form-check px-3 py-2 border-bottom clickable-row sub-master-row m-0" onclick="toggleNotOneOffs(event)">
+
+                            <span class="small fw-bold text-success w-100">-- All items (Not One Offs) --</span>
+
+                        </div>
+
+                        <div id="itemOptionsList"></div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<!-- Summary KPI Metrics Cards -->
+
+<div class="row g-3 mb-4 text-center">
+
+    <div class="col-md-6">
+
+        <div class="card shadow-sm border-0 bg-white py-3">
+
+            <h6 class="text-muted text-uppercase small mb-1">Total Units Sold</h6>
+
+            <h3 id="kpiUnits" class="fw-bold text-primary mb-0">0</h3>
+
+        </div>
+
+    </div>
+
+    <div class="col-md-6">
+
+        <div class="card shadow-sm border-0 bg-white py-3">
+
+            <h6 class="text-muted text-uppercase small mb-1">Total Revenue</h6>
+
+            <h3 id="kpiRevenue" class="fw-bold text-success mb-0">$0.00</h3>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<!-- Visualization Layout -->
+
+<div class="row g-4 mb-5">
+
+    <div class="col-lg-6">
+
+        <div class="card shadow-sm border-0 h-100">
+
+            <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between align-items-center">
+
+                <span>Sales by Revenue</span>
+
+                <select id="revenueFilterMode" class="form-select form-select-sm bg-light text-dark fw-bold" style="width: 140px;" onchange="updateRevenueChart()">
+
+                    <option value="items">By Items</option>
+
+                    <option value="groups">By Groups</option>
+
+                </select>
+
+            </div>
+
+            <div class="card-body">
+
+                <div style="position: relative; height: 350px;">
+
+                    <canvas id="revenueSalesChart"></canvas>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <div class="col-lg-6">
+
+        <div class="card shadow-sm border-0 h-100">
+
+            <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between align-items-center">
+
+                <span>Sales by Unit</span>
+
+                <select id="unitFilterMode" class="form-select form-select-sm bg-light text-dark fw-bold" style="width: 140px;" onchange="updateUnitChart()">
+
+                    <option value="items">By Items</option>
+
+                    <option value="groups">By Groups</option>
+
+                </select>
+
+            </div>
+
+            <div class="card-body">
+
+                <div style="position: relative; height: 350px;">
+
+                    <canvas id="unitSalesChart"></canvas>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <div class="col-lg-12">
+
+        <div class="card shadow-sm border-0 h-100">
+
+            <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between align-items-center">
+
+                <div class="d-flex align-items-center gap-3">
+
+                    <select id="breakdownViewDropdown" class="form-select form-select-sm bg-light text-dark fw-bold shadow-sm" style="width: 240px;" onchange="updateBreakdownChart()">
+
+                        <option value="items" selected>Sales by Items</option>
+
+                        <option value="price">Sales by Price</option>
+
+                        <option value="date_items">Sales by Date [Items]</option>
+
+                        <option value="date_price">Sales by Date [Price]</option>
+
+                    </select>
+
+                    <span>Sales Breakdown View</span>
+
+                </div>
+
+                <select id="breakdownFilterMode" class="form-select form-select-sm bg-light text-dark fw-bold" style="width: 140px;" onchange="updateBreakdownChart()">
+
+                    <option value="items">By Items</option>
+
+                    <option value="groups">By Groups</option>
+
+                </select>
+
+            </div>
+
+            <div class="card-body">
+
+                <div style="position: relative; height: 380px;">
+
+                    <canvas id="breakdownSalesChart"></canvas>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <div class="col-lg-12">
+
+        <div class="card shadow-sm border-0 h-100">
+
+            <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between align-items-center">
+
+                <div class="d-flex align-items-center gap-3">
+
+                    <select id="timelineViewDropdown" class="form-select form-select-sm bg-light text-dark fw-bold shadow-sm" style="width: 240px;" onchange="updateTimelineChart()">
+
+                        <option value="date_items" selected>Sales by Date [Items]</option>
+
+                        <option value="date_price">Sales by Date [Price]</option>
+
+                    </select>
+
+                    <span>Sales Timeline Trends</span>
+
+                </div>
+
+                <select id="timelineFilterMode" class="form-select form-select-sm bg-light text-dark fw-bold" style="width: 140px;" onchange="updateTimelineChart()">
+
+                    <option value="items">By Items</option>
+
+                    <option value="groups">By Groups</option>
+
+                </select>
+
+            </div>
+
+            <div class="card-body">
+
+                <div style="position: relative; height: 380px;">
+
+                    <canvas id="timelineSalesChart"></canvas>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+
+
+
+<script>
+
+Chart.register(ChartDataLabels);
+
+
+
+let currentSalesData = [];
+
+let allSalesData = [];
+
+let revenueChart = null;
+
+let unitChart = null;
+
+let breakdownChart = null;
+
+let timelineChart = null;
+
+
+
+let selectedVenueId = null;
+
+let itemImageMap = {}; 
+
+let availableItemsRegistry = [];
+
+
+
+const filterState = {
+
+    groupContainer: { all: true, selected: new Set() },
+
+    itemContainer: { all: true, notOneOffs: false, selected: new Set() }
+
+};
+
+
+
+const GLOBAL_PALETTE = ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#858796', '#5a5c69', '#fd7e14', '#6f42c1', '#20c9a6', '#e83e8c', '#6610f2'];
+
+let globalColorMap = {};
+
+
+
+function assignConsistentColors(keys) {
+
+    keys.forEach((key, idx) => {
+
+        if (!globalColorMap[key]) {
+
+            globalColorMap[key] = GLOBAL_PALETTE[idx % GLOBAL_PALETTE.length];
+
+        }
+
+    });
+
+}
+
+
+
+const SHARED_DATALABELS_CONFIG = {
+
+    color: '#000000',
+
+    font: { weight: 'bold', size: 12 },
+
+    textStrokeColor: '#ffffff',
+
+    textStrokeWidth: 3
+
+};
+
+
+
+const customLegendPreviewPlugin = {
+
+    id: 'customLegendPreview',
+
+    afterInit(chart) {
+
+        const legend = chart.legend;
+
+        if (!legend) return;
+
+        const originalOnHover = legend.options.onHover;
+
+        const originalOnLeave = legend.options.onLeave;
+
+        const originalOnClick = legend.options.onClick;
+
+
+
+        legend.options.onHover = function(e, legendItem, legendObj) {
+
+            if (originalOnHover) originalOnHover(e, legendItem, legendObj);
+
+            let imgUrl = itemImageMap[legendItem.text];
+
+            const tooltipEl = document.getElementById('chart-tooltip');
+
+            if (imgUrl) {
+
+                tooltipEl.innerHTML = `<img src="${imgUrl}" alt="preview"> <span>${legendItem.text}</span>`;
+
+            } else {
+
+                tooltipEl.innerHTML = `<span>${legendItem.text} <br><small class="text-warning">No image available</small></span>`;
+
+            }
+
+            tooltipEl.style.display = 'flex';
+
+            tooltipEl.style.left = (e.native.pageX + 15) + 'px';
+
+            tooltipEl.style.top = (e.native.pageY + 15) + 'px';
+
+        };
+
+
+
+        legend.options.onLeave = function(e, legendItem, legendObj) {
+
+            if (originalOnLeave) originalOnLeave(e, legendItem, legendObj);
+
+            const tooltipEl = document.getElementById('chart-tooltip');
+
+            tooltipEl.style.display = 'none';
+
+        };
+
+
+
+        legend.options.onClick = function(e, legendItem, legendObj) {
+
+            let imgUrl = itemImageMap[legendItem.text];
+
+            const tooltipEl = document.getElementById('chart-tooltip');
+
+            if (imgUrl) {
+
+                tooltipEl.innerHTML = `<img src="${imgUrl}" alt="preview" style="width: 128px; height: 128px;"> <strong class="ms-1">${legendItem.text}</strong>`;
+
+            } else {
+
+                tooltipEl.innerHTML = `<span><strong>${legendItem.text}</strong><br><small class="text-warning">No image available</small></span>`;
+
+            }
+
+            tooltipEl.style.display = 'flex';
+
+            tooltipEl.style.left = (e.native.pageX + 15) + 'px';
+
+            tooltipEl.style.top = (e.native.pageY + 15) + 'px';
+
+        };
+
+    }
+
+};
+
+Chart.register(customLegendPreviewPlugin);
+
+
+
+document.addEventListener("DOMContentLoaded", function() {
+
+    refreshDynamicFilters();
+
+});
+
+
+
+function selectVenueMaster(event) {
+
+    selectedVenueId = null;
+
+    const container = document.getElementById('venueContainer');
+
+    container.querySelector('.master-row').classList.add('selected-row');
+
+    container.querySelectorAll('.clickable-row:not(.master-row)').forEach(r => r.classList.remove('selected-row'));
+
+    triggerFilterRefresh();
+
+}
+
+
+
+function selectVenueItem(rowElement, event) {
+
+    selectedVenueId = rowElement.getAttribute('data-value');
+
+    const container = document.getElementById('venueContainer');
+
+    container.querySelector('.master-row').classList.remove('selected-row');
+
+    container.querySelectorAll('.clickable-row:not(.master-row)').forEach(r => r.classList.remove('selected-row'));
+
+    rowElement.classList.add('selected-row');
+
+    triggerFilterRefresh();
+
+}
+
+
+
+function getVenueFilterArray() {
+
+    return selectedVenueId ? [selectedVenueId] : [];
+
+}
+
+
+
+function toggleMaster(containerId, event) {
+
+    const state = filterState[containerId];
+
+    const container = document.getElementById(containerId);
+
+    const masterRow = container.querySelector('.master-row');
+
+    const subMasterRow = container.querySelector('.sub-master-row');
+
+    const itemRows = container.querySelectorAll('.clickable-row:not(.master-row):not(.sub-master-row)');
+
+
+
+    state.all = true;
+
+    if (containerId === 'itemContainer') state.notOneOffs = false;
+
+    state.selected.clear();
+
+    
+
+    masterRow.classList.add('selected-row');
+
+    if (subMasterRow) subMasterRow.classList.remove('selected-row');
+
+    itemRows.forEach(row => row.classList.remove('selected-row'));
+
+
+
+    if (containerId === 'groupContainer') {
+
+        refreshDynamicFilters();
+
+    } else {
+
+        triggerFilterRefresh();
+
+    }
+
+}
+
+
+
+function toggleNotOneOffs(event) {
+
+    const state = filterState['itemContainer'];
+
+    const container = document.getElementById('itemContainer');
+
+    const masterRow = container.querySelector('.master-row');
+
+    const subMasterRow = container.querySelector('.sub-master-row');
+
+    const itemRows = container.querySelectorAll('.clickable-row:not(.master-row):not(.sub-master-row)');
+
+
+
+    state.all = false;
+
+    state.notOneOffs = true;
+
+    state.selected.clear();
+
+
+
+    masterRow.classList.remove('selected-row');
+
+    subMasterRow.classList.add('selected-row');
+
+
+
+    itemRows.forEach(row => {
+
+        let groupName = (row.getAttribute('data-group') || '').toLowerCase();
+
+        let itemName = (row.getAttribute('data-name') || '').toLowerCase();
+
+        let isOneOff = groupName.includes('one-off') || groupName.includes('one off') || itemName.includes('one-off') || itemName.includes('one off');
+
+        
+
+        if (!isOneOff) {
+
+            state.selected.add(row.getAttribute('data-value'));
+
+        }
+
+        row.classList.remove('selected-row');
+
+    });
+
+
+
+    triggerFilterRefresh();
+
+}
+
+
+
+function toggleItemRow(containerId, rowElement, event) {
+
+    const state = filterState[containerId];
+
+    const container = document.getElementById(containerId);
+
+    const masterRow = container.querySelector('.master-row');
+
+    const subMasterRow = container.querySelector('.sub-master-row');
+
+    const val = rowElement.getAttribute('data-value');
+
+
+
+    if (state.all || state.notOneOffs) {
+
+        state.all = false;
+
+        state.notOneOffs = false;
+
+        masterRow.classList.remove('selected-row');
+
+        if (subMasterRow) subMasterRow.classList.remove('selected-row');
+
+        state.selected.clear();
+
+        container.querySelectorAll('.clickable-row:not(.master-row):not(.sub-master-row)').forEach(r => r.classList.remove('selected-row'));
+
+    }
+
+
+
+    if (state.selected.has(val)) {
+
+        state.selected.delete(val);
+
+        rowElement.classList.remove('selected-row');
+
+    } else {
+
+        state.selected.add(val);
+
+        rowElement.classList.add('selected-row');
+
+    }
+
+
+
+    const allItemRows = container.querySelectorAll('.clickable-row:not(.master-row):not(.sub-master-row)');
+
+    if (state.selected.size === 0) {
+
+        state.all = true;
+
+        masterRow.classList.add('selected-row');
+
+    } else if (allItemRows.length > 0 && state.selected.size === allItemRows.length) {
+
+        state.all = true;
+
+        masterRow.classList.add('selected-row');
+
+        state.selected.clear();
+
+        allItemRows.forEach(r => r.classList.remove('selected-row'));
+
+    }
+
+
+
+    if (containerId === 'groupContainer') {
+
+        refreshDynamicFilters();
+
+    } else {
+
+        triggerFilterRefresh();
+
+    }
+
+}
+
+
+
+function getCheckedValues(containerId) {
+
+    const state = filterState[containerId];
+
+    if (state.all) return [];
+
+    return Array.from(state.selected);
+
+}
+
+
+
+function toggleAllTime() {
+
+    const isAllTime = document.getElementById('allTimeCheck').checked;
+
+    document.getElementById('startDate').disabled = isAllTime;
+
+    document.getElementById('endDate').disabled = isAllTime;
+
+    triggerFilterRefresh();
+
+}
+
+
+
+function applyVenueDates() {
+
+    fetch("{{ url_for('visuals_bp.api_venue_date_bounds') }}", {
+
+        method: 'POST',
+
+        headers: { 'Content-Type': 'application/json' },
+
+        body: JSON.stringify({ venue_ids: getVenueFilterArray() })
+
+    })
+
+    .then(res => res.json())
+
+    .then(data => {
+
+        if (data.status === 'success') {
+
+            if (data.min_date) document.getElementById('startDate').value = data.min_date;
+
+            if (data.max_date) document.getElementById('endDate').value = data.max_date;
+
+            document.getElementById('allTimeCheck').checked = false;
+
+            document.getElementById('startDate').disabled = false;
+
+            document.getElementById('endDate').disabled = false;
+
+            triggerFilterRefresh();
+
+        }
+
+    })
+
+    .catch(err => console.error('Error fetching venue date bounds:', err));
+
+}
+
+
+
+function onDateChange() {
+
+    triggerFilterRefresh();
+
+}
+
+
+
+function resetFilters() {
+
+    document.getElementById('startDate').value = '';
+
+    document.getElementById('endDate').value = '{{ today_date }}';
+
+    document.getElementById('allTimeCheck').checked = false;
+
+    document.getElementById('startDate').disabled = false;
+
+    document.getElementById('endDate').disabled = false;
+
+    document.getElementById('activeFilter').value = '1';
+
+    
+
+    selectedVenueId = null;
+
+    const vContainer = document.getElementById('venueContainer');
+
+    vContainer.querySelector('.master-row').classList.add('selected-row');
+
+    vContainer.querySelectorAll('.clickable-row:not(.master-row)').forEach(r => r.classList.remove('selected-row'));
+
+
+
+    ['groupContainer', 'itemContainer'].forEach(containerId => {
+
+        const container = document.getElementById(containerId);
+
+        filterState[containerId].all = true;
+
+        if (containerId === 'itemContainer') filterState[containerId].notOneOffs = false;
+
+        filterState[containerId].selected.clear();
+
+        container.querySelector('.master-row').classList.add('selected-row');
+
+        const subMaster = container.querySelector('.sub-master-row');
+
+        if (subMaster) subMaster.classList.remove('selected-row');
+
+        container.querySelectorAll('.clickable-row:not(.master-row):not(.sub-master-row)').forEach(row => {
+
+            row.classList.remove('selected-row');
+
+        });
+
+    });
+
+
+
+    document.getElementById('revenueFilterMode').value = 'items';
+
+    document.getElementById('unitFilterMode').value = 'items';
+
+    document.getElementById('breakdownViewDropdown').value = 'items';
+
+    document.getElementById('breakdownFilterMode').value = 'items';
+
+    document.getElementById('timelineViewDropdown').value = 'date_items';
+
+    document.getElementById('timelineFilterMode').value = 'items';
+
+
+
+    refreshDynamicFilters();
+
+}
+
+
+
+function triggerFilterRefresh() {
+
+    refreshDynamicFilters();
+
+}
+
+
+
+function refreshDynamicFilters() {
+
+    const isAllTime = document.getElementById('allTimeCheck').checked;
+
+    const selectedGroups = getCheckedValues('groupContainer');
+
+    const payload = {
+
+        start_date: isAllTime ? null : document.getElementById('startDate').value,
+
+        end_date: isAllTime ? null : document.getElementById('endDate').value,
+
+        actively_selling: document.getElementById('activeFilter').value,
+
+        venue_ids: getVenueFilterArray(),
+
+        item_groups: selectedGroups
+
+    };
+
+
+
+    const prevGroupsState = { all: filterState.groupContainer.all, selected: new Set(filterState.groupContainer.selected) };
+
+    const prevItemsState = { 
+
+        all: filterState.itemContainer.all, 
+
+        notOneOffs: filterState.itemContainer.notOneOffs, 
+
+        selected: new Set(filterState.itemContainer.selected) 
+
+    };
+
+
+
+    fetch("{{ url_for('visuals_bp.api_filter_options') }}", {
+
+        method: 'POST',
+
+        headers: { 'Content-Type': 'application/json' },
+
+        body: JSON.stringify(payload)
+
+    })
+
+    .then(res => res.json())
+
+    .then(data => {
+
+        if (data.status === 'success') {
+
+            itemImageMap = {};
+
+            availableItemsRegistry = data.items || [];
+
+            const groupList = document.getElementById('groupOptionsList');
+
+            groupList.innerHTML = '';
+
+            filterState.groupContainer.selected.clear();
+
+            
+
+            data.groups.forEach(g => {
+
+                let isSelected = !prevGroupsState.all && prevGroupsState.selected.has(g);
+
+                if (isSelected) filterState.groupContainer.selected.add(g);
+
+                groupList.innerHTML += `
+
+                    <div class="px-3 py-2 border-bottom clickable-row ${isSelected ? 'selected-row' : ''} m-0" data-value="${g}" onclick="toggleItemRow('groupContainer', this, event)">
+
+                        <span class="small w-100">${g}</span>
+
+                    </div>
+
+                `;
+
+            });
+
+            const groupMaster = document.querySelector('#groupContainer .master-row');
+
+            if (prevGroupsState.all) {
+
+                filterState.groupContainer.all = true;
+
+                groupMaster.classList.add('selected-row');
+
+            } else {
+
+                groupMaster.classList.remove('selected-row');
+
+            }
+
+
+
+            const itemList = document.getElementById('itemOptionsList');
+
+            itemList.innerHTML = '';
+
+            filterState.itemContainer.selected.clear();
+
+
+
+            let isAllGroupsSelected = filterState.groupContainer.all;
+
+
+
+            // Strict filtering: filter available items to only those belonging to the selected groups (if specific groups are chosen)
+
+            let filteredItems = availableItemsRegistry;
+
+            if (!isAllGroupsSelected && selectedGroups.length > 0) {
+
+                filteredItems = availableItemsRegistry.filter(i => selectedGroups.includes(i.ITMGRP));
+
+            }
+
+
+
+            if (isAllGroupsSelected) {
+
+                let groupedItems = {};
+
+                filteredItems.forEach(i => {
+
+                    let grp = i.ITMGRP || 'Unassigned Group';
+
+                    if (!groupedItems[grp]) groupedItems[grp] = [];
+
+                    groupedItems[grp].push(i);
+
+                });
+
+
+
+                Object.keys(groupedItems).sort().forEach(grp => {
+
+                    itemList.innerHTML += `<div class="px-3 py-1 item-group-header border-bottom">${grp}</div>`;
+
+                    groupedItems[grp].forEach(i => {
+
+                        renderItemRow(i, prevItemsState, itemList);
+
+                    });
+
+                });
+
+            } else {
+
+                filteredItems.forEach(i => {
+
+                    renderItemRow(i, prevItemsState, itemList);
+
+                });
+
+            }
+
+
+
+            const itemMaster = document.querySelector('#itemContainer .master-row');
+
+            const subMaster = document.querySelector('#itemContainer .sub-master-row');
+
+            
+
+            if (prevItemsState.all) {
+
+                filterState.itemContainer.all = true;
+
+                filterState.itemContainer.notOneOffs = false;
+
+                itemMaster.classList.add('selected-row');
+
+                if (subMaster) subMaster.classList.remove('selected-row');
+
+            } else if (prevItemsState.notOneOffs) {
+
+                filterState.itemContainer.all = false;
+
+                filterState.itemContainer.notOneOffs = true;
+
+                itemMaster.classList.remove('selected-row');
+
+                if (subMaster) subMaster.classList.add('selected-row');
+
+            } else {
+
+                itemMaster.classList.remove('selected-row');
+
+                if (subMaster) subMaster.classList.remove('selected-row');
+
+            }
+
+
+
+            fetchSalesData();
+
+        }
+
+    })
+
+    .catch(err => console.error('Error refreshing dynamic filter options:', err));
+
+}
+
+
+
+function renderItemRow(i, prevItemsState, itemList) {
+
+    let sId = String(i.ITEMID);
+
+    let isSelected = false;
+
+
+
+    if (prevItemsState.notOneOffs) {
+
+        let groupName = (i.ITMGRP || '').toLowerCase();
+
+        let itemName = (i.ITMNAME || '').toLowerCase();
+
+        let isOneOff = groupName.includes('one-off') || groupName.includes('one off') || itemName.includes('one-off') || itemName.includes('one off');
+
+        if (!isOneOff) {
+
+            filterState.itemContainer.selected.add(sId);
+
+        }
+
+    } else {
+
+        isSelected = !prevItemsState.all && prevItemsState.selected.has(sId);
+
+        if (isSelected) filterState.itemContainer.selected.add(sId);
+
+    }
+
+
+
+    let groupLabel = i.ITMGRP ? ` (${i.ITMGRP})` : '';
+
+    
+
+    if (i.ITMNAME) {
+
+        let img = i.IMAGE_URL || '';
+
+        if (!img.startsWith('/static/')) {
+
+            img = img.startsWith('/') ? '/static' + img : '/static/' + img;
+
+        }
+
+        itemImageMap[i.ITMNAME] = img;
+
+    }
+
+
+
+    itemList.innerHTML += `
+
+        <div class="px-3 py-2 border-bottom clickable-row ${isSelected ? 'selected-row' : ''} m-0" data-value="${i.ITEMID}" data-group="${i.ITMGRP || ''}" data-name="${i.ITMNAME || ''}" onclick="toggleItemRow('itemContainer', this, event)">
+
+            <span class="small w-100">${i.ITMNAME}${groupLabel}</span>
+
+        </div>
+
+    `;
+
+}
+
+
+
+function fetchSalesData() {
+
+    const isAllTime = document.getElementById('allTimeCheck').checked;
+
+    const startDateVal = document.getElementById('startDate').value;
+
+    const endDateVal = document.getElementById('endDate').value;
+
+    const activeVal = document.getElementById('activeFilter').value;
+
+    const venueArr = getVenueFilterArray();
+
+    const groupArr = getCheckedValues('groupContainer');
+
+    const itemArr = getCheckedValues('itemContainer');
+
+
+
+    const basePayload = {
+
+        start_date: isAllTime ? null : startDateVal,
+
+        end_date: isAllTime ? null : endDateVal,
+
+        actively_selling: activeVal,
+
+        venue_ids: venueArr,
+
+        item_groups: groupArr
+
+    };
+
+
+
+    const filteredPayload = { ...basePayload, item_ids: itemArr };
+
+    const p1 = fetch("{{ url_for('visuals_bp.api_sales_data') }}", {
+
+        method: 'POST',
+
+        headers: { 'Content-Type': 'application/json' },
+
+        body: JSON.stringify(filteredPayload)
+
+    }).then(res => res.json());
+
+
+
+    const allPayload = { ...basePayload, item_ids: [] };
+
+    const p2 = fetch("{{ url_for('visuals_bp.api_sales_data') }}", {
+
+        method: 'POST',
+
+        headers: { 'Content-Type': 'application/json' },
+
+        body: JSON.stringify(allPayload)
+
+    }).then(res => res.json());
+
+
+
+    Promise.all([p1, p2])
+
+        .then(([res1, res2]) => {
+
+            if (res1.status === 'success' && res2.status === 'success') {
+
+                currentSalesData = res1.sales;
+
+                allSalesData = res2.sales;
+
+
+
+                let allEntities = new Set();
+
+                [...currentSalesData, ...allSalesData].forEach(sale => {
+
+                    let itemName = sale.ITMNAME || 'Unknown';
+
+                    let groupName = sale.ITMGRP || 'Unassigned Group';
+
+                    allEntities.add(itemName);
+
+                    allEntities.add(groupName);
+
+                    if (sale.IMAGE_URL) {
+
+                        let img = sale.IMAGE_URL;
+
+                        if (!img.startsWith('/static/')) {
+
+                            img = img.startsWith('/') ? '/static' + img : '/static/' + img;
+
+                        }
+
+                        itemImageMap[sale.ITMNAME] = img;
+
+                    }
+
+                });
+
+                
+
+                availableItemsRegistry.forEach(i => {
+
+                    if (i.ITMNAME) allEntities.add(i.ITMNAME);
+
+                    if (i.ITMGRP) allEntities.add(i.ITMGRP);
+
+                });
+
+
+
+                assignConsistentColors(Array.from(allEntities));
+
+
+
+                updateKPIs();
+
+                updateRevenueChart();
+
+                updateUnitChart();
+
+                updateBreakdownChart();
+
+                updateTimelineChart();
+
+            } else {
+
+                console.error('Server error:', res1.message || res2.message);
+
+            }
+
+        })
+
+        .catch(err => console.error('Error fetching sales visualization data:', err));
+
+}
+
+
+
+function updateKPIs() {
+
+    let totalUnits = 0;
+
+    let totalRevenue = 0;
+
+
+
+    currentSalesData.forEach(sale => {
+
+        let units = parseInt(sale.SUNITS) || 0;
+
+        let price = parseFloat(sale.SPRICE) || 0;
+
+        totalUnits += units;
+
+        totalRevenue += (units * price);
+
+    });
+
+
+
+    document.getElementById('kpiUnits').textContent = totalUnits;
+
+    document.getElementById('kpiRevenue').textContent = `$${totalRevenue.toFixed(2)}`;
+
+}
+
+
+
+function updateRevenueChart() {
+
+    const mode = document.getElementById('revenueFilterMode').value;
+
+    const ctx = document.getElementById('revenueSalesChart').getContext('2d');
+
+    if (revenueChart) revenueChart.destroy();
+
+
+
+    let agg = {};
+
+    currentSalesData.forEach(sale => {
+
+        let key = mode === 'groups' ? (sale.ITMGRP || 'Unassigned Group') : (sale.ITMNAME || 'Unknown');
+
+        let revenue = (parseInt(sale.SUNITS) || 0) * (parseFloat(sale.SPRICE) || 0);
+
+        agg[key] = (agg[key] || 0) + revenue;
+
+    });
+
+
+
+    let sorted = Object.entries(agg).sort((a, b) => b[1] - a[1]);
+
+    let labels = sorted.map(i => i[0]);
+
+    let values = sorted.map(i => i[1]);
+
+    let backgroundColors = labels.map(l => globalColorMap[l] || '#858796');
+
+
+
+    revenueChart = new Chart(ctx, {
+
+        type: 'doughnut',
+
+        data: {
+
+            labels: labels,
+
+            datasets: [{
+
+                label: 'Revenue ($)',
+
+                data: values,
+
+                backgroundColor: backgroundColors
+
+            }]
+
+        },
+
+        options: {
+
+            responsive: true,
+
+            maintainAspectRatio: false,
+
+            plugins: {
+
+                legend: { position: 'bottom' },
+
+                datalabels: {
+
+                    ...SHARED_DATALABELS_CONFIG,
+
+                    formatter: (value) => value > 0 ? `$${value.toFixed(2)}` : ''
+
+                }
+
+            }
+
+        }
+
+    });
+
+}
+
+
+
+function updateUnitChart() {
+
+    const mode = document.getElementById('unitFilterMode').value;
+
+    const ctx = document.getElementById('unitSalesChart').getContext('2d');
+
+    if (unitChart) unitChart.destroy();
+
+
+
+    let agg = {};
+
+    currentSalesData.forEach(sale => {
+
+        let key = mode === 'groups' ? (sale.ITMGRP || 'Unassigned Group') : (sale.ITMNAME || 'Unknown');
+
+        let units = parseInt(sale.SUNITS) || 0;
+
+        agg[key] = (agg[key] || 0) + units;
+
+    });
+
+
+
+    let sorted = Object.entries(agg).sort((a, b) => b[1] - a[1]);
+
+    let labels = sorted.map(i => i[0]);
+
+    let values = sorted.map(i => i[1]);
+
+    let backgroundColors = labels.map(l => globalColorMap[l] || '#858796');
+
+
+
+    unitChart = new Chart(ctx, {
+
+        type: 'doughnut',
+
+        data: {
+
+            labels: labels,
+
+            datasets: [{
+
+                label: 'Units Sold',
+
+                data: values,
+
+                backgroundColor: backgroundColors
+
+            }]
+
+        },
+
+        options: {
+
+            responsive: true,
+
+            maintainAspectRatio: false,
+
+            plugins: {
+
+                legend: { position: 'bottom' },
+
+                datalabels: {
+
+                    ...SHARED_DATALABELS_CONFIG,
+
+                    formatter: (value) => value > 0 ? value : ''
+
+                }
+
+            }
+
+        }
+
+    });
+
+}
+
+
+
+function updateBreakdownChart() {
+
+    const viewType = document.getElementById('breakdownViewDropdown').value;
+
+    const mode = document.getElementById('breakdownFilterMode').value;
+
+    const ctx = document.getElementById('breakdownSalesChart').getContext('2d');
+
+    if (breakdownChart) breakdownChart.destroy();
+
+
+
+    let activeEntitiesSet = new Set();
+
+    if (mode === 'groups') {
+
+        availableItemsRegistry.forEach(i => { if (i.ITMGRP) activeEntitiesSet.add(i.ITMGRP); });
+
+        currentSalesData.forEach(sale => { if (sale.ITMGRP) activeEntitiesSet.add(sale.ITMGRP); });
+
+    } else {
+
+        let checkedItemIds = getCheckedValues('itemContainer');
+
+        if (filterState.itemContainer.all || filterState.itemContainer.notOneOffs || checkedItemIds.length === 0) {
+
+            availableItemsRegistry.forEach(i => { if (i.ITMNAME) activeEntitiesSet.add(i.ITMNAME); });
+
+        } else {
+
+            availableItemsRegistry.forEach(i => {
+
+                if (checkedItemIds.includes(String(i.ITEMID)) && i.ITMNAME) {
+
+                    activeEntitiesSet.add(i.ITMNAME);
+
+                }
+
+            });
+
+        }
+
+        currentSalesData.forEach(sale => { if (sale.ITMNAME) activeEntitiesSet.add(sale.ITMNAME); });
+
+    }
+
+    let sortedEntities = Array.from(activeEntitiesSet).sort();
+
+
+
+    if (viewType === 'date_items' || viewType === 'date_price') {
+
+        let isPrice = (viewType === 'date_price');
+
+        let dateItemMap = {};
+
+        let datesSet = new Set();
+
+
+
+        allSalesData.forEach(sale => {
+
+            let dt = sale.SDATE;
+
+            if (dt) datesSet.add(dt);
+
+        });
+
+
+
+        currentSalesData.forEach(sale => {
+
+            let dt = sale.SDATE;
+
+            let entityKey = mode === 'groups' ? (sale.ITMGRP || 'Unassigned Group') : (sale.ITMNAME || 'Unknown');
+
+            let metricVal = isPrice 
+
+                ? ((parseInt(sale.SUNITS) || 0) * (parseFloat(sale.SPRICE) || 0))
+
+                : (parseInt(sale.SUNITS) || 0);
+
+
+
+            if (dt) {
+
+                if (!dateItemMap[dt]) dateItemMap[dt] = {};
+
+                dateItemMap[dt][entityKey] = (dateItemMap[dt][entityKey] || 0) + metricVal;
+
+            }
+
+        });
+
+
+
+        let sortedDates = Array.from(datesSet).sort();
+
+
+
+        let maxStackTotal = 0;
+
+        sortedDates.forEach(dt => {
+
+            let sum = 0;
+
+            sortedEntities.forEach(ent => {
+
+                if (dateItemMap[dt] && dateItemMap[dt][ent]) {
+
+                    sum += dateItemMap[dt][ent];
+
+                }
+
+            });
+
+            if (sum > maxStackTotal) maxStackTotal = sum;
+
+        });
+
+
+
+        let datasets = sortedEntities.map(ent => {
+
+            let dataPoints = sortedDates.map(dt => {
+
+                return (dateItemMap[dt] && dateItemMap[dt][ent]) ? dateItemMap[dt][ent] : 0;
+
+            });
+
+            let color = globalColorMap[ent] || '#858796';
+
+            return {
+
+                label: ent,
+
+                data: dataPoints,
+
+                backgroundColor: color,
+
+                borderWidth: 1
+
+            };
+
+        });
+
+
+
+        breakdownChart = new Chart(ctx, {
+
+            type: 'bar',
+
+            data: {
+
+                labels: sortedDates,
+
+                datasets: datasets
+
+            },
+
+            options: {
+
+                responsive: true,
+
+                maintainAspectRatio: false,
+
+                scales: {
+
+                    x: { stacked: true },
+
+                    y: { 
+
+                        stacked: true, 
+
+                        beginAtZero: true, 
+
+                        suggestedMax: maxStackTotal * 1.10,
+
+                        ticks: { precision: isPrice ? 2 : 0 } 
+
+                    }
+
+                },
+
+                plugins: {
+
+                    legend: { position: 'bottom' },
+
+                    datalabels: {
+
+                        ...SHARED_DATALABELS_CONFIG,
+
+                        anchor: 'center',
+
+                        align: 'center',
+
+                        formatter: (value) => value > 0 ? (isPrice ? `$${value.toFixed(0)}` : value) : ''
+
+                    },
+
+                    tooltip: {
+
+                        callbacks: {
+
+                            footer: (tooltipItems) => {
+
+                                let total = tooltipItems.reduce((sum, item) => sum + item.parsed.y, 0);
+
+                                return `Total: ${isPrice ? '$' + total.toFixed(2) : total}`;
+
+                            }
+
+                        }
+
+                    }
+
+                }
+
+            },
+
+            plugins: [{
+
+                id: 'stackTotalLabel',
+
+                afterDatasetsDraw(chart) {
+
+                    const { ctx, scales: { x, y } } = chart;
+
+                    ctx.save();
+
+                    ctx.font = 'bold 12px sans-serif';
+
+                    ctx.fillStyle = '#000000';
+
+                    ctx.textAlign = 'center';
+
+                    ctx.textBaseline = 'bottom';
+
+
+
+                    sortedDates.forEach((dt, index) => {
+
+                        let sum = 0;
+
+                        sortedEntities.forEach(ent => {
+
+                            if (dateItemMap[dt] && dateItemMap[dt][ent]) {
+
+                                sum += dateItemMap[dt][ent];
+
+                            }
+
+                        });
+
+                        if (sum > 0) {
+
+                            let xCoord = x.getPixelForValue(index);
+
+                            let yCoord = y.getPixelForValue(sum) - 5;
+
+                            let textVal = isPrice ? `$${sum.toFixed(0)}` : sum;
+
+                            
+
+                            ctx.strokeStyle = '#ffffff';
+
+                            ctx.lineWidth = 3;
+
+                            ctx.strokeText(textVal, xCoord, yCoord);
+
+                            ctx.fillText(textVal, xCoord, yCoord);
+
+                        }
+
+                    });
+
+                    ctx.restore();
+
+                }
+
+            }]
+
+        });
+
+
+
+    } else {
+
+        let isPrice = (viewType === 'price');
+
+        let agg = {};
+
+        sortedEntities.forEach(ent => { agg[ent] = 0; });
+
+
+
+        currentSalesData.forEach(sale => {
+
+            let key = mode === 'groups' ? (sale.ITMGRP || 'Unassigned Group') : (sale.ITMNAME || 'Unknown');
+
+            let val = isPrice 
+
+                ? ((parseInt(sale.SUNITS) || 0) * (parseFloat(sale.SPRICE) || 0))
+
+                : (parseInt(sale.SUNITS) || 0);
+
+            agg[key] = (agg[key] || 0) + val;
+
+        });
+
+
+
+        let labels = sortedEntities;
+
+        let values = labels.map(l => agg[l] || 0);
+
+        let maxVal = values.length > 0 ? Math.max(...values) : 0;
+
+        let backgroundColors = labels.map(l => globalColorMap[l] || '#858796');
+
+
+
+        breakdownChart = new Chart(ctx, {
+
+            type: 'bar',
+
+            data: {
+
+                labels: labels,
+
+                datasets: [{
+
+                    label: isPrice ? 'Revenue ($)' : 'Units Sold',
+
+                    data: values,
+
+                    backgroundColor: backgroundColors,
+
+                    borderWidth: 1
+
+                }]
+
+            },
+
+            options: {
+
+                responsive: true,
+
+                maintainAspectRatio: false,
+
+                scales: {
+
+                    y: { 
+
+                        beginAtZero: true, 
+
+                        suggestedMax: maxVal * 1.10,
+
+                        ticks: { precision: isPrice ? 2 : 0 } 
+
+                    }
+
+                },
+
+                plugins: {
+
+                    legend: { 
+
+                        position: 'bottom',
+
+                        labels: {
+
+                            generateLabels: function(chart) {
+
+                                return labels.map((label, i) => ({
+
+                                    text: label,
+
+                                    fillStyle: backgroundColors[i],
+
+                                    strokeStyle: '#fff',
+
+                                    lineWidth: 1,
+
+                                    hidden: false,
+
+                                    index: i
+
+                                }));
+
+                            }
+
+                        }
+
+                    },
+
+                    datalabels: {
+
+                        ...SHARED_DATALABELS_CONFIG,
+
+                        anchor: 'end',
+
+                        align: 'top',
+
+                        formatter: (value) => value > 0 ? (isPrice ? `$${value.toFixed(2)}` : value) : ''
+
+                    }
+
+                }
+
+            }
+
+        });
+
+    }
+
+}
+
+
+
+function updateTimelineChart() {
+
+    const viewType = document.getElementById('timelineViewDropdown').value;
+
+    const mode = document.getElementById('timelineFilterMode').value;
+
+    const ctx = document.getElementById('timelineSalesChart').getContext('2d');
+
+    if (timelineChart) timelineChart.destroy();
+
+
+
+    let isPrice = (viewType === 'date_price');
+
+    let dateMap = {};
+
+    let datesSet = new Set();
+
+    let activeEntitiesSet = new Set();
+
+
+
+    if (mode === 'groups') {
+
+        availableItemsRegistry.forEach(i => { if (i.ITMGRP) activeEntitiesSet.add(i.ITMGRP); });
+
+    } else {
+
+        let checkedItemIds = getCheckedValues('itemContainer');
+
+        if (filterState.itemContainer.all || filterState.itemContainer.notOneOffs || checkedItemIds.length === 0) {
+
+            availableItemsRegistry.forEach(i => { if (i.ITMNAME) activeEntitiesSet.add(i.ITMNAME); });
+
+        } else {
+
+            availableItemsRegistry.forEach(i => {
+
+                if (checkedItemIds.includes(String(i.ITEMID)) && i.ITMNAME) {
+
+                    activeEntitiesSet.add(i.ITMNAME);
+
+                }
+
+            });
+
+        }
+
+    }
+
+
+
+    allSalesData.forEach(sale => {
+
+        let dt = sale.SDATE;
+
+        if (dt) datesSet.add(dt);
+
+    });
+
+
+
+    currentSalesData.forEach(sale => {
+
+        let dt = sale.SDATE;
+
+        let entityKey = mode === 'groups' ? (sale.ITMGRP || 'Unassigned Group') : (sale.ITMNAME || 'Unknown');
+
+        activeEntitiesSet.add(entityKey);
+
+        let metricVal = isPrice 
+
+            ? ((parseInt(sale.SUNITS) || 0) * (parseFloat(sale.SPRICE) || 0))
+
+            : (parseInt(sale.SUNITS) || 0);
+
+
+
+        if (dt) {
+
+            if (!dateMap[dt]) dateMap[dt] = {};
+
+            dateMap[dt][entityKey] = (dateMap[dt][entityKey] || 0) + metricVal;
+
+        }
+
+    });
+
+
+
+    let sortedDates = Array.from(datesSet).sort();
+
+    let sortedEntities = Array.from(activeEntitiesSet).sort();
+
+
+
+    let maxLineVal = 0;
+
+    sortedDates.forEach(dt => {
+
+        sortedEntities.forEach(ent => {
+
+            let val = (dateMap[dt] && dateMap[dt][ent]) ? dateMap[dt][ent] : 0;
+
+            if (val > maxLineVal) maxLineVal = val;
+
+        });
+
+    });
+
+
+
+    let datasets = sortedEntities.map(ent => {
+
+        let dataPoints = sortedDates.map(dt => {
+
+            return (dateMap[dt] && dateMap[dt][ent]) ? dateMap[dt][ent] : 0;
+
+        });
+
+        let color = globalColorMap[ent] || '#858796';
+
+        return {
+
+            label: ent,
+
+            data: dataPoints,
+
+            borderColor: color,
+
+            backgroundColor: color,
+
+            fill: false,
+
+            tension: 0.1
+
+        };
+
+    });
+
+
+
+    timelineChart = new Chart(ctx, {
+
+        type: 'line',
+
+        data: {
+
+            labels: sortedDates,
+
+            datasets: datasets
+
+        },
+
+        options: {
+
+            responsive: true,
+
+            maintainAspectRatio: false,
+
+            scales: {
+
+                y: { 
+
+                    beginAtZero: true, 
+
+                    suggestedMax: maxLineVal * 1.10,
+
+                    ticks: { precision: isPrice ? 2 : 0 } 
+
+                }
+
+            },
+
+            plugins: {
+
+                legend: { position: 'bottom' },
+
+                datalabels: {
+
+                    ...SHARED_DATALABELS_CONFIG,
+
+                    align: 'top',
+
+                    formatter: (value) => value > 0 ? (isPrice ? `$${value.toFixed(0)}` : value) : ''
+
+                }
+
+            }
+
+        }
+
+    });
+
+}
+
+</script>
+
+{% endblock %}
