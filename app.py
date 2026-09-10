@@ -93,7 +93,7 @@ def init_db():
             "INSERT OR IGNORE INTO COLOR (COLOR, CHEX) VALUES ('Black', '0E0E11'),( 'Dark Grey', '7D7D7D'),( 'Light Grey','BEBEBE'),( 'White', 'FFF8F1'),( 'Cerulean', '63CCFF'),( 'Blue', '2087F9'),( 'Cobolt', '1F4897'),( 'Emerald', '095337'),( 'Green', '2BD81A'),( 'Chartreuse', '8DFC00'),( 'Yellow', 'FFFD3B'),( 'Goldenrod', 'FED416'),( 'Orange', 'F17700'),( 'Red', 'E41F00'),( 'Burgundy', '7F0E21'),( 'Indigo', '401782'),( 'Amethyst', '7B35BD'),( 'Mauve', 'BE5ABF'),( 'Lavender', 'E69CE6'),( 'Raspberry', 'DE599B'),( 'Pink', 'FF7D93'),( 'Tan', 'B15223'),( 'Brown', '6B2A16'),( 'Transparent', 'FFFFFF')"
         )
         db.execute(
-            "INSERT OR IGNORE INTO GTRNS (GTRNSN, GTRNSV) VALUES ('Clear', 35), ('Transparent', 60), ('Translucent', 75), ('Opaque', 95)"
+            "INSERT OR IGNORE INTO GTRNS (GTRNSN, GTRNSV) VALUES ('Clear', 35), ('Transparent', 70), ('Translucent', 85), ('Opaque', 95)"
         )
         db.execute(
             "INSERT OR IGNORE INTO UNTS (UNTTYPE, CFACTOR) VALUES ('inches', 1), ('feet', 12), ('yards', 36), ('pounds', 454), ('units', 1)"
