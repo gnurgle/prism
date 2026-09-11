@@ -10,7 +10,7 @@
 
         <a href="{{ url_for('glass_bp.glass_detail', glass_id=glass.GLASSID) }}" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Glass Details</a>
 
-        <h2>Glass Visualizations & Analytics: {{ glass.GLSNAME }}</h2>
+        <h2>Glass Visualizations</h2>
 
     </div>
 
@@ -24,9 +24,9 @@
 
 
 
-<!-- Quick Reference Header with Large Image -->
+<!-- Quick Reference Header with Square Image and CHEX Outline Border -->
 
-<div class="card shadow-sm mb-4 border-0 bg-light">
+<div class="card mb-4 bg-white" style="border: 2px solid #{{ glass.CHEX|string|replace('#', '') if glass.CHEX else 'ccc' }};">
 
     <div class="card-body">
 
@@ -38,19 +38,19 @@
 
                     {% if glass.GLSIMG.startswith('http://') or glass.GLSIMG.startswith('https://') %}
 
-                        <img src="{{ glass.GLSIMG }}" alt="{{ glass.GLSNAME }}" class="img-fluid rounded border shadow-sm" style="max-height: 160px; width: 100%; object-fit: cover;">
+                        <img src="{{ glass.GLSIMG }}" alt="{{ glass.GLSNAME }}" class="rounded border" style="width: 140px; height: 140px; object-fit: cover;">
 
                     {% else %}
 
-                        <img src="{{ url_for('static', filename=glass.GLSIMG.lstrip('/')) }}" alt="{{ glass.GLSNAME }}" class="img-fluid rounded border shadow-sm" style="max-height: 160px; width: 100%; object-fit: cover;">
+                        <img src="{{ url_for('static', filename=glass.GLSIMG.lstrip('/')) }}" alt="{{ glass.GLSNAME }}" class="rounded border" style="width: 140px; height: 140px; object-fit: cover;">
 
                     {% endif %}
 
                 {% else %}
 
-                    <div class="bg-secondary text-white rounded d-flex align-items-center justify-content-center p-3" style="height: 140px;">
+                    <div class="bg-secondary text-white rounded d-flex align-items-center justify-content-center p-3 mx-auto" style="width: 140px; height: 140px;">
 
-                        <span>No Image Available</span>
+                        <span class="small text-center">No Image</span>
 
                     </div>
 
@@ -60,7 +60,45 @@
 
             <div class="col-md-9">
 
-                <h4 class="text-primary fw-bold mb-2">{{ glass.GLSNAME }} (#{{ glass.GLASSID }})</h4>
+                <h4 class="fw-bold mb-1">
+
+                    <a href="{{ url_for('glass_bp.glass_detail', glass_id=glass.GLASSID) }}" class="text-decoration-none text-primary">
+
+                        {{ glass.GLSNAME }} (#{{ glass.GLASSID }})
+
+                    </a>
+
+                </h4>
+
+
+
+                <!-- Iridescent & Opalescent Badges -->
+
+                <div class="d-flex gap-1 flex-wrap mb-2">
+
+                    {% if glass.GLSIRI == 1 %}
+
+                        <span class="badge px-2 py-1" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 20%, #0f3460 40%, #e94560 60%, #00b4d8 80%, #90e0ef 100%); color: #fff !important; text-shadow: 0px 0px 3px rgba(0,0,0,0.9); font-weight: 600; border: 1px solid #00b4d8;" title="Iridescent">
+
+                            Irid
+
+                        </span>
+
+                    {% endif %}
+
+                    {% if glass.GLSOPAL == 1 %}
+
+                        <span class="badge px-2 py-1" style="background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 20%, #a1c4fd 40%, #c2e9fb 60%, #d4fc79 80%, #96e6a1 100%); color: #111 !important; text-shadow: 0px 0px 3px rgba(255,255,255,0.9); font-weight: 600; border: 1px solid #ff9a9e;" title="Opalescent">
+
+                            Opal
+
+                        </span>
+
+                    {% endif %}
+
+                </div>
+
+
 
                 <div class="row g-2 text-dark small mb-3">
 
@@ -82,7 +120,7 @@
 
                 <!-- Date Filters Toolbar -->
 
-                <div class="row g-2 align-items-center bg-white p-2 rounded border">
+                <div class="row g-2 align-items-center bg-light p-2 rounded border">
 
                     <div class="col-auto">
 
@@ -126,7 +164,7 @@
 
 
 
-<!-- Information Cards Row (5 Cards fitting on one line using col) -->
+<!-- Information Cards Row -->
 
 <div class="row g-3 mb-4">
 
@@ -138,7 +176,7 @@
 
                 <div class="text-xs font-weight-bold text-primary text-uppercase mb-1" style="font-size: 0.75rem;">Total Sheets</div>
 
-                <div class="h5 mb-0 font-weight-bold text-dark">{{ metrics.total_sheets }}</div>
+                <div class="h5 mb-0 font-weight-bold text-dark" id="cardTotalSheets">{{ metrics.total_sheets }}</div>
 
             </div>
 
@@ -154,7 +192,7 @@
 
                 <div class="text-xs font-weight-bold text-success text-uppercase mb-1" style="font-size: 0.75rem;">Total Money Spent</div>
 
-                <div class="h5 mb-0 font-weight-bold text-dark">${{ "%.2f"|format(metrics.total_money_spent) }}</div>
+                <div class="h5 mb-0 font-weight-bold text-dark" id="cardMoneySpent">${{ "%.2f"|format(metrics.total_money_spent) }}</div>
 
             </div>
 
@@ -170,7 +208,7 @@
 
                 <div class="text-xs font-weight-bold text-info text-uppercase mb-1" style="font-size: 0.75rem;">Total Sqft Used</div>
 
-                <div class="h5 mb-0 font-weight-bold text-dark">{{ "%.2f"|format(metrics.total_sqft_used) }} sq ft</div>
+                <div class="h5 mb-0 font-weight-bold text-dark" id="cardSqftUsed">{{ "%.2f"|format(metrics.total_sqft_used) }} sq ft</div>
 
             </div>
 
@@ -186,7 +224,7 @@
 
                 <div class="text-xs font-weight-bold text-warning text-uppercase mb-1" style="font-size: 0.75rem;">Total Items Made</div>
 
-                <div class="h5 mb-0 font-weight-bold text-dark">{{ metrics.total_items_made }}</div>
+                <div class="h5 mb-0 font-weight-bold text-dark" id="cardItemsMade">{{ metrics.total_items_made }}</div>
 
             </div>
 
@@ -202,7 +240,7 @@
 
                 <div class="text-xs font-weight-bold text-secondary text-uppercase mb-1" style="font-size: 0.75rem;">Total Distinct Items</div>
 
-                <div class="h5 mb-0 font-weight-bold text-dark">{{ metrics.total_distinct_items }}</div>
+                <div class="h5 mb-0 font-weight-bold text-dark" id="cardDistinctItems">{{ metrics.total_distinct_items }}</div>
 
             </div>
 
@@ -274,7 +312,7 @@
 
 
 
-    <!-- Chart 3: Items Sold Using this Glass -->
+    <!-- Chart 3: Item Production Running Total -->
 
     <div class="col-lg-12">
 
@@ -282,7 +320,7 @@
 
             <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between align-items-center">
 
-                <span>Items Sold Using this Glass</span>
+                <span>Running Total of Items Made Over Time</span>
 
             </div>
 
@@ -320,7 +358,9 @@ const rawPriceHistory = {{ price_history | tojson }};
 
 const rawInventoryHistory = {{ inventory_history | tojson }};
 
-const rawSalesUsage = {{ sales_usage | tojson }};
+const rawItemInvHistory = {{ item_inv_history | tojson }};
+
+const itemAreas = {{ item_areas | tojson }};
 
 
 
@@ -330,7 +370,7 @@ let priceChart, inventoryChart, itemUsageChart;
 
 document.addEventListener("DOMContentLoaded", function() {
 
-    renderCharts(rawPriceHistory, rawInventoryHistory, rawSalesUsage);
+    processAndRender(rawPriceHistory, rawInventoryHistory, rawItemInvHistory);
 
 });
 
@@ -370,7 +410,167 @@ function applyDateFilters() {
 
     const filteredInventory = filterDataByDate(rawInventoryHistory, 'TS');
 
-    const filteredSales = filterDataByDate(rawSalesUsage, 'SDATE');
+    const filteredItemInv = filterDataByDate(rawItemInvHistory, 'TS');
+
+
+
+    processAndRender(filteredPrices, filteredInventory, filteredItemInv);
+
+}
+
+
+
+function getHeadroomMax(arr) {
+
+    if (!arr || arr.length === 0) return 10;
+
+    let max = Math.max(...arr);
+
+    if (max === 0) return 5;
+
+    return max * 1.2;
+
+}
+
+
+
+function processAndRender(priceData, inventoryData, itemInvData) {
+
+    let totalSheets = 0;
+
+    let totalMoneySpent = 0.0;
+
+    let prevStock = 0;
+
+
+
+    let sortedPrices = [...priceData].sort((a, b) => new Date(a.STDATE) - new Date(b.STDATE));
+
+
+
+    function getPrice(dt) {
+
+        if (!sortedPrices.length) return {{ glass.GLSPRICE or 0.0 }};
+
+        let active = sortedPrices[0].GLSPRICE;
+
+        for (let p of sortedPrices) {
+
+            let st = p.STDATE || '';
+
+            let en = p.ENDDATE || '9999-12-31';
+
+            if (st <= dt && dt <= en) active = p.GLSPRICE;
+
+        }
+
+        return active || 0.0;
+
+    }
+
+
+
+    let sortedGlassInv = [...inventoryData].sort((a, b) => new Date(a.TS) - new Date(b.TS));
+
+    sortedGlassInv.forEach((inv, idx) => {
+
+        let stock = inv.GLSSTOCK || 0;
+
+        let added = (idx === 0) ? stock : (stock - prevStock);
+
+        if (added > 0) {
+
+            totalSheets += added;
+
+            let dt = (inv.TS || '').split(' ')[0];
+
+            totalMoneySpent += added * getPrice(dt);
+
+        }
+
+        prevStock = stock;
+
+    });
+
+
+
+    let itemHistories = {};
+
+    itemInvData.forEach(row => {
+
+        if (!itemHistories[row.ITEMID]) itemHistories[row.ITEMID] = [];
+
+        itemHistories[row.ITEMID].push(row);
+
+    });
+
+
+
+    let totalItemsMade = 0;
+
+    let totalSqInches = 0.0;
+
+    let distinctItemsSet = new Set();
+
+    let dateAdditionsMap = {};
+
+
+
+    for (let iid in itemHistories) {
+
+        let rows = itemHistories[iid].sort((a, b) => new Date(a.TS) - new Date(b.TS));
+
+        let pStock = 0;
+
+        let areaPerUnit = itemAreas[iid] || 0.0;
+
+
+
+        rows.forEach((r, idx) => {
+
+            let stock = r.ITMSTOCK || 0;
+
+            let added = (idx === 0) ? stock : (stock - pStock);
+
+            if (added > 0) {
+
+                totalItemsMade += added;
+
+                totalSqInches += (added * areaPerUnit);
+
+                distinctItemsSet.add(iid);
+
+
+
+                let dt = (r.TS || '').split(' ')[0] || 'Unknown';
+
+                dateAdditionsMap[dt] = (dateAdditionsMap[dt] || 0) + added;
+
+            }
+
+            pStock = stock;
+
+        });
+
+    }
+
+
+
+    let totalSqftUsed = totalSqInches / 144.0;
+
+    let totalDistinctItems = distinctItemsSet.size;
+
+
+
+    document.getElementById('cardTotalSheets').innerText = totalSheets;
+
+    document.getElementById('cardMoneySpent').innerText = '$' + totalMoneySpent.toFixed(2);
+
+    document.getElementById('cardSqftUsed').innerText = totalSqftUsed.toFixed(2) + ' sq ft';
+
+    document.getElementById('cardItemsMade').innerText = totalItemsMade;
+
+    document.getElementById('cardDistinctItems').innerText = totalDistinctItems;
 
 
 
@@ -382,17 +582,9 @@ function applyDateFilters() {
 
 
 
-    renderCharts(filteredPrices, filteredInventory, filteredSales);
-
-}
-
-
-
-function renderCharts(priceData, inventoryData, salesData) {
-
     // 1. Price Chart
 
-    let sortedPrices = [...priceData].sort((a, b) => new Date(a.STDATE) - new Date(b.STDATE));
+    let priceValues = sortedPrices.map(p => p.GLSPRICE);
 
     priceChart = new Chart(document.getElementById('glassPriceChart').getContext('2d'), {
 
@@ -406,7 +598,7 @@ function renderCharts(priceData, inventoryData, salesData) {
 
                 label: 'Glass Price ($)',
 
-                data: sortedPrices.map(p => p.GLSPRICE),
+                data: priceValues,
 
                 borderColor: '#1cc88a',
 
@@ -428,11 +620,21 @@ function renderCharts(priceData, inventoryData, salesData) {
 
             maintainAspectRatio: false,
 
-            scales: { y: { beginAtZero: true } },
+            scales: { 
+
+                y: { 
+
+                    beginAtZero: true,
+
+                    max: getHeadroomMax(priceValues)
+
+                } 
+
+            },
 
             plugins: {
 
-                legend: { position: 'bottom' },
+                legend: { display: false },
 
                 datalabels: {
 
@@ -454,7 +656,7 @@ function renderCharts(priceData, inventoryData, salesData) {
 
     // 2. Inventory Chart
 
-    let sortedInv = [...inventoryData].sort((a, b) => new Date(a.TS) - new Date(b.TS));
+    let inventoryValues = sortedGlassInv.map(i => i.GLSSTOCK);
 
     inventoryChart = new Chart(document.getElementById('glassInventoryChart').getContext('2d'), {
 
@@ -462,13 +664,13 @@ function renderCharts(priceData, inventoryData, salesData) {
 
         data: {
 
-            labels: sortedInv.map(i => i.TS),
+            labels: sortedGlassInv.map(i => i.TS),
 
             datasets: [{
 
                 label: 'Stock Count',
 
-                data: sortedInv.map(i => i.GLSSTOCK),
+                data: inventoryValues,
 
                 borderColor: '#4e73df',
 
@@ -490,11 +692,23 @@ function renderCharts(priceData, inventoryData, salesData) {
 
             maintainAspectRatio: false,
 
-            scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+            scales: { 
+
+                y: { 
+
+                    beginAtZero: true, 
+
+                    ticks: { precision: 0 },
+
+                    max: getHeadroomMax(inventoryValues)
+
+                } 
+
+            },
 
             plugins: {
 
-                legend: { position: 'bottom' },
+                legend: { display: false },
 
                 datalabels: {
 
@@ -514,43 +728,25 @@ function renderCharts(priceData, inventoryData, salesData) {
 
 
 
-    // 3. Item Usage Chart
+    // 3. Item Production Running Total Chart
 
-    let dateItemMap = {};
+    let sortedDates = Object.keys(dateAdditionsMap).sort();
 
-    let datesSet = new Set();
+    let runningTotal = 0;
 
+    let runningTotalsData = sortedDates.map(dt => {
 
+        runningTotal += dateAdditionsMap[dt];
 
-    salesData.forEach(sale => {
-
-        let dt = sale.SDATE;
-
-        let itemName = sale.ITMNAME;
-
-        if (dt && itemName) {
-
-            datesSet.add(dt);
-
-            if (!dateItemMap[dt]) dateItemMap[dt] = new Set();
-
-            dateItemMap[dt].add(itemName);
-
-        }
+        return runningTotal;
 
     });
 
 
 
-    let sortedDates = Array.from(datesSet).sort();
-
-    let distinctItemCounts = sortedDates.map(dt => dateItemMap[dt].size);
-
-
-
     itemUsageChart = new Chart(document.getElementById('glassItemUsageChart').getContext('2d'), {
 
-        type: 'bar',
+        type: 'line',
 
         data: {
 
@@ -558,15 +754,19 @@ function renderCharts(priceData, inventoryData, salesData) {
 
             datasets: [{
 
-                label: 'Distinct Items Sold Using Glass',
+                label: 'Running Total of Items Made',
 
-                data: distinctItemCounts,
+                data: runningTotalsData,
 
-                backgroundColor: '#36b9cc',
+                borderColor: '#36b9cc',
 
-                borderColor: '#2c9faf',
+                backgroundColor: 'rgba(54, 185, 204, 0.1)',
 
-                borderWidth: 1
+                borderWidth: 2,
+
+                fill: true,
+
+                tension: 0.1
 
             }]
 
@@ -578,11 +778,23 @@ function renderCharts(priceData, inventoryData, salesData) {
 
             maintainAspectRatio: false,
 
-            scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+            scales: { 
+
+                y: { 
+
+                    beginAtZero: true, 
+
+                    ticks: { precision: 0 },
+
+                    max: getHeadroomMax(runningTotalsData)
+
+                } 
+
+            },
 
             plugins: {
 
-                legend: { position: 'bottom' },
+                legend: { display: false },
 
                 datalabels: {
 
@@ -610,13 +822,7 @@ function resetGlassVisualsFilters() {
 
     document.getElementById('endDateFilter').value = '{{ today_date }}';
 
-    if (priceChart) priceChart.destroy();
-
-    if (inventoryChart) inventoryChart.destroy();
-
-    if (itemUsageChart) itemUsageChart.destroy();
-
-    renderCharts(rawPriceHistory, rawInventoryHistory, rawSalesUsage);
+    processAndRender(rawPriceHistory, rawInventoryHistory, rawItemInvHistory);
 
 }
 

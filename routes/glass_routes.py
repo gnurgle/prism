@@ -1062,7 +1062,7 @@ def glass_visuals(glass_id):
 
     
 
-    # Fetch glass quick reference info including default dimensions
+    # Fetch glass quick reference info
 
     glass = db.execute('''
 
@@ -1126,27 +1126,75 @@ def glass_visuals(glass_id):
 
 
 
-    # Fetch sales data joined with item components (IGC)
+    # Fetch items and their component dimensions (length * width) that use this glass
 
-    sales_usage = db.execute('''
+    item_components = db.execute('''
 
-        SELECT s.SDATE, s.SUNITS, i.ITEMID, i.ITMNAME, i.ITMIMG, i.ITMGRP
+        SELECT c.ITEMID, c.COMPLEN, c.COMPWID, i.ITMNAME, i.ITMIMG, i.ITMGRP
 
-        FROM ITMSALE s
+        FROM IGC c
 
-        JOIN ITM i ON s.ITEMID = i.ITEMID
-
-        JOIN IGC c ON i.ITEMID = c.ITEMID
+        JOIN ITM i ON c.ITEMID = i.ITEMID
 
         WHERE c.GLASSID = ?
-
-        ORDER BY s.SDATE ASC
 
     ''', (glass_id,)).fetchall()
 
 
 
-    # --- Metric Calculations ---
+    # Map item_id to total component sqinches per unit and item metadata
+
+    item_areas = {}
+
+    item_metadata = {}
+
+    for comp in item_components:
+
+        iid = comp['ITEMID']
+
+        l = comp['COMPLEN'] or 0.0
+
+        w = comp['COMPWID'] or 0.0
+
+        item_areas[iid] = item_areas.get(iid, 0.0) + (l * w)
+
+        if iid not in item_metadata:
+
+            item_metadata[iid] = {
+
+                'ITMNAME': comp['ITMNAME'],
+
+                'ITMIMG': comp['ITMIMG'],
+
+                'ITMGRP': comp['ITMGRP']
+
+            }
+
+
+
+    item_ids = list(item_areas.keys())
+
+    item_inv_history = []
+
+    if item_ids:
+
+        placeholders = ','.join(['?'] * len(item_ids))
+
+        item_inv_history = db.execute(f'''
+
+            SELECT ITMTRNID, ITEMID, ITMSTOCK, TS
+
+            FROM ITMINV
+
+            WHERE ITEMID IN ({placeholders})
+
+            ORDER BY ITEMID, TS ASC, ITMTRNID ASC
+
+        ''', item_ids).fetchall()
+
+
+
+    # --- Metric & Production Calculations ---
 
     total_sheets = 0
 
@@ -1206,33 +1254,59 @@ def glass_visuals(glass_id):
 
 
 
-    # Sqft used, total items made (sum of units), and distinct items count
+    # Process Item Inventory history by item to get additions, running totals, and sqft
+
+    item_histories = {}
+
+    for row in item_inv_history:
+
+        iid = row['ITEMID']
+
+        if iid not in item_histories:
+
+            item_histories[iid] = []
+
+        item_histories[iid].append(dict(row))
+
+
+
+    total_items_made = 0
 
     total_sqinches = 0.0
-
-    total_items_made_count = 0
 
     distinct_items_set = set()
 
 
 
-    default_len = glass['GLSLEN'] or 0
+    for iid, rows in item_histories.items():
 
-    default_wid = glass['GLSWID'] or 0
+        p_stock = 0
 
-    sqinches_per_unit = default_len * default_wid
+        area_per_unit = item_areas.get(iid, 0.0)
 
+        for idx, r in enumerate(rows):
 
+            stock = r['ITMSTOCK'] or 0
 
-    for sale in sales_usage:
+            if idx == 0:
 
-        units = sale['SUNITS'] or 0
+                added = stock
 
-        distinct_items_set.add(sale['ITEMID'])
+            else:
 
-        total_items_made_count += units
+                added = stock - p_stock
 
-        total_sqinches += (sqinches_per_unit * units)
+            
+
+            if added > 0:
+
+                total_items_made += added
+
+                total_sqinches += (added * area_per_unit)
+
+                distinct_items_set.add(iid)
+
+            p_stock = stock
 
 
 
@@ -1250,7 +1324,7 @@ def glass_visuals(glass_id):
 
         'total_sqft_used': total_sqft_used,
 
-        'total_items_made': total_items_made_count,
+        'total_items_made': total_items_made,
 
         'total_distinct_items': total_distinct_items
 
@@ -1268,7 +1342,9 @@ def glass_visuals(glass_id):
 
         inventory_history=[dict(row) for row in inventory_history],
 
-        sales_usage=[dict(row) for row in sales_usage],
+        item_inv_history=[dict(row) for row in item_inv_history],
+
+        item_areas=item_areas,
 
         metrics=metrics,
 
