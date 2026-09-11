@@ -200,17 +200,29 @@ def create_glass():
         glsimg = request.form.get('GLSIMG')
         glsnote = request.form.get('GLSNOTE')
         price = request.form.get('GLSPRICE')
+        lowstock = request.form.get('LOWSTOCK') or None
         isactive = 1
 
+
+
         cursor = db.execute(
+
             """
+
             INSERT INTO GSI (GLSNAME, GLSMANF, GLSTEX, GTRNSN, COLOR, GLSOURCE, 
+
                 GLSLEN, GLSWID, GLSTHK, GLSIRI, GLSOPAL, GLLINK, 
-                GLSIMG, GLSNOTE, ISACTIVE)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+
+                GLSIMG, GLSNOTE, LOWSTOCK, ISACTIVE)
+
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+
             """,
+
             (glsname, glsmanf, glstex, gtrnsn, color, glsource, glslen,
-             glswid, glsthk, glsiri, glsopal, gllink, glsimg, glsnote, isactive),
+
+             glswid, glsthk, glsiri, glsopal, gllink, glsimg, glsnote, lowstock, isactive),
+
         )
 
         glass_id = cursor.lastrowid
@@ -338,18 +350,31 @@ def edit_glass(glass_id):
         else:
             glsimg = request.form.get('GLSIMG') or glass['GLSIMG']
 
-        db.execute(
-            '''
-            UPDATE GSI 
-            SET GLSNAME = ?, GLSMANF = ?, GLSTEX = ?, GTRNSN = ?, COLOR = ?, GLSOURCE = ?, 
-                GLSLEN = ?, GLSWID = ?, GLSTHK = ?, GLSIRI = ?, 
-                GLSOPAL = ?, GLLINK = ?, GLSIMG = ?, GLSNOTE = ?
-            WHERE GLASSID = ?
-            ''',
-            (glsname, glsmanf, glstex, gtrnsn, color, glsource, glslen, glswid,
-             glsthk, glsiri, glsopal, gllink, glsimg, glsnote, glass_id),
-        )
+        lowstock = request.form.get('LOWSTOCK') or None
 
+
+
+        db.execute(
+
+            '''
+
+            UPDATE GSI 
+
+            SET GLSNAME = ?, GLSMANF = ?, GLSTEX = ?, GTRNSN = ?, COLOR = ?, GLSOURCE = ?, 
+
+                GLSLEN = ?, GLSWID = ?, GLSTHK = ?, GLSIRI = ?, 
+
+                GLSOPAL = ?, GLLINK = ?, GLSIMG = ?, GLSNOTE = ?, LOWSTOCK = ?
+
+            WHERE GLASSID = ?
+
+            ''',
+
+            (glsname, glsmanf, glstex, gtrnsn, color, glsource, glslen, glswid,
+
+             glsthk, glsiri, glsopal, gllink, glsimg, glsnote, lowstock, glass_id),
+
+        )
         if price:
             existing_price = db.execute('SELECT * FROM GPC WHERE GLASSID = ?', (glass_id,)).fetchone()
             if existing_price:
@@ -477,9 +502,9 @@ def glass_inventory():
     if stock_filter == 'out':
         having_conditions.append("CURRENT_STOCK = 0")
     elif stock_filter == 'low':
-        having_conditions.append("CURRENT_STOCK = 1")
+        having_conditions.append("CURRENT_STOCK > 0 AND CURRENT_STOCK <= COALESCE(LOWSTOCK, 1)")
     elif stock_filter == 'in':
-        having_conditions.append("CURRENT_STOCK > 1")
+        having_conditions.append("CURRENT_STOCK > COALESCE(LOWSTOCK, 1)")
 
     if stock_display_mode == 'out':
         having_conditions.append("CURRENT_STOCK <= 0")
@@ -489,13 +514,21 @@ def glass_inventory():
     stock_having_sql = f"GROUP BY GLASSID HAVING {' AND '.join(having_conditions)}" if having_conditions else ""
 
     query = f"""
+
         SELECT DISTINCT GLASSID, GLSNAME, GLSMANF, GLSLEN, GLSWID, GLSTHK, GLSTEX, 
+
                GLSIRI, GLSOPAL, GLSOURCE, GLLINK, GLSIMG, GLSNOTE, COLOR, 
-               ISACTIVE, CHEX, GLSPRICE, SRCWEB, CURRENT_STOCK, LAST_UPDATED
+
+               ISACTIVE, CHEX, GLSPRICE, SRCWEB, LOWSTOCK, CURRENT_STOCK, LAST_UPDATED
+
         FROM (
+
             SELECT g.GLASSID, g.GLSNAME, g.GLSMANF, g.GLSLEN, g.GLSWID, g.GLSTHK, 
+
                    g.GLSTEX, g.GLSIRI, g.GLSOPAL, g.GLSOURCE, g.GLLINK, g.GLSIMG, 
-                   g.GLSNOTE, g.COLOR, g.ISACTIVE, c.CHEX, p.GLSPRICE, l.SRCWEB,
+
+                   g.GLSNOTE, g.COLOR, g.ISACTIVE, c.CHEX, p.GLSPRICE, l.SRCWEB, g.LOWSTOCK,
+
                    COALESCE((
                        SELECT i.GLSSTOCK FROM GLSINV i 
                        WHERE i.GLASSID = g.GLASSID 

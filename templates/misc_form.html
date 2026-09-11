@@ -1,108 +1,223 @@
 {% extends 'base.html' %}
 
+
+
 {% block content %}
+
 <div class="row justify-content-center">
+
     <div class="col-md-8">
+
         <div class="card shadow-sm">
+
             <div class="card-header bg-dark text-white">
+
                 <h4 class="mb-0">{{ action if action else 'Record' }} Misc Item Sheet</h4>
+
             </div>
+
             <div class="card-body">
+
                 <form method="POST" enctype="multipart/form-data">
+
                     <div class="row mb-3">
+
                         <div class="col-md-6">
+
                             <label class="form-label">Misc Item Name</label>
+
                             <input type="text" name="MSINAME" class="form-control" value="{{ misc.MSINAME if misc else '' }}" required maxlength="255" required>
+
 			</div>
+
                         <div class="col-md-6">
+
                             <label class="form-label">Misc Item Type</label>
+
                             <select name="MSITYPE" class="form-select" required>
+
                                 <option value="">-- Select Unit  Type --</option>
+
                                 {% for t in misc_types %}
+
                                     <option value="{{ t.MSITYPE }}" {% if misc and misc.MSITYPE == t.MSITYPE %}selected{% endif %}>
+
                                         {{ t.MSITYPE }}
+
                                     </option>
+
                                 {% endfor %}
+
                             </select>
+
 			</div>
+
                     </div>
 
+
+
                     <div class="row mb-3">
-                        <div class="col-md-6">
+
+                        <div class="col-md-4">
+
                             <label class="form-label">Stock</label>
-				<input type="number" class="form-control" id="MSISTOCK" name="MSISTOCK" value="{{ misc.MSISTOCK if misc else '' }}" step="1" min="0">
+
+                            <input type="number" class="form-control" id="MSISTOCK" name="MSISTOCK" value="{{ misc.MSISTOCK if misc else '' }}" step="1" min="0">
+
                         </div>
-                        <div class="col-md-6">
+
+                        <div class="col-md-4">
+
+                            <label class="form-label">Low Stock Threshold</label>
+
+                            <input type="number" class="form-control" id="LOWSTOCK" name="LOWSTOCK" value="{{ misc.LOWSTOCK if misc and misc.LOWSTOCK is not none else 1 }}" step="1" min="0" required>
+
+                        </div>
+
+                        <div class="col-md-4">
+
                             <label class="form-label">Price</label>
+
                             <div class="input-group">
+
                                 <span class="input-group-text">$</span>
+
                                 <input type="number" step="0.01" min="0.00" name="MSIPRICE" class="form-control" value="{{ misc.MSIPRICE if misc else '' }}" placeholder="0.00">
+
                             </div>
+
                         </div>
+
 		    </div>
+
                     <div class="row mb-3">
+
                         <div class="col-md-6">
+
                             <label class="form-label">Unit Amount</label>
+
 				<input type="number" class="form-control" id="MSIUNIT" name="MSIUNIT" value="{{ misc.MSIUNIT if misc else '' }}" step="any">
+
                         </div>
+
 			<div class="col-md-6">
+
                             <label class="form-label">Unit Measurement</label>
+
                             <select name="UNTTYPE" class="form-select" required>
+
                                 <option value="">-- Select Unit Type --</option>
+
                                 {% for u in unit_types %}
+
                                     <option value="{{ u.UNTTYPE }}" {% if misc and misc.UNTTYPE == u.UNTTYPE %}selected{% endif %}>
+
                                         {{ u.UNTTYPE }}
+
                                     </option>
+
                                 {% endfor %}
+
                             </select>
+
 			</div>
+
                     </div>
+
+
 
                     <div class="row mb-3">
+
 			<div class="col-md-6">
+
                             <label class="form-label">Upload Misc Item Image</label>
+
                             <input type="file" name="MSIIMG_FILE" class="form-control" accept="image/*">
+
                             
+
                             <!-- Fallback / Optional manual path string input -->
+
                             <input type="hidden" name="MSIIMG" value="{{ misc.MSIIMG if misc else '' }}">
+
                             {% if misc and misc.MSIIMG %}
+
                             <div class="form-text text-truncate mt-1">
+
                                 Current path: <code>{{ misc.MSIIMG }}</code>
+
                             </div>
+
                             {% endif %}
+
                         </div>
+
                     </div>
 
+
+
                     <div class="mb-3">
+
                         <label class="form-label">Misc Item URL</label>
+
                         <input type="text" name="MSIURL" class="form-control" value="{{ misc.MSIURL if misc else '' }}">
+
                     </div>
 
+
+
                     <div class="mb-3">
+
                         <label class="form-label">Notes</label>
+
                         <textarea name="MSINOTE" class="form-control" rows="3">{{ misc.MSINOTE if misc else '' }}</textarea>
+
                     </div>
+
+
 
                     <div class="d-flex justify-content-between align-items-center">
+
                         <a href="{{ url_for('misc_bp.list_misc') }}" class="btn btn-secondary">Cancel</a>
+
                         
+
                         <div>
+
                             {% if action == 'Edit' and misc %}
+
                             <button type="submit" form="delete-misc-form" class="btn btn-danger me-2" onclick="return confirm('Are you sure you want to delete this misc item?');">
+
                                 Delete Misc Item
+
                             </button>
+
                             {% endif %}
+
                             <button type="submit" class="btn btn-success">Save Misc Item</button>
+
                         </div>
+
                     </div>
+
                 </form>
 
+
+
                 {% if action == 'Edit' and misc %}
+
                 <!-- Separate hidden form for deletion -->
+
                 <form id="delete-misc-form" action="{{ url_for('misc_bp.delete_misc', misc_id=misc.MSIID) }}" method="POST" style="display: none;"></form>
+
                 {% endif %}
+
             </div>
+
         </div>
+
     </div>
+
 </div>
+
 {% endblock %}

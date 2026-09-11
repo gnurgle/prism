@@ -223,6 +223,8 @@ def create_misc():
 
         msistock = request.form.get('MSISTOCK') or 0
 
+        lowstock = request.form.get('LOWSTOCK') or 1
+
         msiurl = request.form.get('MSIURL')
 
         msinote = request.form.get('MSINOTE')
@@ -243,17 +245,17 @@ def create_misc():
 
             """
 
-            INSERT INTO MSI (MSINAME, MSIIMG, MSISTOCK, MSIURL, 
+            INSERT INTO MSI (MSINAME, MSIIMG, MSISTOCK, LOWSTOCK, MSIURL, 
 
                 MSINOTE, MSIUNIT, UNTTYPE, MSITYPE, ISACTIVE)
 
-                VALUES (?,?,?,?,?,?,?,?,?)
+                VALUES (?,?,?,?,?,?,?,?,?,?)
 
             """,
 
             (
 
-                msiname, None, msistock, msiurl,
+                msiname, None, msistock, lowstock, msiurl,
 
                 msinote, msiunit, unttype, msitype, isactive
 
@@ -324,7 +326,6 @@ def create_misc():
         "misc_form.html", unit_types=unit_types, misc_types=misc_types
 
     )
-
 
 @misc_bp.route('/misc_item/<int:misc_id>', methods=['GET', 'POST'])
 
@@ -597,6 +598,8 @@ def edit_misc(misc_id):
 
         msistock = request.form.get('MSISTOCK') or 0
 
+        lowstock = request.form.get('LOWSTOCK') or 1
+
         msiurl = request.form.get('MSIURL')
 
         msinote = request.form.get('MSINOTE')
@@ -641,7 +644,7 @@ def edit_misc(misc_id):
 
             UPDATE MSI 
 
-            SET MSINAME = ?, MSIIMG = ?, MSISTOCK = ?, MSIURL = ?, 
+            SET MSINAME = ?, MSIIMG = ?, MSISTOCK = ?, LOWSTOCK = ?, MSIURL = ?, 
 
                 MSINOTE = ?, MSIUNIT = ?, UNTTYPE = ?, MSITYPE = ?
 
@@ -651,7 +654,7 @@ def edit_misc(misc_id):
 
             (
 
-                msiname, msiimg, msistock, msiurl,
+                msiname, msiimg, msistock, lowstock, msiurl,
 
                 msinote, msiunit, unttype, msitype, misc_id
 
@@ -720,7 +723,6 @@ def edit_misc(misc_id):
         action='Edit',
 
     )
-
 
 
 @misc_bp.route('/misc_items/delete/<int:misc_id>', methods=['POST'])
@@ -865,11 +867,11 @@ def misc_inventory():
 
     elif stock_filter == 'low':
 
-        having_conditions.append("CURRENT_STOCK = 1")
+        having_conditions.append("CURRENT_STOCK <= LOWSTOCK AND CURRENT_STOCK > 0")
 
     elif stock_filter == 'in':
 
-        having_conditions.append("CURRENT_STOCK > 1")
+        having_conditions.append("CURRENT_STOCK > LOWSTOCK")
 
 
 
@@ -883,7 +885,7 @@ def misc_inventory():
 
 
 
-    stock_having_sql = f"GROUP BY MSIID, MSINAME, MSIURL, MSIIMG, MSINOTE, MSITYPE, UNTTYPE, ISACTIVE, MSIPRICE, CURRENT_STOCK, LAST_UPDATED HAVING {' AND '.join(having_conditions)}" if having_conditions else ""
+    stock_having_sql = f"GROUP BY MSIID, MSINAME, MSIURL, MSIIMG, MSINOTE, MSITYPE, UNTTYPE, ISACTIVE, MSIPRICE, LOWSTOCK, CURRENT_STOCK, LAST_UPDATED HAVING {' AND '.join(having_conditions)}" if having_conditions else ""
 
 
 
@@ -891,13 +893,15 @@ def misc_inventory():
 
         SELECT MSIID, MSINAME, MSIURL, MSIIMG, MSINOTE, MSITYPE, UNTTYPE, 
 
-               ISACTIVE, MSIPRICE, CURRENT_STOCK, LAST_UPDATED
+               ISACTIVE, MSIPRICE, LOWSTOCK, CURRENT_STOCK, LAST_UPDATED
 
         FROM (
 
             SELECT m.MSIID, m.MSINAME, m.MSIURL, m.MSIIMG, 
 
                    m.MSINOTE, m.MSITYPE, m.UNTTYPE, m.ISACTIVE, p.MSIPRICE,
+
+                   COALESCE(m.LOWSTOCK, 1) AS LOWSTOCK,
 
                    COALESCE((
 
@@ -978,7 +982,6 @@ def misc_inventory():
         }
 
     )
-
 
 
 @misc_bp.route('/prices/misc/<int:misc_id>/edit', methods=['GET', 'POST'])
