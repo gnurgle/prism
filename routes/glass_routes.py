@@ -1053,3 +1053,225 @@ def api_glass_by_source():
         
 
     return {"items": items}, 200
+
+@glass_bp.route('/glass/<int:glass_id>/visuals')
+
+def glass_visuals(glass_id):
+
+    db = get_db_from_app()
+
+    
+
+    # Fetch glass quick reference info including default dimensions
+
+    glass = db.execute('''
+
+        SELECT g.*, p.GLSPRICE, c.CHEX,
+
+               COALESCE((
+
+                   SELECT i.GLSSTOCK FROM GLSINV i 
+
+                   WHERE i.GLASSID = g.GLASSID 
+
+                   ORDER BY i.TS DESC, i.GLSTRNID DESC LIMIT 1
+
+               ), 0) AS CURRENT_STOCK
+
+        FROM GSI g
+
+        LEFT JOIN GPC p ON g.GLASSID = p.GLASSID
+
+        LEFT JOIN COLOR c ON g.COLOR = c.COLOR
+
+        WHERE g.GLASSID = ?
+
+    ''', (glass_id,)).fetchone()
+
+
+
+    if not glass:
+
+        flash('Glass sheet record not found.', 'danger')
+
+        return redirect(url_for('glass_bp.list_glass'))
+
+
+
+    # Fetch price history
+
+    price_history = db.execute('''
+
+        SELECT GLSPRICE, STDATE, ENDDATE FROM GPC 
+
+        WHERE GLASSID = ? 
+
+        ORDER BY STDATE ASC
+
+    ''', (glass_id,)).fetchall()
+
+
+
+    # Fetch inventory history
+
+    inventory_history = db.execute('''
+
+        SELECT GLSSTOCK, TS FROM GLSINV 
+
+        WHERE GLASSID = ? 
+
+        ORDER BY TS ASC, GLSTRNID ASC
+
+    ''', (glass_id,)).fetchall()
+
+
+
+    # Fetch sales data joined with item components (IGC)
+
+    sales_usage = db.execute('''
+
+        SELECT s.SDATE, s.SUNITS, i.ITEMID, i.ITMNAME, i.ITMIMG, i.ITMGRP
+
+        FROM ITMSALE s
+
+        JOIN ITM i ON s.ITEMID = i.ITEMID
+
+        JOIN IGC c ON i.ITEMID = c.ITEMID
+
+        WHERE c.GLASSID = ?
+
+        ORDER BY s.SDATE ASC
+
+    ''', (glass_id,)).fetchall()
+
+
+
+    # --- Metric Calculations ---
+
+    total_sheets = 0
+
+    total_money_spent = 0.0
+
+    prev_stock = 0
+
+    
+
+    def get_price_on_date(date_str):
+
+        if not price_history:
+
+            return glass['GLSPRICE'] or 0.0
+
+        active_price = price_history[0]['GLSPRICE']
+
+        for p in price_history:
+
+            st = p['STDATE'] or ''
+
+            en = p['ENDDATE'] or '9999-12-31'
+
+            if st <= date_str <= en:
+
+                active_price = p['GLSPRICE']
+
+        return active_price or 0.0
+
+
+
+    for idx, inv in enumerate(inventory_history):
+
+        current_stock_val = inv['GLSSTOCK'] or 0
+
+        if idx == 0:
+
+            added = current_stock_val
+
+        else:
+
+            added = current_stock_val - prev_stock
+
+        
+
+        if added > 0:
+
+            total_sheets += added
+
+            inv_date = (inv['TS'] or '').split(' ')[0]
+
+            unit_price = get_price_on_date(inv_date)
+
+            total_money_spent += added * unit_price
+
+        prev_stock = current_stock_val
+
+
+
+    # Sqft used, total items made (sum of units), and distinct items count
+
+    total_sqinches = 0.0
+
+    total_items_made_count = 0
+
+    distinct_items_set = set()
+
+
+
+    default_len = glass['GLSLEN'] or 0
+
+    default_wid = glass['GLSWID'] or 0
+
+    sqinches_per_unit = default_len * default_wid
+
+
+
+    for sale in sales_usage:
+
+        units = sale['SUNITS'] or 0
+
+        distinct_items_set.add(sale['ITEMID'])
+
+        total_items_made_count += units
+
+        total_sqinches += (sqinches_per_unit * units)
+
+
+
+    total_sqft_used = total_sqinches / 144.0
+
+    total_distinct_items = len(distinct_items_set)
+
+
+
+    metrics = {
+
+        'total_sheets': total_sheets,
+
+        'total_money_spent': total_money_spent,
+
+        'total_sqft_used': total_sqft_used,
+
+        'total_items_made': total_items_made_count,
+
+        'total_distinct_items': total_distinct_items
+
+    }
+
+
+
+    return render_template(
+
+        'glass_visuals.html',
+
+        glass=glass,
+
+        price_history=[dict(row) for row in price_history],
+
+        inventory_history=[dict(row) for row in inventory_history],
+
+        sales_usage=[dict(row) for row in sales_usage],
+
+        metrics=metrics,
+
+        today_date=date.today().isoformat()
+
+    )
