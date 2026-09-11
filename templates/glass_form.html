@@ -123,28 +123,61 @@
                         </div>
                     </div>
 
-                    <div class="row mb-3">
+<div class="row mb-3">
+
                         <div class="col-md-6">
+
                             <label class="form-label">Sheet Pricing</label>
+
                             <div class="input-group">
+
                                 <span class="input-group-text">$</span>
+
                                 <input type="number" step="0.01" min="0" name="GLSPRICE" class="form-control" value="{{ glass.GLSPRICE if glass else '' }}" placeholder="0.00">
+
                             </div>
+
                         </div>
-			<div class="col-md-6">
-                            <label class="form-label">Upload Glass Image (Auto-resized 256x256)</label>
-                            <input type="file" name="GLSIMG_FILE" class="form-control" accept="image/*">
-                            
-                            <!-- Fallback / Optional manual path string input -->
-                            <input type="hidden" name="GLSIMG" value="{{ glass.GLSIMG if glass else '' }}">
-                            {% if glass and glass.GLSIMG %}
-                            <div class="form-text text-truncate mt-1">
-                                Current path: <code>{{ glass.GLSIMG }}</code>
-                            </div>
-                            {% endif %}
+
+                        <div class="col-md-6">
+
+                            <label class="form-label">Low Stock Threshold</label>
+
+                            <input type="number" min="1" name="LOWSTOCK" class="form-control" value="{{ glass.LOWSTOCK if glass else '' }}" placeholder="1">
+
                         </div>
+
                     </div>
 
+
+
+                    <div class="row mb-3">
+
+			<div class="col-md-12">
+
+                            <label class="form-label">Upload Glass Image (Auto-resized 256x256)</label>
+
+                            <input type="file" name="GLSIMG_FILE" class="form-control" accept="image/*">
+
+                            
+
+                            <!-- Fallback / Optional manual path string input -->
+
+                            <input type="hidden" name="GLSIMG" value="{{ glass.GLSIMG if glass else '' }}">
+
+                            {% if glass and glass.GLSIMG %}
+
+                            <div class="form-text text-truncate mt-1">
+
+                                Current path: <code>{{ glass.GLSIMG }}</code>
+
+                            </div>
+
+                            {% endif %}
+
+                        </div>
+
+                    </div>
                     <div class="mb-3">
                         <label class="form-label">Purchase URL</label>
                         <input type="text" name="GLLINK" class="form-control" value="{{ glass.GLLINK if glass else '' }}">

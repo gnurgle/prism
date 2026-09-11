@@ -170,16 +170,25 @@
                     <td>
                         {% if item.GLSLEN %}{{ item.GLSLEN }}" × {{ item.GLSWID }}"{% else %}—{% endif %}
                     </td>
-                    <td class="text-center">
+<td class="text-center">
+
+                        {% set low_threshold = item.LOWSTOCK if item.LOWSTOCK is not none else 1 %}
+
                         {% if stock <= 0 %}
+
                             <span class="badge bg-danger px-3 py-2">Out of Stock (0)</span>
-                        {% elif stock == 1 %}
-                            <span class="badge bg-warning text-dark px-3 py-2">Low Stock (1)</span>
+
+                        {% elif stock <= low_threshold %}
+
+                            <span class="badge bg-warning text-dark px-3 py-2">Low Stock ({{ stock }})</span>
+
                         {% else %}
+
                             <span class="badge bg-success px-3 py-2">In Stock ({{ stock }})</span>
+
                         {% endif %}
-                    </td>
-                    <td>
+
+                    </td>                    <td>
                         <span class="text-muted small">{{ item.LAST_UPDATED or 'Never' }}</span>
                     </td>
                     <td class="text-end">
@@ -291,9 +300,9 @@
                             <label class="form-label fw-bold">Stock Status Level</label>
                             <select name="stock_filter" class="form-select">
                                 <option value="">-- All Stock Levels --</option>
-                                <option value="out" {% if filters.stock_filter == 'out' %}selected{% endif %}>Out of Stock (0)</option>
-                                <option value="low" {% if filters.stock_filter == 'low' %}selected{% endif %}>Low Stock (1)</option>
-                                <option value="in" {% if filters.stock_filter == 'in' %}selected{% endif %}>In Stock (&gt; 1)</option>
+                                <option value="out" {% if filters.stock_filter == 'out' %}selected{% endif %}>Out of Stock</option>
+                                <option value="low" {% if filters.stock_filter == 'low' %}selected{% endif %}>Low Stock</option>
+                                <option value="in" {% if filters.stock_filter == 'in' %}selected{% endif %}>In Stock</option>
                             </select>
                         </div>
                     </div>
