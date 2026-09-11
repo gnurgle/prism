@@ -1,0 +1,607 @@
+{% extends 'base.html' %}
+
+
+
+{% block content %}
+
+<style>
+
+    .img-hover-wrapper {
+
+        position: relative;
+
+        display: inline-block;
+
+        cursor: pointer;
+
+    }
+
+    .img-hover-wrapper .image-popup-preview {
+
+        display: none;
+
+        position: absolute;
+
+        top: 0;
+
+        left: 105%;
+
+        z-index: 1050;
+
+        background: #ffffff;
+
+        padding: 6px;
+
+        border-radius: 8px;
+
+        box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.3);
+
+    }
+
+    .img-hover-wrapper:hover .image-popup-preview {
+
+        display: block;
+
+    }
+
+</style>
+
+
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+
+    <div>
+
+        <a href="{{ url_for('item_bp.item_detail', item_id=item.ITEMID) }}" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Item Details</a>
+
+        <h2>Item Visualizations</h2>
+
+    </div>
+
+</div>
+
+
+
+<!-- Quick Reference Header Card -->
+
+<div class="card mb-4 bg-white border border-dark shadow-sm">
+
+    <div class="card-body">
+
+        <div class="row align-items-center">
+
+            <!-- Scaled Image Column with Hover 512x512 Pop-up -->
+
+            <div class="col-md-3 text-center mb-3 mb-md-0">
+
+                {% if item.ITMIMG %}
+
+                    {% set img_url = item.ITMIMG if (item.ITMIMG.startswith('http://') or item.ITMIMG.startswith('https://')) else url_for('static', filename=item.ITMIMG.lstrip('/')) %}
+
+                    <div class="img-hover-wrapper">
+
+                        <img src="{{ img_url }}" alt="{{ item.ITMNAME }}" class="rounded border img-fluid" style="max-height: 150px; width: auto; object-fit: contain;">
+
+                        <div class="image-popup-preview">
+
+                            <img src="{{ img_url }}" alt="{{ item.ITMNAME }} 512x512" style="width: 512px; height: 512px; object-fit: contain; background: #fff;" class="rounded border">
+
+                        </div>
+
+                    </div>
+
+                {% else %}
+
+                    <div class="bg-secondary text-white rounded d-flex align-items-center justify-content-center p-3 mx-auto" style="height: 120px; width: 120px;">
+
+                        <span class="small text-center">No Image</span>
+
+                    </div>
+
+                {% endif %}
+
+            </div>
+
+
+
+            <!-- Details Column -->
+
+            <div class="col-md-9">
+
+                <h4 class="fw-bold mb-1">
+
+                    <a href="{{ url_for('item_bp.item_detail', item_id=item.ITEMID) }}" class="text-decoration-none text-primary">
+
+                        {{ item.ITMNAME }} (#{{ item.ITEMID }})
+
+                    </a>
+
+                </h4>
+
+
+
+                <!-- Badges -->
+
+                <div class="d-flex gap-1 flex-wrap mb-2">
+
+                    {% if item.ONEOFF %}
+
+                        <span class="badge bg-secondary px-2 py-1">One-Off</span>
+
+                    {% endif %}
+
+                    {% if item.CURRENT == 1 or item.CURRENT == True or item.CURRENT == '1' or item.CURRENT == 'Y' %}
+
+                        <span class="badge bg-success px-2 py-1">Active</span>
+
+                    {% else %}
+
+                        <span class="badge bg-danger px-2 py-1">Inactive</span>
+
+                    {% endif %}
+
+                </div>
+
+
+
+                <!-- Details Grid -->
+
+                <div class="row g-2 text-dark small mb-3">
+
+                    <div class="col-md-4"><strong>Group:</strong> {{ item.ITMGRP or 'N/A' }}</div>
+
+                    <div class="col-md-4"><strong>Current Stock:</strong> {{ item.CURRENT_STOCK }}</div>
+
+                    <div class="col-md-4"><strong>Current Price:</strong> ${{ "%.2f"|format(item.ITMPRICE or 0.0) }}</div>
+
+                    <div class="col-md-4"><strong>Current Cost:</strong> ${{ "%.2f"|format(metrics.unit_cost) }}</div>
+
+                    <div class="col-md-4"><strong>Dimensions:</strong> {{ item.ITMLEN or '?' }}" × {{ item.ITMWID or '?' }}"</div>
+
+                </div>
+
+
+
+                <!-- Date Filters Toolbar -->
+
+                <div class="row g-2 align-items-center bg-light p-2 rounded border">
+
+                    <form method="GET" action="{{ url_for('item_bp.item_visuals', item_id=item.ITEMID) }}" class="row g-2 align-items-center w-100 m-0">
+
+                        <div class="col-auto">
+
+                            <label for="startDateFilter" class="col-form-label col-form-label-sm fw-bold">From:</label>
+
+                        </div>
+
+                        <div class="col-auto">
+
+                            <input type="date" id="startDateFilter" name="start_date" value="{{ start_date }}" class="form-control form-control-sm">
+
+                        </div>
+
+                        <div class="col-auto">
+
+                            <label for="endDateFilter" class="col-form-label col-form-label-sm fw-bold">To:</label>
+
+                        </div>
+
+                        <div class="col-auto">
+
+                            <input type="date" id="endDateFilter" name="end_date" value="{{ end_date }}" class="form-control form-control-sm">
+
+                        </div>
+
+                        <div class="col-auto">
+
+                            <button type="submit" class="btn btn-dark btn-sm">Apply Filter</button>
+
+                        </div>
+
+                        <div class="col-auto">
+
+                            <a href="{{ url_for('item_bp.item_visuals', item_id=item.ITEMID) }}" class="btn btn-outline-secondary btn-sm">Reset</a>
+
+                        </div>
+
+                    </form>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<!-- 6 Metrics Cards Row -->
+
+<div class="row g-3 mb-4">
+
+    <div class="col-md-2"><div class="card shadow-sm h-100 py-2 border-start border-4 border-primary"><div class="card-body px-2 py-2"><div class="text-xs font-weight-bold text-primary text-uppercase mb-1" style="font-size: 0.7rem;">Total Solder (lbs)</div><div class="h6 mb-0 font-weight-bold text-dark">{{ "%.2f"|format(metrics.total_solder_lbs) }}</div></div></div></div>
+
+    <div class="col-md-2"><div class="card shadow-sm h-100 py-2 border-start border-4 border-info"><div class="card-body px-2 py-2"><div class="text-xs font-weight-bold text-info text-uppercase mb-1" style="font-size: 0.7rem;">Total Foil (ft)</div><div class="h6 mb-0 font-weight-bold text-dark">{{ "%.2f"|format(metrics.total_foil_ft) }}</div></div></div></div>
+
+    <div class="col-md-2"><div class="card shadow-sm h-100 py-2 border-start border-4 border-success"><div class="card-body px-2 py-2"><div class="text-xs font-weight-bold text-success text-uppercase mb-1" style="font-size: 0.7rem;">Total Earned</div><div class="h6 mb-0 font-weight-bold text-dark">${{ "%.2f"|format(metrics.total_earned) }}</div></div></div></div>
+
+    <div class="col-md-2"><div class="card shadow-sm h-100 py-2 border-start border-4 border-danger"><div class="card-body px-2 py-2"><div class="text-xs font-weight-bold text-danger text-uppercase mb-1" style="font-size: 0.7rem;">Total Cost</div><div class="h6 mb-0 font-weight-bold text-dark">${{ "%.2f"|format(metrics.total_cost) }}</div></div></div></div>
+
+    <div class="col-md-2"><div class="card shadow-sm h-100 py-2 border-start border-4 border-warning"><div class="card-body px-2 py-2"><div class="text-xs font-weight-bold text-warning text-uppercase mb-1" style="font-size: 0.7rem;">Total Made</div><div class="h6 mb-0 font-weight-bold text-dark">{{ metrics.total_made }}</div></div></div></div>
+
+    <div class="col-md-2"><div class="card shadow-sm h-100 py-2 border-start border-4 border-secondary"><div class="card-body px-2 py-2"><div class="text-xs font-weight-bold text-secondary text-uppercase mb-1" style="font-size: 0.7rem;">Total Sold</div><div class="h6 mb-0 font-weight-bold text-dark">{{ metrics.total_sold }}</div></div></div></div>
+
+</div>
+
+
+
+<!-- Charts Layout: Price & Inventory -->
+
+<div class="row g-4 mb-4">
+
+    <div class="col-lg-6">
+
+        <div class="card shadow-sm border-0 h-100">
+
+            <div class="card-header bg-dark text-white fw-bold">Item Price History ($)</div>
+
+            <div class="card-body">
+
+                <div style="position: relative; height: 300px;"><canvas id="itemPriceChart"></canvas></div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-lg-6">
+
+        <div class="card shadow-sm border-0 h-100">
+
+            <div class="card-header bg-dark text-white fw-bold">Inventory Stock Levels Over Time</div>
+
+            <div class="card-body">
+
+                <div style="position: relative; height: 300px;"><canvas id="itemInventoryChart"></canvas></div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<!-- Sales Over Time Chart at Bottom -->
+
+<div class="row g-4 mb-5">
+
+    <div class="col-12">
+
+        <div class="card shadow-sm border-0">
+
+            <div class="card-header bg-dark text-white fw-bold">Sales Over Time</div>
+
+            <div class="card-body">
+
+                <div style="position: relative; height: 280px;"><canvas id="salesOverTimeChart"></canvas></div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<!-- Chart.js and Datalabels Plugin scripts -->
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+
+<script>
+
+const rawPriceHistory = {{ price_history | tojson }};
+
+const rawInventoryHistory = {{ inventory_history | tojson }};
+
+const rawSalesHistory = {{ sales_over_time | tojson }};
+
+const currentActivePrice = {{ item.ITMPRICE | default(0.0) }};
+
+
+
+document.addEventListener("DOMContentLoaded", function() {
+
+    const commonDataLabelsConfig = {
+
+        color: '#000000',
+
+        font: {
+
+            size: 11,
+
+            weight: 'bold'
+
+        },
+
+        textStrokeColor: '#ffffff',
+
+        textStrokeWidth: 3,
+
+        padding: 4
+
+    };
+
+
+
+    // 1. Price History Chart
+
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    if (rawPriceHistory.length > 0) {
+
+        const lastEntry = rawPriceHistory[rawPriceHistory.length - 1];
+
+        if (lastEntry.STDATE < todayStr) {
+
+            rawPriceHistory.push({ STDATE: todayStr, PRICE: lastEntry.PRICE });
+
+        }
+
+    } else {
+
+        rawPriceHistory.push({ STDATE: todayStr, PRICE: currentActivePrice });
+
+    }
+
+
+
+    new Chart(document.getElementById('itemPriceChart').getContext('2d'), {
+
+        type: 'line',
+
+        data: {
+
+            labels: rawPriceHistory.map(p => p.STDATE || 'Unknown'),
+
+            datasets: [{
+
+                label: 'Price ($)',
+
+                data: rawPriceHistory.map(p => p.PRICE),
+
+                borderColor: '#1cc88a',
+
+                backgroundColor: 'rgba(28, 200, 138, 0.1)',
+
+                fill: true,
+
+                tension: 0.1
+
+            }]
+
+        },
+
+        plugins: [ChartDataLabels],
+
+        options: {
+
+            responsive: true,
+
+            maintainAspectRatio: false,
+
+            plugins: {
+
+                legend: { display: false },
+
+                datalabels: {
+
+                    ...commonDataLabelsConfig,
+
+                    formatter: (value) => '$' + Number(value).toFixed(2),
+
+                    align: 'top'
+
+                }
+
+            },
+
+            scales: {
+
+                y: {
+
+                    beginAtZero: true,
+
+                    suggestedMax: function(context) {
+
+                        const values = context.chart.data.datasets[0].data;
+
+                        const max = values.length ? Math.max(...values) : 10;
+
+                        return max * 1.2;
+
+                    }
+
+                }
+
+            }
+
+        }
+
+    });
+
+
+
+    // 2. Inventory Stock Chart
+
+    new Chart(document.getElementById('itemInventoryChart').getContext('2d'), {
+
+        type: 'line',
+
+        data: {
+
+            labels: rawInventoryHistory.map(i => i.TS),
+
+            datasets: [{
+
+                label: 'Stock Count',
+
+                data: rawInventoryHistory.map(i => i.ITMSTOCK),
+
+                borderColor: '#4e73df',
+
+                backgroundColor: 'rgba(78, 115, 223, 0.1)',
+
+                fill: true,
+
+                tension: 0
+
+            }]
+
+        },
+
+        plugins: [ChartDataLabels],
+
+        options: {
+
+            responsive: true,
+
+            maintainAspectRatio: false,
+
+            plugins: {
+
+                legend: { display: false },
+
+                datalabels: {
+
+                    ...commonDataLabelsConfig,
+
+                    formatter: (value) => value,
+
+                    align: 'top'
+
+                }
+
+            },
+
+            scales: {
+
+                y: {
+
+                    beginAtZero: true,
+
+                    ticks: { precision: 0 },
+
+                    suggestedMax: function(context) {
+
+                        const values = context.chart.data.datasets[0].data;
+
+                        const max = values.length ? Math.max(...values) : 5;
+
+                        return Math.ceil(max * 1.2);
+
+                    }
+
+                }
+
+            }
+
+        }
+
+    });
+
+
+
+    // 3. Sales Over Time Chart
+
+    new Chart(document.getElementById('salesOverTimeChart').getContext('2d'), {
+
+        type: 'bar',
+
+        data: {
+
+            labels: rawSalesHistory.map(s => s.date),
+
+            datasets: [{
+
+                label: 'Quantity Sold',
+
+                data: rawSalesHistory.map(s => s.quantity_sold),
+
+                backgroundColor: '#f6c23e',
+
+                borderColor: '#f4b619',
+
+                borderWidth: 1
+
+            }]
+
+        },
+
+        plugins: [ChartDataLabels],
+
+        options: {
+
+            responsive: true,
+
+            maintainAspectRatio: false,
+
+            plugins: {
+
+                legend: { display: false },
+
+                datalabels: {
+
+                    ...commonDataLabelsConfig,
+
+                    formatter: (value) => value,
+
+                    anchor: 'end',
+
+                    align: 'top'
+
+                }
+
+            },
+
+            scales: {
+
+                y: {
+
+                    beginAtZero: true,
+
+                    ticks: { precision: 0 },
+
+                    suggestedMax: function(context) {
+
+                        const values = context.chart.data.datasets[0].data;
+
+                        const max = values.length ? Math.max(...values) : 5;
+
+                        return Math.ceil(max * 1.2);
+
+                    }
+
+                }
+
+            }
+
+        }
+
+    });
+
+});
+
+</script>
+
+{% endblock %}

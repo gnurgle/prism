@@ -140,6 +140,7 @@ CREATE TABLE IF NOT EXISTS GSI (
     GLSNOTE TEXT,				--Notes about Glass
     COLOR TEXT,					--Glass color
     GTRNSN TEXT,				--Glass Transparency
+    LOWSTOCK INTEGER,				--Threshold for low stock
     ISACTIVE INTEGER,				--Is Active Bool
 
     FOREIGN KEY (GLSTEX) REFERENCES GTL(GLSTEX) ON DELETE SET NULL ON UPDATE CASCADE,
@@ -166,6 +167,7 @@ CREATE TABLE IF NOT EXISTS MSI (
     MSIUNIT NUMERIC,				--Misc Item Units per Item
     UNTTYPE TEXT,				--Misc Item Unit Type
     MSITYPE TEXT,				--Misc Item Category Type
+    LOWSTOCK INTEGER,				--Threshold for low stock
     ISACTIVE INTEGER,				--Is Active Bool
 
     FOREIGN KEY (MSITYPE) REFERENCES MST(MSITYPE) ON DELETE CASCADE ON UPDATE CASCADE,

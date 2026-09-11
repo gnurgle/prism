@@ -2333,3 +2333,518 @@ def item_list():
         }
 
     )
+
+
+@item_bp.route('/item/<int:item_id>/visuals', methods=['GET'])
+
+def item_visuals(item_id):
+
+    db = get_db()
+
+
+
+    # 1. Fetch item along with calculated current stock from ITMINV
+
+    raw_item = db.execute(
+
+        """
+
+        SELECT i.*, 
+
+               (SELECT inv.ITMSTOCK FROM ITMINV inv WHERE inv.ITEMID = i.ITEMID ORDER BY inv.TS DESC, inv.ITMTRNID DESC LIMIT 1) AS CURRENT_STOCK
+
+        FROM ITM i
+
+        WHERE i.ITEMID = ?
+
+        """, 
+
+        (item_id,)
+
+    ).fetchone()
+
+
+
+    if not raw_item:
+
+        flash('Item record not found.', 'danger')
+
+        return redirect(url_for('index'))
+
+    
+
+    item = dict(raw_item)
+
+    if item.get('CURRENT_STOCK') is None:
+
+        item['CURRENT_STOCK'] = 0
+
+
+
+    current_price = db.execute(
+
+        """
+
+            SELECT ITMPRICE AS PRICE FROM IPC 
+
+            WHERE ITEMID = ? AND (ENDDATE IS NULL OR ENDDATE >= DATE('now'))
+
+            ORDER BY STDATE DESC LIMIT 1
+
+        """,
+
+        (item_id,),
+
+    ).fetchone()
+
+
+
+    if current_price and current_price['PRICE']:
+
+        item['ITMPRICE'] = current_price['PRICE']
+
+    else:
+
+        item.setdefault('ITMPRICE', 0.0)
+
+
+
+    price_history = [dict(row) for row in db.execute(
+
+        """
+
+            SELECT STDATE, ENDDATE, ITMPRICE AS PRICE FROM IPC 
+
+            WHERE ITEMID = ? 
+
+            ORDER BY STDATE ASC
+
+        """,
+
+        (item_id,),
+
+    ).fetchall()]
+
+
+
+    inventory_history = [dict(row) for row in db.execute(
+
+        """
+
+            SELECT ITMSTOCK, TS FROM ITMINV 
+
+            WHERE ITEMID = ? 
+
+            ORDER BY TS ASC, ITMTRNID ASC
+
+        """,
+
+        (item_id,),
+
+    ).fetchall()]
+
+
+
+    # Fetch sales transactions directly from ITMSALE
+
+    sales_records = db.execute(
+
+        """
+
+        SELECT SUNITS, SDATE FROM ITMSALE WHERE ITEMID = ?
+
+        """,
+
+        (item_id,),
+
+    ).fetchall()
+
+
+
+    sales_over_time = [dict(row) for row in db.execute(
+
+        """
+
+            SELECT SDATE as date, SUNITS as quantity_sold 
+
+            FROM ITMSALE 
+
+            WHERE ITEMID = ? 
+
+            ORDER BY SDATE ASC
+
+        """,
+
+        (item_id,),
+
+    ).fetchall()]
+
+
+
+    components_with_cost = db.execute(
+
+        """
+
+            SELECT c.COMPLEN, c.COMPWID, g.GLSLEN, g.GLSWID, 
+
+                   (SELECT gp.GLSPRICE FROM GPC gp 
+
+                    WHERE gp.GLASSID = g.GLASSID AND (gp.ENDDATE IS NULL OR gp.ENDDATE >= DATE('now'))
+
+                    ORDER BY gp.STDATE DESC LIMIT 1) AS LATEST_GLSPRICE
+
+            FROM IGC c
+
+            JOIN GSI g ON c.GLASSID = g.GLASSID
+
+            WHERE c.ITEMID = ? AND c.COMPLEN IS NOT NULL AND c.COMPWID IS NOT NULL
+
+                  AND g.GLSLEN IS NOT NULL AND g.GLSWID IS NOT NULL AND g.GLSLEN > 0 AND g.GLSWID > 0
+
+        """,
+
+        (item_id,),
+
+    ).fetchall()
+
+
+
+    materials_cost = 0.0
+
+    for comp in components_with_cost:
+
+        comp_sqin = (comp['COMPLEN'] or 0) * (comp['COMPWID'] or 0)
+
+        glass_sheet_area = (comp['GLSLEN'] or 1) * (comp['GLSWID'] or 1)
+
+        glass_sheet_price = comp['LATEST_GLSPRICE'] or 0.0
+
+        
+
+        if glass_sheet_area > 0:
+
+            cost_per_sqin = glass_sheet_price / glass_sheet_area
+
+            materials_cost += comp_sqin * cost_per_sqin
+
+
+
+    associated_supplies_rows = db.execute(
+
+        """
+
+        SELECT msi.MSIID, msi.MSINAME, msi.MSITYPE, imi.IMIAMT, msi.MSIUNIT, u.CFACTOR
+
+        FROM IMI imi
+
+        JOIN MSI msi ON imi.MSIID = msi.MSIID
+
+        LEFT JOIN UNTS u ON msi.UNTTYPE = u.UNTTYPE
+
+        WHERE imi.ITEMID = ?
+
+        """,
+
+        (item_id,),
+
+    ).fetchall()
+
+
+
+    supplies_map = {row['MSITYPE']: row for row in associated_supplies_rows}
+
+
+
+    associated_decorations = db.execute(
+
+        """
+
+        SELECT m.MSIID, m.MSINAME, i.IMIAMT, m.MSIUNIT, u.CFACTOR
+
+        FROM IMI i
+
+        JOIN MSI m ON i.MSIID = m.MSIID
+
+        LEFT JOIN UNTS u ON m.UNTTYPE = u.UNTTYPE
+
+        WHERE i.ITEMID = ? AND m.MSITYPE = 'Decoration'
+
+        ORDER BY m.MSINAME ASC
+
+        """,
+
+        (item_id,),
+
+    ).fetchall()
+
+
+
+    raw_sldr = float(supplies_map['Solder']['IMIAMT']) if 'Solder' in supplies_map and supplies_map['Solder']['IMIAMT'] is not None else 0.0
+
+    raw_came = float(supplies_map['Came']['IMIAMT']) if 'Came' in supplies_map and supplies_map['Came']['IMIAMT'] is not None else 0.0
+
+
+
+    itm_supplies = {
+
+        'ITMSLDR': (raw_sldr * SOLDER_CONVERSION * 2) + (raw_came * CAME_CONVERSION * 2),
+
+        'ITMCAME': raw_came,
+
+        'ITMFOIL': float(supplies_map['Foil']['IMIAMT']) if 'Foil' in supplies_map and supplies_map['Foil']['IMIAMT'] is not None else 0.0,
+
+        'ITMCHAIN': float(supplies_map['Chain']['IMIAMT']) if 'Chain' in supplies_map and supplies_map['Chain']['IMIAMT'] is not None else 0.0,
+
+        'ITMRING': float(supplies_map['Rings']['IMIAMT']) if 'Rings' in supplies_map and supplies_map['Rings']['IMIAMT'] is not None else 0,
+
+        'ITMWIRE': float(supplies_map['Wire']['IMIAMT']) if 'Wire' in supplies_map and supplies_map['Wire']['IMIAMT'] is not None else 0.0
+
+    }
+
+
+
+    estimated_supplies_core_cost = 0.0
+
+    for msi_type, qty in itm_supplies.items():
+
+        type_lookup_map = {
+
+            'ITMSLDR': 'Solder', 'ITMFOIL': 'Foil', 'ITMCAME': 'Came',
+
+            'ITMCHAIN': 'Chain', 'ITMRING': 'Rings', 'ITMWIRE': 'Wire'
+
+        }
+
+        actual_type = type_lookup_map.get(msi_type)
+
+        supply_data = supplies_map.get(actual_type)
+
+
+
+        if qty and qty > 0 and supply_data and supply_data['MSIID']:
+
+            misc_id = supply_data['MSIID']
+
+            cfactor = supply_data['CFACTOR']
+
+            msiunit = supply_data['MSIUNIT']
+
+
+
+            price_row = db.execute(
+
+                """
+
+                    SELECT MSIPRICE AS PRICE FROM MSP 
+
+                    WHERE MSIID = ? AND (ENDDATE IS NULL OR ENDDATE >= DATE('now'))
+
+                    ORDER BY STDATE DESC LIMIT 1
+
+                """,
+
+                (misc_id,),
+
+            ).fetchone()
+
+
+
+            if price_row and price_row['PRICE']:
+
+                unit_price = float(price_row['PRICE'])
+
+                valid_cfactor = float(cfactor) if cfactor and float(cfactor) > 0 else 1.0
+
+                valid_msiunit = float(msiunit) if msiunit is not None and float(msiunit) > 0 else 1.0
+
+                
+
+                divisor = valid_cfactor * valid_msiunit
+
+                if divisor > 0 and unit_price > 0:
+
+                    estimated_supplies_core_cost += qty * (unit_price / divisor)
+
+
+
+    decorations_cost = 0.0
+
+    for deco in associated_decorations:
+
+        qty = float(deco['IMIAMT']) if deco['IMIAMT'] is not None else 0.0
+
+        if qty > 0 and deco['MSIID']:
+
+            misc_id = deco['MSIID']
+
+            cfactor = deco['CFACTOR']
+
+            msiunit = deco['MSIUNIT']
+
+
+
+            price_row = db.execute(
+
+                """
+
+                    SELECT MSIPRICE AS PRICE FROM MSP 
+
+                    WHERE MSIID = ? AND (ENDDATE IS NULL OR ENDDATE >= DATE('now'))
+
+                    ORDER BY STDATE DESC LIMIT 1
+
+                """,
+
+                (misc_id,),
+
+            ).fetchone()
+
+
+
+            if price_row and price_row['PRICE']:
+
+                unit_price = float(price_row['PRICE'])
+
+                valid_cfactor = float(cfactor) if cfactor and float(cfactor) > 0 else 1.0
+
+                valid_msiunit = float(msiunit) if msiunit is not None and float(msiunit) > 0 else 1.0
+
+                
+
+                divisor = valid_cfactor * valid_msiunit
+
+                if divisor > 0 and unit_price > 0:
+
+                    decorations_cost += qty * (unit_price / divisor)
+
+
+
+    estimated_supplies_cost = estimated_supplies_core_cost + decorations_cost
+
+    unit_cost = materials_cost + estimated_supplies_cost
+
+
+
+    # Calculate Total Made from ITMINV inventory history
+
+    total_made = 0
+
+    prev_calc_stock = 0
+
+    sorted_inv = sorted(inventory_history, key=lambda x: x['TS'] or '')
+
+    for idx, inv in enumerate(sorted_inv):
+
+        stock = inv['ITMSTOCK'] or 0
+
+        added = stock - prev_calc_stock if idx > 0 else stock
+
+        if added > 0:
+
+            total_made += added
+
+        prev_calc_stock = stock
+
+
+
+    # Calculate Total Sold and Total Earned using ITMSALE and historical IPC prices
+
+    total_sold = 0
+
+    total_earned = 0.0
+
+    default_price = current_price['PRICE'] if current_price and current_price['PRICE'] else 0.0
+
+
+
+    def get_historical_price(sale_date, history):
+
+        if not history:
+
+            return default_price
+
+        active = history[0]['PRICE'] or 0.5
+
+        for p in history:
+
+            st = p['STDATE'] or ''
+
+            en = p['ENDDATE'] or '9999-12-31'
+
+            if st <= sale_date <= en:
+
+                active = p['PRICE'] or 0.0
+
+        return active
+
+
+
+    for sale in sales_records:
+
+        units = sale['SUNITS'] or 0
+
+        sdate = sale['SDATE'] or ''
+
+        total_sold += units
+
+        sale_unit_price = get_historical_price(sdate, price_history)
+
+        total_earned += units * sale_unit_price
+
+
+
+    total_cost = unit_cost * total_made
+
+
+
+    total_solder_lbs = (itm_supplies.get('ITMSLDR', 0.0) / 453.592) * total_made
+
+    total_foil_ft = (itm_supplies.get('ITMFOIL', 0.0) / 12.0) * total_made
+
+
+
+    metrics = {
+
+        'unit_cost': unit_cost,
+
+        'materials_cost': materials_cost,
+
+        'estimated_supplies_cost': estimated_supplies_cost,
+
+        'total_earned': total_earned,
+
+        'total_cost': total_cost,
+
+        'total_made': total_made,
+
+        'total_sold': total_sold,
+
+        'total_solder_lbs': total_solder_lbs,
+
+        'total_foil_ft': total_foil_ft
+
+    }
+
+
+
+    return render_template(
+
+        'item_visuals.html',
+
+        item=item,
+
+        current_price=current_price,
+
+        price_history=price_history,
+
+        inventory_history=inventory_history,
+
+        sales_over_time=sales_over_time,
+
+        metrics=metrics,
+
+        start_date=request.args.get('start_date', ''),
+
+        end_date=request.args.get('end_date', '')
+
+    )
