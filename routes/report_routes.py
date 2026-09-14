@@ -22,6 +22,12 @@ report_bp = Blueprint('report_bp', __name__)
 
 
 
+# Configurable domain variable for generated PDF item links
+
+BASE_URL = "http://192.168.1.18:7665"
+
+
+
 def get_db():
 
     from __main__ import get_db
@@ -588,6 +594,8 @@ def generate_pdf_report():
 
     table_cell_style = ParagraphStyle('TableCell', parent=styles['Normal'], fontSize=9, leading=11, textColor=colors.HexColor('#2d3748'))
 
+    table_link_style = ParagraphStyle('TableLink', parent=styles['Normal'], fontSize=9, leading=11, textColor=colors.HexColor('#2b6cb0'))
+
     table_total_style = ParagraphStyle('TableTotal', parent=styles['Normal'], fontSize=9, leading=11, textColor=colors.HexColor('#1a365d'), fontName='Helvetica-Bold')
 
     toc_item_style = ParagraphStyle('TOCItem', parent=styles['Normal'], fontSize=11, leading=16, textColor=colors.HexColor('#2b6cb0'))
@@ -652,7 +660,7 @@ def generate_pdf_report():
 
         
 
-        # Summary Box Table at the top of each section
+        # Summary Box Table at the top of each section (pure white background for cells)
 
         summary_box_data = [
 
@@ -668,7 +676,7 @@ def generate_pdf_report():
 
             ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#cbd5e0')),
 
-            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#edf2f7')),
+            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#ffffff')),
 
             ('TOPPADDING', (0,0), (-1,-1), 6),
 
@@ -714,9 +722,7 @@ def generate_pdf_report():
 
         col_widths = [70, 55, 175, 50, 80, 110][:len(headers)]
 
-        t = Table(table_data, colWidths=col_widths)
-
-        t.setStyle(TableStyle([
+        t_style = [
 
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#edf2f7')),
 
@@ -726,9 +732,27 @@ def generate_pdf_report():
 
             ('BOTTOMPADDING', (0,0), (-1,0), 6),
 
+            ('LINEABOVE', (0, -1), (-1, -1), 1.5, colors.HexColor('#718096')),
+
             ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#e2e8f0')),
 
-        ]))
+        ]
+
+        
+
+        # Alternate white and light gray backgrounds for data rows
+
+        for i in range(1, len(data_rows) + 1):
+
+            bg = colors.HexColor('#ffffff') if i % 2 != 0 else colors.HexColor('#f7fafc')
+
+            t_style.append(('BACKGROUND', (0, i), (-1, i), bg))
+
+
+
+        t = Table(table_data, colWidths=col_widths)
+
+        t.setStyle(TableStyle(t_style))
 
         story.append(t)
 
@@ -740,11 +764,29 @@ def generate_pdf_report():
 
     total_sales_qty = sum(r['units'] for r in item_sales_data)
 
+    sales_rows_formatted = [
+
+        [
+
+            r['date'], 
+
+            str(r['item_id']), 
+
+            f"<a href='{BASE_URL}/item/{r['item_id']}'>{r['item']}</a>", 
+
+            str(r['units']), 
+
+            f"${r['price']:.2f}", 
+
+            f"${r['total']:.2f}"
+
+        ] for r in item_sales_data
+
+    ]
+
     add_section("sec1", "1) Item Sales", "Total Sales Revenue", total_sales_revenue, total_sales_qty,
 
-                ["Date", "Item ID", "Item Name", "Units", "Unit Price", "Total Revenue"], 
-
-                [[r['date'], str(r['item_id']), r['item'], str(r['units']), f"${r['price']:.2f}", f"${r['total']:.2f}"] for r in item_sales_data])
+                ["Date", "Item ID", "Item Name", "Units", "Unit Price", "Total Revenue"], sales_rows_formatted)
 
     
 
@@ -752,11 +794,29 @@ def generate_pdf_report():
 
     total_item_exp_qty = sum(r['quantity'] for r in item_expenses_data)
 
+    item_exp_rows_formatted = [
+
+        [
+
+            r['date'], 
+
+            str(r['item_id']), 
+
+            f"<a href='{BASE_URL}/item/{r['item_id']}'>{r['item']}</a>", 
+
+            str(r['quantity']), 
+
+            f"${r['unit_cost']:.2f}", 
+
+            f"${r['total']:.2f}"
+
+        ] for r in item_expenses_data
+
+    ]
+
     add_section("sec2", "2) Item Expenses", "Total Item Expenses", total_item_expenses, total_item_exp_qty,
 
-                ["Date", "Item ID", "Item Name", "Qty Added", "Est. Unit Cost", "Total Cost"], 
-
-                [[r['date'], str(r['item_id']), r['item'], str(r['quantity']), f"${r['unit_cost']:.2f}", f"${r['total']:.2f}"] for r in item_expenses_data])
+                ["Date", "Item ID", "Item Name", "Qty Added", "Est. Unit Cost", "Total Cost"], item_exp_rows_formatted)
 
     
 
@@ -764,11 +824,29 @@ def generate_pdf_report():
 
     total_glass_qty = sum(r['quantity'] for r in glass_expenses_data)
 
+    glass_exp_rows_formatted = [
+
+        [
+
+            r['date'], 
+
+            str(r['glass_id']), 
+
+            f"<a href='{BASE_URL}/glass/{r['glass_id']}'>{r['glass']}</a>", 
+
+            str(r['quantity']), 
+
+            f"${r['price']:.2f}", 
+
+            f"${r['total']:.2f}"
+
+        ] for r in glass_expenses_data
+
+    ]
+
     add_section("sec3", "3) Glass Expenses", "Total Glass Expenses", total_glass_expenses, total_glass_qty,
 
-                ["Date", "Glass ID", "Glass Name", "Qty Added", "Unit Price", "Total Cost"], 
-
-                [[r['date'], str(r['glass_id']), r['glass'], str(r['quantity']), f"${r['price']:.2f}", f"${r['total']:.2f}"] for r in glass_expenses_data])
+                ["Date", "Glass ID", "Glass Name", "Qty Added", "Unit Price", "Total Cost"], glass_exp_rows_formatted)
 
     
 
@@ -776,11 +854,29 @@ def generate_pdf_report():
 
     total_misc_qty = sum(r['quantity'] for r in misc_expenses_data)
 
+    misc_exp_rows_formatted = [
+
+        [
+
+            r['date'], 
+
+            str(r['msi_id']), 
+
+            f"<a href='{BASE_URL}/misc_item/{r['msi_id']}'>{r['misc_item']}</a>", 
+
+            str(r['quantity']), 
+
+            f"${r['price']:.2f}", 
+
+            f"${r['total']:.2f}"
+
+        ] for r in misc_expenses_data
+
+    ]
+
     add_section("sec4", "4) Misc Item Expenses", "Total Misc Expenses", total_misc_expenses, total_misc_qty,
 
-                ["Date", "Misc ID", "Misc Item Name", "Qty Added", "Unit Price", "Total Cost"], 
-
-                [[r['date'], str(r['msi_id']), r['misc_item'], str(r['quantity']), f"${r['price']:.2f}", f"${r['total']:.2f}"] for r in misc_expenses_data])
+                ["Date", "Misc ID", "Misc Item Name", "Qty Added", "Unit Price", "Total Cost"], misc_exp_rows_formatted)
 
     
 
@@ -832,7 +928,9 @@ def generate_pdf_report():
 
         ('BOTTOMPADDING', (0,0), (-1,-1), 6),
 
-        ('BACKGROUND', (0,0), (-1,-4), colors.HexColor('#f7fafc')),
+        ('BACKGROUND', (0,0), (-1,-4), colors.HexColor('#ffffff')),
+
+        ('LINEABOVE', (0, -2), (-1, -2), 1.5, colors.HexColor('#718096')),
 
         ('BACKGROUND', (0,-2), (-1,-2), colors.HexColor('#edf2f7')),
 
