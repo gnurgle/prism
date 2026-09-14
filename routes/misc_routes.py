@@ -1329,3 +1329,307 @@ def misc_price_history(misc_id):
         history=history
 
     )
+
+@misc_bp.route('/misc_item/<int:misc_id>/visuals')
+
+def misc_visuals(misc_id):
+
+    db = get_db_from_app()
+
+    
+
+    # Fetch misc item quick reference info (including CFACTOR)
+
+    misc = db.execute('''
+
+        SELECT m.*, p.MSIPRICE, u.UNTTYPE, u.CFACTOR,
+
+               COALESCE((
+
+                   SELECT i.MSISTOCK FROM MSIINV i 
+
+                   WHERE i.MSIID = m.MSIID 
+
+                   ORDER BY i.TS DESC, i.MSITRNID DESC LIMIT 1
+
+               ), 0) AS CURRENT_STOCK
+
+        FROM MSI m
+
+        LEFT JOIN MSP p ON m.MSIID = p.MSIID
+
+        LEFT JOIN UNTS u ON m.UNTTYPE = u.UNTTYPE
+
+        WHERE m.MSIID = ?
+
+    ''', (misc_id,)).fetchone()
+
+
+
+    if not misc:
+
+        flash('Misc Item record not found.', 'danger')
+
+        return redirect(url_for('misc_bp.list_misc'))
+
+
+
+    # Extract conversion factor (default to 1.0 if not specified)
+
+    cfactor = misc['CFACTOR'] if misc['CFACTOR'] is not None else 1.0
+
+
+
+    # Fetch price history
+
+    price_history = db.execute('''
+
+        SELECT MSIPRICE, STDATE, ENDDATE FROM MSP 
+
+        WHERE MSIID = ? 
+
+        ORDER BY STDATE ASC
+
+    ''', (misc_id,)).fetchall()
+
+
+
+    # Fetch inventory history
+
+    inventory_history = db.execute('''
+
+        SELECT MSISTOCK, TS FROM MSIINV 
+
+        WHERE MSIID = ? 
+
+        ORDER BY TS ASC, MSITRNID ASC
+
+    ''', (misc_id,)).fetchall()
+
+
+
+    # Fetch items and their component amounts that use this misc item
+
+    item_links = db.execute('''
+
+        SELECT l.ITEMID, l.IMIAMT, t.ITMNAME, t.ITMIMG, t.ITMGRP
+
+        FROM IMI l
+
+        JOIN ITM t ON l.ITEMID = t.ITEMID
+
+        WHERE l.MSIID = ?
+
+    ''', (misc_id,)).fetchall()
+
+
+
+    # Map item_id to total amount used per unit and item metadata
+
+    item_amounts = {}
+
+    item_metadata = {}
+
+    for link in item_links:
+
+        iid = link['ITEMID']
+
+        amt = link['IMIAMT'] or 0.0
+
+        item_amounts[iid] = item_amounts.get(iid, 0.0) + amt
+
+        if iid not in item_metadata:
+
+            item_metadata[iid] = {
+
+                'ITMNAME': link['ITMNAME'],
+
+                'ITMIMG': link['ITMIMG'],
+
+                'ITMGRP': link['ITMGRP']
+
+            }
+
+
+
+    item_ids = list(item_amounts.keys())
+
+    item_inv_history = []
+
+    if item_ids:
+
+        placeholders = ','.join(['?'] * len(item_ids))
+
+        item_inv_history = db.execute(f'''
+
+            SELECT ITMTRNID, ITEMID, ITMSTOCK, TS
+
+            FROM ITMINV
+
+            WHERE ITEMID IN ({placeholders})
+
+            ORDER BY ITEMID, TS ASC, ITMTRNID ASC
+
+        ''', item_ids).fetchall()
+
+
+
+    # --- Metric & Production Calculations ---
+
+    total_units_acquired = 0
+
+    total_money_spent = 0.0
+
+    prev_stock = 0
+
+    
+
+    def get_price_on_date(date_str):
+
+        if not price_history:
+
+            return misc['MSIPRICE'] or 0.0
+
+        active_price = price_history[0]['MSIPRICE']
+
+        for p in price_history:
+
+            st = p['STDATE'] or ''
+
+            en = p['ENDDATE'] or '9999-12-31'
+
+            if st <= date_str <= en:
+
+                active_price = p['MSIPRICE']
+
+        return active_price or 0.0
+
+
+
+    for idx, inv in enumerate(inventory_history):
+
+        current_stock_val = inv['MSISTOCK'] or 0
+
+        if idx == 0:
+
+            added = current_stock_val
+
+        else:
+
+            added = current_stock_val - prev_stock
+
+        
+
+        if added > 0:
+
+            total_units_acquired += added
+
+            inv_date = (inv['TS'] or '').split(' ')[0]
+
+            unit_price = get_price_on_date(inv_date)
+
+            total_money_spent += added * unit_price
+
+        prev_stock = current_stock_val
+
+
+
+    # Process Item Inventory history by item to get additions and usage totals
+
+    item_histories = {}
+
+    for row in item_inv_history:
+
+        iid = row['ITEMID']
+
+        if iid not in item_histories:
+
+            item_histories[iid] = []
+
+        item_histories[iid].append(dict(row))
+
+
+
+    total_items_made = 0
+
+    raw_misc_consumed = 0.0
+
+    distinct_items_set = set()
+
+
+
+    for iid, rows in item_histories.items():
+
+        p_stock = 0
+
+        amt_per_unit = item_amounts.get(iid, 0.0)
+
+        for idx, r in enumerate(rows):
+
+            stock = r['ITMSTOCK'] or 0
+
+            if idx == 0:
+
+                added = stock
+
+            else:
+
+                added = stock - p_stock
+
+            
+
+            if added > 0:
+
+                total_items_made += added
+
+                raw_misc_consumed += (added * amt_per_unit)
+
+                distinct_items_set.add(iid)
+
+            p_stock = stock
+
+
+
+    # Apply the unit conversion factor (CFACTOR) to total consumption
+
+    total_misc_consumed = raw_misc_consumed * cfactor
+
+    total_distinct_items = len(distinct_items_set)
+
+
+
+    metrics = {
+
+        'total_units_acquired': total_units_acquired,
+
+        'total_money_spent': total_money_spent,
+
+        'total_misc_consumed': total_misc_consumed,
+
+        'total_items_made': total_items_made,
+
+        'total_distinct_items': total_distinct_items
+
+    }
+
+
+
+    return render_template(
+
+        'misc_visuals.html',
+
+        misc=misc,
+
+        price_history=[dict(row) for row in price_history],
+
+        inventory_history=[dict(row) for row in inventory_history],
+
+        item_inv_history=[dict(row) for row in item_inv_history],
+
+        item_amounts=item_amounts,
+
+        metrics=metrics,
+
+        today_date=date.today().isoformat()
+
+    )
