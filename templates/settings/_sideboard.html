@@ -1,0 +1,19 @@
+<div class="card shadow-sm">
+
+    <div class="card-header bg-dark text-white">Sections</div>
+
+    <div class="list-group list-group-flush">
+
+        <a href="{{ url_for('settings_bp.settings_main') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'settings_bp.settings_main' %}active{% endif %}">New Item Defaults</a>
+
+        <a href="{{ url_for('settings_bp.settings_appearance') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'settings_bp.settings_appearance' %}active{% endif %}">Appearance</a>
+
+        <a href="{{ url_for('settings_bp.settings_textures') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'settings_bp.settings_textures' %}active{% endif %}">Glass Textures</a>
+
+        <a href="{{ url_for('settings_bp.settings_sources') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'settings_bp.settings_sources' %}active{% endif %}">Glass Source</a>
+
+
+
+    </div>
+
+</div>

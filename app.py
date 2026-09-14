@@ -21,6 +21,7 @@ from routes.component_routes import component_bp
 from routes.scraper_routes import scraper_bp
 from routes.visuals_routes import visuals_bp
 from routes.report_routes import report_bp
+from routes.settings_routes import settings_bp
 
 
 app = Flask(__name__, static_folder='static')
@@ -136,6 +137,7 @@ app.register_blueprint(component_bp)
 app.register_blueprint(scraper_bp)
 app.register_blueprint(visuals_bp)
 app.register_blueprint(report_bp)
+app.register_blueprint(settings_bp)
 
 
 # ============================================================================

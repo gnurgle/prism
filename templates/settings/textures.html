@@ -1,0 +1,167 @@
+{% extends 'base.html' %}
+
+
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+
+    <div>
+
+        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Dashboard</a>
+
+        <h2>Glass Textures Management (GTL)</h2>
+
+    </div>
+
+</div>
+
+
+
+<div class="row">
+
+    <!-- Dynamic Sideboard -->
+
+    <div class="col-md-3">
+
+        {% include 'settings/_sideboard.html' %}
+
+    </div>
+
+
+
+    <!-- Main Content Area -->
+
+    <div class="col-md-9">
+
+        <!-- Add Texture Card -->
+
+        <div class="card shadow-sm mb-4">
+
+            <div class="card-header bg-secondary text-white">Add New Glass Texture</div>
+
+            <div class="card-body">
+
+                <form method="POST">
+
+                    <input type="hidden" name="action" value="add">
+
+                    <div class="row g-3 align-items-center">
+
+                        <div class="col-auto">
+
+                            <label for="GLSTEX" class="col-form-label fw-bold">Texture Name:</label>
+
+                        </div>
+
+                        <div class="col">
+
+                            <input type="text" id="GLSTEX" name="GLSTEX" class="form-control" required>
+
+                        </div>
+
+                        <div class="col-auto">
+
+                            <div class="form-check">
+
+                                <input class="form-check-input" type="checkbox" id="ISACTIVE" name="ISACTIVE" checked>
+
+                                <label class="form-check-label" for="ISACTIVE">Active</label>
+
+                            </div>
+
+                        </div>
+
+                        <div class="col-auto">
+
+                            <button type="submit" class="btn btn-success">Add Texture</button>
+
+                        </div>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- Existing Textures Table -->
+
+        <div class="card shadow-sm">
+
+            <div class="card-header bg-dark text-white">Existing Glass Textures</div>
+
+            <div class="card-body p-0">
+
+                <table class="table table-striped mb-0 align-middle">
+
+                    <thead>
+
+                        <tr>
+
+                            <th>Texture Name</th>
+
+                            <th>Active Status</th>
+
+                            <th class="text-end">Actions</th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody>
+
+                        {% for tex in textures %}
+
+                        <tr>
+
+                            <form method="POST">
+
+                                <input type="hidden" name="action" value="modify">
+
+                                <input type="hidden" name="ORIG_GLSTEX" value="{{ tex.GLSTEX }}">
+
+                                <td>
+
+                                    <input type="text" name="GLSTEX" value="{{ tex.GLSTEX }}" class="form-control form-control-sm" required>
+
+                                </td>
+
+                                <td>
+
+                                    <div class="form-check">
+
+                                        <input class="form-check-input" type="checkbox" name="ISACTIVE" {% if tex.ISACTIVE == 1 %}checked{% endif %}>
+
+                                    </div>
+
+                                </td>
+
+                                <td class="text-end">
+
+                                    <button type="submit" class="btn btn-primary btn-sm">Update</button>
+
+                                </td>
+
+                            </form>
+
+                        </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

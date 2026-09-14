@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+
+
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+
+    <div>
+
+        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Dashboard</a>
+
+        <h2>Application Settings</h2>
+
+    </div>
+
+</div>
+
+
+
+<form method="POST">
+
+    <div class="row">
+
+        <!-- Dynamic Sideboard -->
+
+        <div class="col-md-3">
+
+            {% include 'settings/_sideboard.html' %}
+
+        </div>
+
+
+
+        <!-- Main Content Area -->
+
+        <div class="col-md-9">
+
+            <div class="card shadow-sm mb-4">
+
+                <div class="card-header bg-dark text-white">Default New Item Settings</div>
+
+                <div class="card-body">
+
+                    <p class="text-muted small mb-3">Configure standard default supply links used when initializing new items.</p>
+
+                    
+
+                    {% for field_label, field_key, msi_list in [
+
+                        ('Solder', 'default_solder', msi_solder),
+
+                        ('Foil', 'default_foil', msi_foil),
+
+                        ('Came', 'default_came', msi_came),
+
+                        ('Chain', 'default_chain', msi_chain),
+
+                        ('Rings', 'default_rings', msi_rings)
+
+                    ] %}
+
+                    <div class="mb-3 row">
+
+                        <label for="{{ field_key }}" class="col-sm-3 col-form-label fw-bold">{{ field_label }}:</label>
+
+                        <div class="col-sm-9">
+
+                            <select name="{{ field_key }}" id="{{ field_key }}" class="form-select">
+
+                                <option value="">-- None / Default --</option>
+
+                                {% for msi in msi_list %}
+
+                                <option value="{{ msi.MSIID }}" {% if defaults[field_label] == msi.MSIID|string %}selected{% endif %}>
+
+                                    {{ msi.MSINAME }}
+
+                                </option>
+
+                                {% endfor %}
+
+                            </select>
+
+                        </div>
+
+                    </div>
+
+                    {% endfor %}
+
+                </div>
+
+            </div>
+
+
+
+            <div class="text-end">
+
+                <button type="submit" class="btn btn-primary px-4">💾 Save Settings</button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</form>
+
+{% endblock %}
