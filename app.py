@@ -89,9 +89,6 @@ def init_db():
             "INSERT OR IGNORE INTO GSL (GLSOURCE, SRCWEB) VALUES ('Colorado Glass Co', 1), ('Hobby Lobby', 0), ('Charlotte Glass', 0), ('Glass Ingenuity', 0)"
         )
         db.execute(
-            "INSERT OR IGNORE INTO IGP (ITMGRP) VALUES ('Potions'), ('Fruit Slices'), ('Mushrooms')"
-        )
-        db.execute(
             "INSERT OR IGNORE INTO COLOR (COLOR, CHEX) VALUES ('Black', '0E0E11'),( 'Dark Grey', '7D7D7D'),( 'Light Grey','BEBEBE'),( 'White', 'FFF8F1'),( 'Cerulean', '63CCFF'),( 'Blue', '2087F9'),( 'Cobolt', '1F4897'),( 'Emerald', '095337'),( 'Green', '2BD81A'),( 'Chartreuse', '8DFC00'),( 'Yellow', 'FFFD3B'),( 'Goldenrod', 'FED416'),( 'Orange', 'F17700'),( 'Red', 'E41F00'),( 'Burgundy', '7F0E21'),( 'Indigo', '401782'),( 'Amethyst', '7B35BD'),( 'Mauve', 'BE5ABF'),( 'Lavender', 'E69CE6'),( 'Raspberry', 'DE599B'),( 'Pink', 'FF7D93'),( 'Tan', 'B15223'),( 'Brown', '6B2A16'),( 'Transparent', 'FFFFFF')"
         )
         db.execute(
@@ -146,8 +143,8 @@ app.register_blueprint(report_bp)
 # ============================================================================
 
 
-@app.route("/")
-def index():
+@app.route("/debug")
+def debug():
     db = get_db()
     stats = {
         "items": db.execute("SELECT COUNT(*) FROM ITM").fetchone()[0],
@@ -398,7 +395,13 @@ def toggle_glass_active(glass_id):
         db.commit()
     return redirect(request.referrer or url_for('list_glass'))
 
+@app.route("/")
 
+def index():
+
+    """Renders the dynamic, responsive landing page with block animations."""
+
+    return render_template("landing.html")
 
 
 

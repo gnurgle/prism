@@ -1,0 +1,375 @@
+{% extends 'base.html' %}
+
+
+
+{% block content %}
+
+<div class="container py-4">
+
+    <!-- Header with Dashboard Reference -->
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+
+        <div>
+
+            <h2>Welcome to PRISM</h2>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- Dynamic Container -->
+
+    <div id="hub-container" class="row g-4">
+
+        <!-- Blocks loaded dynamically via JavaScript -->
+
+    </div>
+
+</div>
+
+
+
+<!-- Custom Styles for Square Ratio, Uniform Size, and Animations -->
+
+<style>
+
+    .square-box {
+
+        aspect-ratio: 1 / 1;
+
+        display: flex;
+
+        flex-direction: column;
+
+        justify-content: center;
+
+        align-items: center;
+
+    }
+
+    .hub-card {
+
+        cursor: pointer;
+
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+
+    }
+
+    .hub-card:hover {
+
+        transform: translateY(-4px);
+
+        box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important;
+
+    }
+
+    .fade-transition {
+
+        animation: fadeInScale 0.3s ease-in-out forwards;
+
+    }
+
+    @keyframes fadeInScale {
+
+        from {
+
+            opacity: 0;
+
+            transform: scale(0.95);
+
+        }
+
+        to {
+
+            opacity: 1;
+
+            transform: scale(1);
+
+        }
+
+    }
+
+</style>
+
+
+
+<!-- Dynamic Navigation Script -->
+
+<script>
+
+    const categoryConfig = {
+
+        'Items': {
+
+            icon: 'fa-boxes-stacked',
+
+            bg: 'bg-primary text-white',
+
+            subBg: 'bg-primary text-white',
+
+            backBg: 'bg-secondary text-white',
+
+            items: [
+
+                { name: 'Go Back', url: '#', action: 'goBack', isBack: true },
+
+                { name: 'Create Item', url: "{{ url_for('item_bp.create_item') }}" },
+
+                { name: 'Create Item Variation', url: "{{ url_for('item_bp.color_variation_select') }}" },
+
+                { name: 'List Items', url: "{{ url_for('item_bp.item_list') }}" },
+
+                { name: 'Item Inventory', url: "{{ url_for('item_bp.item_inventory') }}" }
+
+            ]
+
+        },
+
+        'Glass': {
+
+            icon: 'fa-sheet-plastic',
+
+            bg: 'bg-info text-white',
+
+            subBg: 'bg-info text-white',
+
+            backBg: 'bg-secondary text-white',
+
+            items: [
+
+                { name: 'Go Back', url: '#', action: 'goBack', isBack: true },
+
+                { name: 'Create Glass', url: "{{ url_for('glass_bp.create_glass') }}" },
+
+                { name: 'List Glass', url: "{{ url_for('glass_bp.list_glass') }}" },
+
+                { name: 'Glass Inventory', url: "{{ url_for('glass_bp.glass_inventory') }}" },
+
+                { name: 'Glass Bulk Input', url: "{{ url_for('glass_bp.bulk_inventory_adjustment') }}" }
+
+            ]
+
+        },
+
+        'Misc Items': {
+
+            icon: 'fa-toolbox',
+
+            bg: 'bg-warning text-dark',
+
+            subBg: 'bg-warning text-dark',
+
+            backBg: 'bg-secondary text-white',
+
+            items: [
+
+                { name: 'Go Back', url: '#', action: 'goBack', isBack: true },
+
+                { name: 'Create Misc Item', url: "{{ url_for('misc_bp.create_misc') }}" },
+
+                { name: 'List Misc Items', url: "{{ url_for('misc_bp.list_misc') }}" },
+
+                { name: 'Misc Item Inventory', url: "{{ url_for('misc_bp.misc_inventory') }}" }
+
+            ]
+
+        },
+
+        'Sales': {
+
+            icon: 'fa-cash-register',
+
+            bg: 'bg-success text-white',
+
+            subBg: 'bg-success text-white',
+
+            backBg: 'bg-secondary text-white',
+
+            items: [
+
+                { name: 'Go Back', url: '#', action: 'goBack', isBack: true },
+
+                { name: 'End of Day Sales', url: "{{ url_for('item_bp.item_bulk_sales') }}" },
+
+                { name: 'List of Sales', url: "{{ url_for('list_sales') }}" },
+
+                { name: 'Expense and Revenue Report', url: "{{ url_for('report_bp.revenue_expense_report') if report_bp else url_for('index') }}" },
+
+                { name: 'Manual Inventory Edit', url: "{{ url_for('inventory_status') }}" }
+
+            ]
+
+        },
+
+        'Workflow': {
+
+            icon: 'fa-diagram-project',
+
+            bg: 'bg-dark text-white',
+
+            directUrl: "{{ url_for('production_bp.production_board') }}"
+
+        },
+
+        'Other': {
+
+            icon: 'fa-ellipsis',
+
+            bg: 'bg-secondary text-white',
+
+            subBg: 'bg-secondary text-white',
+
+            backBg: 'bg-dark text-white',
+
+            items: [
+
+                { name: 'Go Back', url: '#', action: 'goBack', isBack: true },
+
+                { name: 'Settings', url: "{{ url_for('settings') }}" },
+
+                { name: 'Create Venue', url: "{{ url_for('venue_bp.create_venue') }}" },
+
+                { name: 'List Venues', url: "{{ url_for('venue_bp.list_venues') }}" }
+
+            ]
+
+        }
+
+    };
+
+
+
+    function renderMainView() {
+
+        const container = document.getElementById('hub-container');
+
+        container.innerHTML = '';
+
+        
+
+        Object.keys(categoryConfig).forEach(title => {
+
+            const block = categoryConfig[title];
+
+            const col = document.createElement('div');
+
+            col.className = 'col-md-4 col-sm-6 fade-transition';
+
+            col.innerHTML = `
+
+                <div class="card hub-card shadow-sm h-100 square-box ${block.bg}">
+
+                    <div class="card-body d-flex flex-column align-items-center justify-content-center text-center p-3">
+
+                        <i class="fa-solid ${block.icon} fa-3x mb-3"></i>
+
+                        <h4 class="card-title fw-bold">${title}</h4>
+
+                    </div>
+
+                </div>
+
+            `;
+
+            
+
+            col.querySelector('.card').addEventListener('click', () => {
+
+                if (block.directUrl) {
+
+                    window.location.href = block.directUrl;
+
+                } else {
+
+                    renderSubView(title);
+
+                }
+
+            });
+
+            container.appendChild(col);
+
+        });
+
+    }
+
+
+
+    function renderSubView(categoryKey) {
+
+        const container = document.getElementById('hub-container');
+
+        container.innerHTML = '';
+
+        
+
+        const config = categoryConfig[categoryKey];
+
+        const items = config.items || [];
+
+        
+
+        items.forEach(sub => {
+
+            const col = document.createElement('div');
+
+            col.className = 'col-md-4 col-sm-6 fade-transition';
+
+            
+
+            const cardTheme = sub.isBack ? config.backBg : config.subBg;
+
+            
+
+            col.innerHTML = `
+
+                <div class="card hub-card shadow-sm h-100 square-box ${cardTheme}">
+
+                    <div class="card-body d-flex flex-column align-items-center justify-content-center text-center p-3">
+
+                        <h5 class="card-title fw-bold mb-0">${sub.name}</h5>
+
+                    </div>
+
+                </div>
+
+            `;
+
+            
+
+            const cardElement = col.querySelector('.card');
+
+            cardElement.addEventListener('click', () => {
+
+                if (sub.action === 'goBack') {
+
+                    renderMainView();
+
+                } else {
+
+                    window.location.href = sub.url;
+
+                }
+
+            });
+
+            
+
+            container.appendChild(col);
+
+        });
+
+    }
+
+
+
+    // Initialize the main view on page load
+
+    document.addEventListener('DOMContentLoaded', renderMainView);
+
+</script>
+
+{% endblock %}
