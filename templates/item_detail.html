@@ -14,9 +14,11 @@
 
     </div>
 
-    <div>
 
-        <a href="{{ url_for('item_bp.edit_item', item_id=item.ITEMID) }}" class="btn btn-primary">✏️ Edit Item Details</a>
+    <div>
+        <a href="{{ url_for('item_bp.item_visuals', item_id=item.ITEMID) }}" class="btn btn-primary">🔍 Item Visualization </a>
+	
+        <a href="{{ url_for('item_bp.edit_item', item_id=item.ITEMID) }}" class="btn btn-primary">✏️  Edit Item Details</a>
 
     </div>
 

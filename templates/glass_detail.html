@@ -9,6 +9,7 @@
     </div>
     <div>
         <!-- Edit Button -->
+        <a href="{{ url_for('glass_bp.glass_visuals', glass_id=glass.GLASSID) }}" class="btn btn-primary">🔍 Glass Visualization</a>
         <a href="{{ url_for('glass_bp.edit_glass', glass_id=glass.GLASSID) }}" class="btn btn-primary">✏️ Edit Glass Details</a>
     </div>
 </div>
