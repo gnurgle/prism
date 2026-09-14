@@ -1338,7 +1338,7 @@ def misc_visuals(misc_id):
 
     
 
-    # Fetch misc item quick reference info (including CFACTOR)
+    # Fetch misc item quick reference info
 
     misc = db.execute('''
 
@@ -1374,9 +1374,11 @@ def misc_visuals(misc_id):
 
 
 
-    # Extract conversion factor (default to 1.0 if not specified)
+    unttype = (misc['UNTTYPE'] or '').lower()
 
     cfactor = misc['CFACTOR'] if misc['CFACTOR'] is not None else 1.0
+
+    msitype = (misc['MSITYPE'] or '').lower()
 
 
 
@@ -1590,9 +1592,33 @@ def misc_visuals(misc_id):
 
 
 
-    # Apply the unit conversion factor (CFACTOR) to total consumption
+    # Conversion Logic based on MSITYPE or UNTTYPE mapping
 
-    total_misc_consumed = raw_misc_consumed * cfactor
+    if 'solder' in msitype or 'pounds' in unttype:
+
+        # Solder: converting base units/grams using CFACTOR to pounds (divided by 454 based on UNTS table)
+
+        converted_val = (raw_misc_consumed * cfactor) / 454.0
+
+        display_total_consumed = f"{converted_val:.2f} lbs"
+
+    elif any(t in msitype for t in ['foil', 'came', 'chain']) or any(t in unttype for t in ['inches', 'feet', 'yards']):
+
+        # Foil, Came, Chain (stored in inches, convert to feet by dividing by 12 or applying cfactor)
+
+        converted_val = (raw_misc_consumed * cfactor) / 12.0
+
+        display_total_consumed = f"{converted_val:.2f} ft"
+
+    else:
+
+        # Generic units
+
+        converted_val = raw_misc_consumed * cfactor
+
+        display_total_consumed = f"{converted_val:.2f} units"
+
+
 
     total_distinct_items = len(distinct_items_set)
 
@@ -1604,7 +1630,7 @@ def misc_visuals(misc_id):
 
         'total_money_spent': total_money_spent,
 
-        'total_misc_consumed': total_misc_consumed,
+        'total_misc_consumed': display_total_consumed,
 
         'total_items_made': total_items_made,
 

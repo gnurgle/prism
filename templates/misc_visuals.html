@@ -536,27 +536,31 @@ function processAndRender(priceData, inventoryData, itemInvData) {
 
     let unttype = "{{ misc.UNTTYPE or '' }}".toLowerCase();
 
+    let msitype = "{{ misc.MSITYPE or '' }}".toLowerCase();
+
     let cfactor = {{ misc.CFACTOR if misc.CFACTOR is not none else 1.0 }};
 
     let displayTotalConsumed = "";
 
 
 
-    if (unttype.includes('Solder')) {
+    if (msitype.includes('Solder') || unttype.includes('pounds')) {
 
-        let convertedVal = (rawMiscConsumed * cfactor * 2) / 453.592;
+        let convertedVal = (rawMiscConsumed / cfactor);
 
         displayTotalConsumed = convertedVal.toFixed(2) + " lbs";
 
-    } else if (unttype.includes('came') || unttype.includes('foil') || unttype.includes('chain')) {
+    } else if (msitype.includes('Foil') || msitype.includes('Came') || msitype.includes('Chain') || unttype.includes('inches') || unttype.includes('feet') || unttype.includes('yards')) {
 
-        let convertedVal = (cfactor === 1.0) ? (rawMiscConsumed / 12.0) : (rawMiscConsumed * cfactor);
+        let convertedVal = (rawMiscConsumed / cfactor);
 
         displayTotalConsumed = convertedVal.toFixed(2) + " ft";
 
     } else {
 
-        displayTotalConsumed = rawMiscConsumed.toFixed(2) + " units";
+        let convertedVal = rawMiscConsumed * cfactor;
+
+        displayTotalConsumed = convertedVal.toFixed(2) + " units";
 
     }
 
