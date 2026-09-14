@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+
+    <h2>Expense & Revenue Reports</h2>
+
+    <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm">&larr; Back to Dashboard</a>
+
+</div>
+
+
+
+<div class="card shadow-sm mb-4">
+
+    <div class="card-header bg-dark text-white">Report Parameters</div>
+
+    <div class="card-body">
+
+        <form method="POST" action="{{ url_for('report_bp.generate_pdf_report') }}" class="row g-3 align-items-end">
+
+            <div class="col-md-4">
+
+                <label for="start_date" class="form-label">Start Date</label>
+
+                <input type="date" class="form-control" id="start_date" name="start_date" value="{{ start_date }}" required>
+
+            </div>
+
+            <div class="col-md-4">
+
+                <label for="end_date" class="form-label">End Date</label>
+
+                <input type="date" class="form-control" id="end_date" name="end_date" value="{{ end_date }}" required>
+
+            </div>
+
+            <div class="col-md-4">
+
+                <button type="submit" class="btn btn-success w-100">Generate Report</button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+
+{% if pdf_file %}
+
+<div class="card shadow-sm">
+
+    <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+
+        <span>Generated Report Preview</span>
+
+        <a href="{{ url_for('report_bp.download_pdf', filename=pdf_file) }}" class="btn btn-light btn-sm">Download PDF</a>
+
+    </div>
+
+    <div class="card-body text-center p-0">
+
+        <iframe src="{{ url_for('static', filename='reports/' + pdf_file) }}" width="100%" height="650px" style="border: none;"></iframe>
+
+    </div>
+
+</div>
+
+{% endif %}
+
+{% endblock %}
