@@ -48,7 +48,7 @@
 {# Helper macro to generate clickable sortable table headers #}
 {% macro sort_header(col_key, label) %}
     {% set new_order = 'desc' if current_sort == col_key and current_order == 'asc' else 'asc' %}
-    <a href="{{ url_for('glass_bp.list_glass', sort_by=col_key, order=new_order, **filters) }}" class="text-white text-decoration-none d-flex align-items-center justify-content-between px-1">
+    <a href="{{ url_for('glass_bp.list_glass', sort_by=col_key, order=new_order, **filters) }}" class="text-light text-decoration-none d-flex align-items-center justify-content-between px-1">
         {{ label }}
         {% if current_sort == col_key %}
             <small>{{ '▲' if current_order == 'asc' else '▼' }}</small>
@@ -60,18 +60,18 @@
 
 <div class="card shadow-sm">
     <div class="card-body p-0">
-        <table class="table table-striped table-hover mb-0 align-middle">
-            <thead class="table-dark">
+        <table class="table table-striped table-hover mb-0 align-middle text-light">
+            <thead class="table-dark bg-dark text-light">
                 <tr>
                     <th>{{ sort_header('GLSNAME', 'Name') }}</th>
                     <th>{{ sort_header('GLSMANF', 'Manuf') }}</th>
                     <th>{{ sort_header('GLSTEX', 'Texture') }}</th>
-                    <th>Finish</th>
+                    <th class="text-light">Finish</th>
                     <th>{{ sort_header('COLOR_HSV', 'Color') }}</th>
                     <th>{{ sort_header('GLSOURCE', 'Source') }}</th>
                     <th>{{ sort_header('GLSLEN', 'Size') }}</th>
                     <th>{{ sort_header('GLSPRICE', 'Price') }}</th>
-                    <th>Status</th>
+                    <th class="text-light">Status</th>
                 </tr>
             </thead>
             <tbody>

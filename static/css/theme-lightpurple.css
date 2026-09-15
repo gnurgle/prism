@@ -1,3 +1,15 @@
+:root {
+
+    --bs-btn-active-bg: #4d3d75;
+
+    --bs-btn-active-border-color: #3d305d;
+
+    --bs-btn-active-color: #ffffff;
+
+}
+
+
+
 body {
 
     background-color: #f7f5fa !important;
@@ -90,6 +102,18 @@ hr {
 
 
 
+.modal-content {
+
+    background-color: #D6C8F0 !important;
+
+    color: #2d2640 !important;
+
+    border-color: #dfd8ec !important;
+
+}
+
+
+
 .bg-light {
 
     background-color: #efeaf7 !important;
@@ -112,7 +136,7 @@ hr {
 
 .table {
 
-    color: #2d2640 !important;
+    color: #2d2640;
 
     background-color: #D6C8F0 !important;
 
@@ -126,7 +150,7 @@ hr {
 
     background-color: transparent !important;
 
-    color: #2d2640 !important;
+    color: #2d2640;
 
     border-bottom-color: #dfd8ec !important;
 
@@ -221,6 +245,30 @@ hr {
     background-color: #5c3d88 !important;
 
     border-color: #4d3d75 !important;
+
+}
+
+
+
+.btn-check:checked + .btn, 
+
+.btn.active, 
+
+.btn.show, 
+
+.btn:first-child:active, 
+
+:not(.btn-check) + .btn:active, 
+
+.btn-active, 
+
+.btn_active {
+
+    background-color: var(--bs-btn-active-bg) !important;
+
+    border-color: var(--bs-btn-active-border-color) !important;
+
+    color: var(--bs-btn-active-color) !important;
 
 }
 

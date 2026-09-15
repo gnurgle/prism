@@ -112,6 +112,20 @@
 
 
 
+                    <!-- Apply Previous Glass Button -->
+
+                    <div class="mb-2">
+
+                        <button type="button" class="btn btn-outline-secondary btn-sm w-100 text-muted" id="apply-prev-glass-btn" onclick="applyPreviousGlass()" disabled>
+
+                            Apply Previous Glass: <span id="prev-glass-name">None</span>
+
+                        </button>
+
+                    </div>
+
+
+
                     <!-- Direct Color Grid in the Sidebar (Color Squares) -->
 
                     <label class="form-label small text-muted mb-1">Select Color:</label>
@@ -122,7 +136,7 @@
 
                             <div class="color-square shadow-sm" 
 
-                                 style="width: 28px; height: 28px; background-color: #{{ color.CHEX }}; border: 1px solid #ccc; cursor: pointer; border-radius: 3px;"
+                                 style="width: 28px; height: 28px; {% if color.COLOR == 'Transparent' %}background: repeating-conic-gradient(#ccc 0% 25%, #fff 0% 50%) 0 0/10px 10px;{% else %}background-color: #{{ color.CHEX }};{% endif %} border: 1px solid #ccc; cursor: pointer; border-radius: 3px;"
 
                                  title="{{ color.COLOR }}"
 
@@ -139,28 +153,29 @@
                 </div>
 
 
+
                 <div class="row">
 
+                    <div class="col-4 mb-3 form-check">
 
-                <div class="col-4 mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="isscrap" onchange="stageComponentChanges()">
 
-                    <input type="checkbox" class="form-check-input" id="isscrap" onchange="stageComponentChanges()">
+                        <label class="form-check-label" for="isscrap">Scrap</label>
 
-                    <label class="form-check-label" for="isscrap">Scrap</label>
+                    </div>
+
+
+
+                    <div class="col-8 mb-3 form-check">
+
+                        <input type="checkbox" class="form-check-input" id="isgrain" onchange="stageComponentChanges()">
+
+                        <label class="form-check-label" for="isgrain">Grain Specific</label>
+
+                    </div>
 
                 </div>
 
-
-
-                <div class="col-8 mb-3 form-check">
-
-                    <input type="checkbox" class="form-check-input" id="isgrain" onchange="stageComponentChanges()">
-
-                    <label class="form-check-label" for="isgrain">Grain Specific</label>
-
-                </div>
-
-            </div>
             </div>
 
         </form>
@@ -275,9 +290,9 @@
 
                 <div class="btn-group shadow-sm" role="group" aria-label="Stroke Width">
 
-                    <button id="stroke-thin-btn" type="button" class="btn btn-sm btn-secondary active text-white font-weight-bold" title="Thin Line" onclick="setStrokeWidth(2)">🔽</button>
+                    <button id="stroke-thin-btn" type="button" class="btn btn-sm btn-secondary active text-white font-weight-bold" title="Thin Line" onclick="setStrokeWidthAndCookie(2)">🔽</button>
 
-                    <button id="stroke-thick-btn" type="button" class="btn btn-sm btn-light text-dark font-weight-bold" title="Thick Line" onclick="setStrokeWidth(22)">🔼</button>
+                    <button id="stroke-thick-btn" type="button" class="btn btn-sm btn-light text-dark font-weight-bold" title="Thick Line" onclick="setStrokeWidthAndCookie(22)">🔼</button>
 
                 </div>
 
@@ -360,6 +375,7 @@
 </div>
 
 
+
 <!-- Global Configurations for JS files -->
 
 <script>
@@ -373,6 +389,50 @@
     const effectImgBaseUrl = "{{ url_for('static', filename='images/effects/') }}";
 
     const initialPatina = "{{ patina_choice | default('Silver') }}";
+
+
+
+    // Cookie helper functions
+
+    function setCookie(name, value, days = 365) {
+
+        let expires = "";
+
+        if (days) {
+
+            let date = new Date();
+
+            date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+
+            expires = "; expires=" + date.toUTCString();
+
+        }
+
+        document.cookie = name + "=" + (value || "") + expires + "; path=/";
+
+    }
+
+
+
+    function getCookie(name) {
+
+        let nameEQ = name + "=";
+
+        let ca = document.cookie.split(';');
+
+        for(let i=0; i < ca.length; i++) {
+
+            let c = ca[i];
+
+            while (c.charAt(0)==' ') c = c.substring(1,c.length);
+
+            if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length,c.length);
+
+        }
+
+        return null;
+
+    }
 
 
 
@@ -413,6 +473,52 @@
     const allGlassOptions = Array.from(new Map(rawGlassOptions.map(item => [item.id, item])).values());
 
     let selectedTemporaryGlass = null;
+
+    let currentSelectedGlass = null;  // Tracks the actively applied glass
+
+    let previousSelectedGlass = null; // Tracks the actual previous glass
+
+
+
+    function updatePreviousGlassButton() {
+
+        const btn = document.getElementById('apply-prev-glass-btn');
+
+        const nameSpan = document.getElementById('prev-glass-name');
+
+        
+
+        if (previousSelectedGlass && btn && nameSpan) {
+
+            btn.disabled = false;
+
+            btn.classList.remove('text-muted');
+
+            nameSpan.innerText = previousSelectedGlass.name;
+
+        } else if (btn && nameSpan) {
+
+            btn.disabled = true;
+
+            btn.classList.add('text-muted');
+
+            nameSpan.innerText = 'None';
+
+        }
+
+    }
+
+
+
+    function applyPreviousGlass() {
+
+        if (!previousSelectedGlass) return;
+
+        selectedTemporaryGlass = previousSelectedGlass;
+
+        confirmGlassSelection();
+
+    }
 
     
 
@@ -536,6 +642,22 @@
 
 
 
+        // Shift current glass to previous before updating current
+
+        if (currentSelectedGlass && currentSelectedGlass.id !== selectedTemporaryGlass.id) {
+
+            previousSelectedGlass = currentSelectedGlass;
+
+        }
+
+        
+
+        currentSelectedGlass = selectedTemporaryGlass;
+
+        updatePreviousGlassButton();
+
+
+
         document.getElementById('glass_id').value = selectedTemporaryGlass.id;
 
         document.getElementById('selected-glass-label').innerText = `${selectedTemporaryGlass.name} (ID: ${selectedTemporaryGlass.id})`;
@@ -566,6 +688,18 @@
 
     function clearGlassSelection() {
 
+        if (currentSelectedGlass) {
+
+            previousSelectedGlass = currentSelectedGlass;
+
+            currentSelectedGlass = null;
+
+            updatePreviousGlassButton();
+
+        }
+
+
+
         document.getElementById('glass_id').value = '';
 
         document.getElementById('selected-glass-label').innerText = 'No glass selected';
@@ -581,7 +715,6 @@
     }
 
 </script>
-
 
 
 
@@ -607,7 +740,71 @@ let currentStrokeColor = currentPatina === 'Copper' ? '#B87333' : (currentPatina
 
 
 
+// Wrapper to set stroke width and save choice to cookie
+
+function setStrokeWidthAndCookie(widthVal) {
+
+    if (typeof setStrokeWidth === 'function') {
+
+        setStrokeWidth(widthVal);
+
+    }
+
+    setCookie('preferred_stroke_width', widthVal);
+
+}
+
+
+
+// Wrapper to intercept background mode changes and save to cookie
+
+const originalSetSvgBackground = window.setSvgBackground;
+
+window.setSvgBackground = function(mode) {
+
+    if (typeof originalSetSvgBackground === 'function') {
+
+        originalSetSvgBackground(mode);
+
+    }
+
+    setCookie('preferred_svg_background', mode);
+
+};
+
+
+
 window.addEventListener('DOMContentLoaded', () => {
+
+    // Restore preferred stroke width from cookie if present
+
+    const savedStrokeWidth = getCookie('preferred_stroke_width');
+
+    if (savedStrokeWidth && typeof setStrokeWidth === 'function') {
+
+        setStrokeWidth(parseFloat(savedStrokeWidth));
+
+    }
+
+
+
+    // Restore preferred background mode from cookie if present
+
+    const savedBgMode = getCookie('preferred_svg_background');
+
+    if (savedBgMode && typeof setSvgBackground === 'function') {
+
+        // Prevent infinite loop by calling original implementation or direct function
+
+        if (typeof originalSetSvgBackground === 'function') {
+
+            originalSetSvgBackground(savedBgMode);
+
+        }
+
+    }
+
+
 
     if (typeof setAppearanceMode === 'function') {
 
@@ -729,6 +926,18 @@ function populateSidebar(regionId) {
 
         if (glassObj) {
 
+            if (currentSelectedGlass && currentSelectedGlass.id !== glassObj.id) {
+
+                previousSelectedGlass = currentSelectedGlass;
+
+            }
+
+            currentSelectedGlass = glassObj;
+
+            updatePreviousGlassButton();
+
+
+
             document.getElementById('selected-glass-label').innerText = `${glassObj.name} (ID: ${glassObj.id})`;
 
             document.getElementById('selected-glass-label').classList.remove('text-muted');
@@ -746,6 +955,16 @@ function populateSidebar(regionId) {
         }
 
     } else {
+
+        if (currentSelectedGlass) {
+
+            previousSelectedGlass = currentSelectedGlass;
+
+            currentSelectedGlass = null;
+
+            updatePreviousGlassButton();
+
+        }
 
         document.getElementById('selected-glass-label').innerText = 'No glass selected';
 
@@ -1008,6 +1227,7 @@ function generateAndPostImageSnapshot(exportData) {
 }
 
 
+
 function handleGlassChange() {
 
     const regionId = document.getElementById('active_region_id').value;
@@ -1038,19 +1258,15 @@ function handleGlassChange() {
 
         
 
-        // Clean the image path so it never doubles up /static/ when rendered in the SVG
-
         let cleanImg = glassObj.image || '';
 
         if (cleanImg) {
 
-            // Remove full URL or static prefixes if present
+            cleanImg = cleanImg.replace(/^.*\/static\//, 'static/');
 
-            cleanImg = cleanImg.replace(/^.*\/static\//, 'static/'); // handle absolute paths containing static
+            cleanImg = cleanImg.replace(/^static\//, '');
 
-            cleanImg = cleanImg.replace(/^static\//, ''); // remove leading static/
-
-            cleanImg = cleanImg.replace(/^\/+/, ''); // remove leading slashes
+            cleanImg = cleanImg.replace(/^\/+/, '');
 
         }
 
@@ -1085,8 +1301,6 @@ function handleGlassChange() {
     }
 
 }
-
-
 
 </script>
 

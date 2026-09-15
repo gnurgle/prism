@@ -197,7 +197,7 @@
 
                 { name: 'List of Sales', url: "{{ url_for('list_sales') }}" },
 
-                { name: 'Expense and Revenue Report', url: "{{ url_for('report_bp.revenue_expense_report') if report_bp else url_for('index') }}" },
+                { name: 'Expense and Revenue Report', url: "{{ url_for('report_bp.expense_revenue_report') }}" },
 
                 { name: 'Manual Inventory Edit', url: "{{ url_for('inventory_status') }}" }
 
@@ -223,7 +223,7 @@
 
             subBg: 'bg-secondary text-white',
 
-            backBg: 'bg-dark text-white',
+            backBg: 'bg-secondary text-white',
 
             items: [
 

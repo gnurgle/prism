@@ -80,7 +80,7 @@
 
     {% set new_order = 'desc' if current_sort == col_key and current_order == 'asc' else 'asc' %}
 
-    <a href="{{ url_for('venue_bp.list_venues', sort_by=col_key, order=new_order, **filters) }}" class="text-white text-decoration-none d-block">
+    <a href="{{ url_for('venue_bp.list_venues', sort_by=col_key, order=new_order, **filters) }}" class="text-decoration-none d-block text-light">
 
         {{ label }}
 
@@ -104,9 +104,9 @@
 
     <div class="card-body p-0">
 
-        <table class="table table-striped table-hover mb-0 align-middle">
+        <table class="table table-striped table-hover mb-0 align-middle text-light">
 
-            <thead class="table-dark">
+            <thead class="table-dark bg-dark text-light">
 
                 <tr>
 
@@ -120,9 +120,9 @@
 
                     <th>{{ sort_header('VENSDATE', 'Dates') }}</th>
 
-                    <th class="text-center">Links</th>
+                    <th class="text-center text-light">Links</th>
 
-                    <th class="text-end">Actions</th>
+                    <th class="text-end text-light">Actions</th>
 
                 </tr>
 
@@ -184,7 +184,7 @@
 
                         {% if venue.VINSTA %}
 
-                            <a href="{{ venue.VINSTA }}" target="_blank" title="Instagram" class="me-2 text-decoration-none text-danger">
+                            <a href="https://www.instagram.com/{{ venue.VINSTA | replace('@', '')}}" target="_blank" title="Instagram" class="me-2 text-decoration-none text-danger">
 
                                 <i class="fab fa-instagram"></i>
 
@@ -194,7 +194,7 @@
 
                         {% if venue.VFB %}
 
-                            <a href="{{ venue.VFB }}" target="_blank" title="Facebook" class="text-decoration-none text-primary">
+                            <a href="https://www.facebook.com/{{ venue.VFB }}" target="_blank" title="Facebook" class="text-decoration-none text-primary">
 
                                 <i class="fab fa-facebook"></i>
 

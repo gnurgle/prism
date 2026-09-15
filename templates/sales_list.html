@@ -2,8 +2,7 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h2>Sales Register (`ITMSALE`)</h2>
-    <a href="{{ url_for('record_sale') }}" class="btn btn-success">+ Record New Sale</a>
+    <h2>Sales History</h2>
 </div>
 
 <div class="card shadow-sm">
@@ -12,10 +11,10 @@
             <thead class="table-dark">
                 <tr>
                     <th>Sale ID</th>
-                    <th>Item Sold (`ITM`)</th>
+                    <th>Item Sold </th>
                     <th>Units Sold</th>
                     <th>Sale Date</th>
-                    <th>Venue / Event (`VENUE`)</th>
+                    <th>Venue / Event </th>
                 </tr>
             </thead>
             <tbody>
@@ -23,7 +22,7 @@
                 <tr>
                     <td><strong>#{{ s.SALEID }}</strong></td>
                     <td>{{ s.ITMNAME }}</td>
-                    <td><span class="badge bg-primary fs-6">{{ s.SUNITS }}</span></td>
+                    <td><span class=" fs-6">{{ s.SUNITS }}</span></td>
                     <td>{{ s.SDATE }}</td>
                     <td>{{ s.VENUELOC or 'Direct / Studio Sale' }}</td>
                 </tr>

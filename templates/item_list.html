@@ -173,7 +173,7 @@
 
             <div class="card h-100 shadow-sm border position-relative">
 
-                <div class="bg-dark text-center overflow-hidden position-relative card-img-container">
+                <div class="text-center overflow-hidden position-relative card-img-container">
 
                     {% if img_src %}
 
@@ -181,7 +181,7 @@
 
                         <a href="javascript:void(0);" data-bs-toggle="modal" data-bs-target="#imagePreviewModal" data-imgsrc="{{ resolved_img_url }}" data-itemname="{{ item.ITMNAME }}">
 
-                            <img src="{{ resolved_img_url }}" class="w-100 h-100" style="object-fit: contain; background-color: #f8f9fa;" alt="{{ item.ITMNAME }}">
+                            <img src="{{ resolved_img_url }}" class="w-100 h-100" style="object-fit: contain;" alt="{{ item.ITMNAME }}">
 
                         </a>
 
@@ -211,7 +211,7 @@
 
                     <h5 class="card-title mb-2">
 
-                        <a href="{{ url_for('item_bp.item_detail', item_id=item.ITEMID) }}" class="text-decoration-none text-dark stretched-link">
+                        <a href="{{ url_for('item_bp.item_detail', item_id=item.ITEMID) }}" class="text-decoration-none text-light stretched-link">
 
                             {{ item.ITMNAME }}
 
@@ -269,9 +269,9 @@
 
 {% set next_order = 'desc' if current_sort == column_key and current_order == 'asc' else 'asc' %}
 
-<th class="{{ align_class }}">
+<th class="{{ align_class }} text-dark">
 
-    <a href="{{ url_for('item_bp.item_list', sort_by=column_key, order=next_order, q=filters.q, itmgrp=filters.itmgrp, oneoff=filters.oneoff, is_active=filters.is_active, actively_selling=filters.actively_selling) }}" class="text-decoration-none text-white d-block">
+    <a href="{{ url_for('item_bp.item_list', sort_by=column_key, order=next_order, q=filters.q, itmgrp=filters.itmgrp, oneoff=filters.oneoff, is_active=filters.is_active, actively_selling=filters.actively_selling) }}" class="text-decoration-none text-light d-block">
 
         {{ label }}
 
@@ -301,13 +301,13 @@
 
         <div class="table-responsive">
 
-            <table class="table table-hover align-middle mb-0">
+            <table class="table table-hover align-middle mb-0 text-light">
 
-                <thead class="table-dark text-white">
+                <thead class="table-dark bg-dark text-light">
 
                     <tr>
 
-                        <th style="width: 60px;">Image</th>
+                        <th style="width: 60px;" class="text-light">Image</th>
 
                         {{ sortable_th('ITMNAME', 'Name') }}
 
@@ -355,7 +355,7 @@
 
                         <td class="fw-bold">
 
-                            <a href="{{ url_for('item_bp.item_detail', item_id=item.ITEMID) }}" class="text-decoration-none">
+                            <a href="{{ url_for('item_bp.item_detail', item_id=item.ITEMID) }}" class=" text-decoration-none">
 
                                 {{ item.ITMNAME }}
 

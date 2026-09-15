@@ -1,3 +1,15 @@
+:root {
+
+    --bs-btn-active-bg: #0a58ca;
+
+    --bs-btn-active-border-color: #0a53be;
+
+    --bs-btn-active-color: #ffffff;
+
+}
+
+
+
 body {
 
     background-color: #121212 !important;
@@ -85,6 +97,18 @@ hr {
     color: #ffffff !important;
 
     border-bottom-color: #444 !important;
+
+}
+
+
+
+.modal-content {
+
+    background-color: #1e1e1e !important;
+
+    color: #e0e0e0 !important;
+
+    border-color: #333 !important;
 
 }
 
@@ -193,6 +217,30 @@ hr {
     background-color: #0d6efd !important;
 
     border-color: #0d6efd !important;
+
+}
+
+
+
+.btn-check:checked + .btn, 
+
+.btn.active, 
+
+.btn.show, 
+
+.btn:first-child:active, 
+
+:not(.btn-check) + .btn:active, 
+
+.btn-active, 
+
+.btn_active {
+
+    background-color: var(--bs-btn-active-bg) !important;
+
+    border-color: var(--bs-btn-active-border-color) !important;
+
+    color: var(--bs-btn-active-color) !important;
 
 }
 

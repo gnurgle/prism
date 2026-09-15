@@ -7,35 +7,68 @@ let startBgPosX = 50;
 let startBgPosY = 50;
 
 function setSvgBackground(type) {
+
     const wrapper = document.getElementById('svg-wrapper');
+
     const joystick = document.getElementById('bg-joystick');
+
     
+
     document.getElementById('bg-white-btn').classList.remove('active', 'btn-secondary');
+
     document.getElementById('bg-outside-btn').classList.remove('active', 'btn-secondary');
+
     document.getElementById('bg-transparent-btn').classList.remove('active', 'btn-secondary');
 
-    if (type === 'white') {
-        wrapper.style.backgroundColor = '#ffffff';
-        wrapper.style.backgroundImage = 'none';
-        joystick.style.display = 'none';
-        resetJoystick();
-        document.getElementById('bg-white-btn').classList.add('active', 'btn-secondary');
-    } else if (type === 'outside') {
-        wrapper.style.backgroundColor = 'transparent';
-        wrapper.style.backgroundImage = `url('${outsideBgUrl}')`;
-        wrapper.style.backgroundSize = 'auto 150%';
-        wrapper.style.backgroundPosition = `${bgPosX}% ${bgPosY}%`;
-        joystick.style.display = 'flex';
-        document.getElementById('bg-outside-btn').classList.add('active', 'btn-secondary');
-    } else if (type === 'transparent') {
-        wrapper.style.backgroundColor = 'transparent';
-        wrapper.style.backgroundImage = 'none';
-        joystick.style.display = 'none';
-        resetJoystick();
-        document.getElementById('bg-transparent-btn').classList.add('active', 'btn-secondary');
-    }
-}
 
+
+    if (type === 'white') {
+
+        wrapper.classList.add('bg-white');
+
+        wrapper.style.backgroundColor = '#ffffff';
+
+        wrapper.style.backgroundImage = 'none';
+
+        joystick.style.display = 'none';
+
+        resetJoystick();
+
+        document.getElementById('bg-white-btn').classList.add('active', 'btn-secondary');
+
+    } else if (type === 'outside') {
+
+        wrapper.classList.remove('bg-white');
+
+        wrapper.style.backgroundColor = 'transparent';
+
+        wrapper.style.backgroundImage = `url('${outsideBgUrl}')`;
+
+        wrapper.style.backgroundSize = 'auto 150%';
+
+        wrapper.style.backgroundPosition = `${bgPosX}% ${bgPosY}%`;
+
+        joystick.style.display = 'flex';
+
+        document.getElementById('bg-outside-btn').classList.add('active', 'btn-secondary');
+
+    } else if (type === 'transparent') {
+
+        wrapper.classList.remove('bg-white');
+
+        wrapper.style.backgroundColor = 'transparent';
+
+        wrapper.style.backgroundImage = 'none';
+
+        joystick.style.display = 'none';
+
+        resetJoystick();
+
+        document.getElementById('bg-transparent-btn').classList.add('active', 'btn-secondary');
+
+    }
+
+}
 function resetJoystick() {
     isDraggingJoystick = false;
     const knob = document.getElementById('joystick-knob');

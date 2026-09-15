@@ -112,6 +112,51 @@
 
 <div class="d-flex justify-content-between align-items-center mb-3 flex-nowrap overflow-x-auto gap-3 py-1">
 
+    <!-- Right Side: View Mode Toggles with icons only -->
+
+    <div class="btn-group btn-group-sm flex-shrink-0" role="group" aria-label="Layout View Toggle">
+
+        <button type="button" id="btnViewVisual" class="btn btn-outline-primary active px-3" onclick="switchViewMode('visual')" title="Visual Gallery View">
+
+            🖼️
+
+        </button>
+
+        <button type="button" id="btnViewList" class="btn btn-outline-primary px-3" onclick="switchViewMode('list')" title="Compact List View">
+
+            📋
+
+        </button>
+
+    </div>
+
+
+
+    <!-- Middle: S, M, L Card Size Toggles -->
+
+    <div id="sizeToggleWrapper" class="btn-group btn-group-sm flex-shrink-0" role="group" aria-label="Card Size Toggle">
+
+        <input type="radio" class="btn-check" name="cardSizeRadio" id="sizeS" autocomplete="off" onclick="setCardSize('S')">
+
+        <label class="btn btn-outline-secondary" for="sizeS">S</label>
+
+
+
+        <input type="radio" class="btn-check" name="cardSizeRadio" id="sizeM" autocomplete="off" onclick="setCardSize('M')">
+
+        <label class="btn btn-outline-secondary" for="sizeM">M</label>
+
+
+
+        <input type="radio" class="btn-check" name="cardSizeRadio" id="sizeL" autocomplete="off" checked onclick="setCardSize('L')">
+
+        <label class="btn btn-outline-secondary" for="sizeL">L</label>
+
+    </div>
+
+
+
+
     <!-- Left Side: Filter and View dropdown buttons -->
 
     <div class="d-flex align-items-center gap-2 flex-shrink-0">
@@ -150,47 +195,7 @@
 
 
 
-    <!-- Middle: S, M, L Card Size Toggles -->
 
-    <div id="sizeToggleWrapper" class="btn-group btn-group-sm flex-shrink-0" role="group" aria-label="Card Size Toggle">
-
-        <input type="radio" class="btn-check" name="cardSizeRadio" id="sizeS" autocomplete="off" onclick="setCardSize('S')">
-
-        <label class="btn btn-outline-secondary" for="sizeS">S</label>
-
-
-
-        <input type="radio" class="btn-check" name="cardSizeRadio" id="sizeM" autocomplete="off" onclick="setCardSize('M')">
-
-        <label class="btn btn-outline-secondary" for="sizeM">M</label>
-
-
-
-        <input type="radio" class="btn-check" name="cardSizeRadio" id="sizeL" autocomplete="off" checked onclick="setCardSize('L')">
-
-        <label class="btn btn-outline-secondary" for="sizeL">L</label>
-
-    </div>
-
-
-
-    <!-- Right Side: View Mode Toggles with icons only -->
-
-    <div class="btn-group btn-group-sm flex-shrink-0" role="group" aria-label="Layout View Toggle">
-
-        <button type="button" id="btnViewVisual" class="btn btn-outline-primary active px-3" onclick="switchViewMode('visual')" title="Visual Gallery View">
-
-            🖼️
-
-        </button>
-
-        <button type="button" id="btnViewList" class="btn btn-outline-primary px-3" onclick="switchViewMode('list')" title="Compact List View">
-
-            📋
-
-        </button>
-
-    </div>
 
 </div>
 
@@ -284,7 +289,7 @@
 
 
 
-                <div class="bg-dark text-center overflow-hidden position-relative card-img-container">
+                <div class="text-center overflow-hidden position-relative card-img-container">
 
                     {% if img_src %}
 
@@ -294,7 +299,7 @@
 
                            data-imgsrc="{{ resolved_img_url }}" data-itemname="{{ item.ITMNAME }}">
 
-                            <img src="{{ resolved_img_url }}" class="w-100 h-100" style="object-fit: contain; background-color: #f8f9fa; transition: transform 0.2s;" alt="{{ item.ITMNAME }}"
+                            <img src="{{ resolved_img_url }}" class="w-100 h-100" style="object-fit: contain; transition: transform 0.2s;" alt="{{ item.ITMNAME }}"
 
                                  onmouseover="this.style.transform='scale(1.02)';" onmouseout="this.style.transform='scale(1.00)';">
 
@@ -394,17 +399,17 @@
 
         <div class="table-responsive">
 
-            <table class="table table-hover align-middle mb-0">
+            <table class="table table-dark table-hover align-middle mb-0 text-light">
 
-                <thead class="table-dark text-white">
+                <thead class="table-dark text-white bg-dark">
 
                     <tr>
 
-                        <th style="width: 60px;">Image</th>
+                        <th style="width: 60px;" class="text-light !important">Image</th>
 
                         <th>
 
-                            <a href="{{ url_for('item_bp.item_inventory', sort_by='ITMNAME', order='desc' if current_sort == 'ITMNAME' and current_order == 'asc' else 'asc', q=filters.q, itmgrp=filters.itmgrp, stock_filter=filters.stock_filter, stock_display=filters.stock_display, is_active=filters.is_active, oneoff=filters.oneoff) }}" class="text-white text-decoration-none">
+                            <a href="{{ url_for('item_bp.item_inventory', sort_by='ITMNAME', order='desc' if current_sort == 'ITMNAME' and current_order == 'asc' else 'asc', q=filters.q, itmgrp=filters.itmgrp, stock_filter=filters.stock_filter, stock_display=filters.stock_display, is_active=filters.is_active, oneoff=filters.oneoff) }}" class="text-light text-decoration-none">
 
                                 Item Name {% if current_sort == 'ITMNAME' %}{% if current_order == 'asc' %}▲{% else %}▼{% endif %}{% endif %}
 
@@ -414,7 +419,7 @@
 
                         <th>
 
-                            <a href="{{ url_for('item_bp.item_inventory', sort_by='ITMGRP', order='desc' if current_sort == 'ITMGRP' and current_order == 'asc' else 'asc', q=filters.q, itmgrp=filters.itmgrp, stock_filter=filters.stock_filter, stock_display=filters.stock_display, is_active=filters.is_active, oneoff=filters.oneoff) }}" class="text-white text-decoration-none">
+                            <a href="{{ url_for('item_bp.item_inventory', sort_by='ITMGRP', order='desc' if current_sort == 'ITMGRP' and current_order == 'asc' else 'asc', q=filters.q, itmgrp=filters.itmgrp, stock_filter=filters.stock_filter, stock_display=filters.stock_display, is_active=filters.is_active, oneoff=filters.oneoff) }}" class="text-light text-decoration-none">
 
                                 Group {% if current_sort == 'ITMGRP' %}{% if current_order == 'asc' %}▲{% else %}▼{% endif %}{% endif %}
 
@@ -422,13 +427,13 @@
 
                         </th>
 
-                        <th class="text-center">One-Off</th>
+                        <th class="text-center text-light">One-Off</th>
 
-                        <th class="text-end">Price</th>
+                        <th class="text-end text-light">Price</th>
 
                         <th class="text-center">
 
-                            <a href="{{ url_for('item_bp.item_inventory', sort_by='CURRENT_STOCK', order='desc' if current_sort == 'CURRENT_STOCK' and current_order == 'asc' else 'asc', q=filters.q, itmgrp=filters.itmgrp, stock_filter=filters.stock_filter, stock_display=filters.stock_display, is_active=filters.is_active, oneoff=filters.oneoff) }}" class="text-white text-decoration-none">
+                            <a href="{{ url_for('item_bp.item_inventory', sort_by='CURRENT_STOCK', order='desc' if current_sort == 'CURRENT_STOCK' and current_order == 'asc' else 'asc', q=filters.q, itmgrp=filters.itmgrp, stock_filter=filters.stock_filter, stock_display=filters.stock_display, is_active=filters.is_active, oneoff=filters.oneoff) }}" class="text-light text-decoration-none">
 
                                 Current Stock {% if current_sort == 'CURRENT_STOCK' %}{% if current_order == 'asc' %}▲{% else %}▼{% endif %}{% endif %}
 
@@ -438,7 +443,7 @@
 
                         <th class="text-end">
 
-                            <a href="{{ url_for('item_bp.item_inventory', sort_by='LAST_UPDATED', order='desc' if current_sort == 'LAST_UPDATED' and current_order == 'asc' else 'asc', q=filters.q, itmgrp=filters.itmgrp, stock_filter=filters.stock_filter, stock_display=filters.stock_display, is_active=filters.is_active, oneoff=filters.oneoff) }}" class="text-white text-decoration-none">
+                            <a href="{{ url_for('item_bp.item_inventory', sort_by='LAST_UPDATED', order='desc' if current_sort == 'LAST_UPDATED' and current_order == 'asc' else 'asc', q=filters.q, itmgrp=filters.itmgrp, stock_filter=filters.stock_filter, stock_display=filters.stock_display, is_active=filters.is_active, oneoff=filters.oneoff) }}" class="text-light text-decoration-none">
 
                                 Last Updated {% if current_sort == 'LAST_UPDATED' %}{% if current_order == 'asc' %}▲{% else %}▼{% endif %}{% endif %}
 
