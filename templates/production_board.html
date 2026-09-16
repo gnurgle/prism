@@ -10,7 +10,7 @@
 
     <div class="col">
 
-        <h2 class="mb-0"><i class="fas fa-industry me-2"></i> Production Workflow</h2>
+        <h2 class="mb-0">Production Workflow</h2>
 
         <p class="text-muted mb-0"></p>
 
@@ -86,9 +86,9 @@
 
     <div class="col"><div class="card shadow-sm border-danger"><div class="card-body p-1"><span class="text-muted small" style="font-size: 0.65rem;">Solder</span><h6 class="mb-0 text-danger" style="font-size: 0.9rem;" id="sum-solder">{{ summary.total_solder or 0 }}</h6></div></div></div>
 
-    <div class="col"><div class="card shadow-sm border-dark"><div class="card-body p-1"><span class="text-muted small" style="font-size: 0.65rem;">Polish</span><h6 class="mb-0 text-dark" style="font-size: 0.9rem;" id="sum-polish">{{ summary.total_polish or 0 }}</h6></div></div></div>
+    <div class="col"><div class="card shadow-sm border-success"><div class="card-body p-1"><span class="text-muted small" style="font-size: 0.65rem;">Polish</span><h6 class="mb-0 text-success" style="font-size: 0.9rem;" id="sum-polish">{{ summary.total_polish or 0 }}</h6></div></div></div>
 
-    <div class="col"><div class="card shadow-sm border-success"><div class="card-body p-1"><span class="text-muted small" style="font-size: 0.65rem;">Done</span><h6 class="mb-0 text-success" style="font-size: 0.9rem;" id="sum-done">{{ summary.total_done or 0 }}</h6></div></div></div>
+    <div class="col"><div class="card shadow-sm border-dark"><div class="card-body p-1"><span class="text-muted small" style="font-size: 0.65rem;">Done</span><h6 class="mb-0 text-dark" style="font-size: 0.9rem;" id="sum-done">{{ summary.total_done or 0 }}</h6></div></div></div>
 
 </div>
 
@@ -112,9 +112,9 @@
 
         ('sldr', 'Solder', 'danger', 'IPSLDR'),
 
-        ('polish', 'Polish', 'dark', 'IPPOLISH'),
+        ('polish', 'Polish', 'success', 'IPPOLISH'),
 
-        ('done', 'Done', 'success', 'IPDONE')
+        ('done', 'Done', 'dark', 'IPDONE')
 
     ] %}
 
@@ -132,7 +132,7 @@
 
                 {% if key == 'done' %}
 
-                <button class="btn btn-light btn-sm py-0 px-1 text-success fw-bold" id="saveFinishedGlobalBtn" style="font-size: 0.65rem;" title="Save All Finished Items to Inventory">
+                <button class="btn btn-primary btn-sm py-0 px-1 text-light fw-bold" id="saveFinishedGlobalBtn" style="font-size: 0.65rem;" title="Save All Finished Items to Inventory">
 
                     <i class="fas fa-save me-1"></i> Save
 

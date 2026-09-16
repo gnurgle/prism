@@ -10,9 +10,9 @@
 
         <!-- Assuming you have a glass detail or list route, adjust url_for accordingly -->
 
-        <a href="{{ url_for('glass_bp.list_glass') }}" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Glass List</a>
+        <a href="{{ url_for('glass_bp.glass_detail', glass_id=glass.GLASSID) }}" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Glass List</a>
 
-        <h1 class="display-6 fw-bold mb-0">Price History: {{ glass.GLSNAME }}</h1>
+        <h2 class="mb-0">Price History: {{ glass.GLSNAME }}</h2>
 
     </div>
 
