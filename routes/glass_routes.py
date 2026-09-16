@@ -112,19 +112,42 @@ def list_glass():
         glasses.append(item_dict)
 
     if sort_by == 'COLOR_HSV':
+
         def color_sort_key(x):
-            val = x['COLOR_HSV']
+
+            val = x.get('COLOR_HSV')
+
+            if val is None:
+
+                return (1, 1.0, 0, 0)
+
+            if isinstance(val, tuple):
+
+                h, s, v = val[:3] if len(val) >= 3 else (0, 0, 0)
+
+                is_greyscale = 1 if s < 0.05 else 0
+
+                return (is_greyscale, -v if is_greyscale else h, s, v)
+
             if val >= 999999.0:
+
                 return (1, 1.0, 0, val)
+
             h = val // 1000
+
             rem = val % 1000
+
             s = rem // 100
+
             v = rem % 100
+
             is_greyscale = 1 if s < 0.05 else 0
+
             return (is_greyscale, -v if is_greyscale else h, s, v)
 
-        glasses.sort(key=color_sort_key, reverse=(order == 'desc'))
 
+
+        glasses.sort(key=color_sort_key, reverse=(order == 'desc'))
     textures = db.execute("SELECT DISTINCT GLSTEX FROM GSI WHERE ISACTIVE = 1 AND GLSTEX IS NOT NULL AND GLSTEX != '' ORDER BY GLSTEX").fetchall()
     raw_colors = db.execute("SELECT * FROM COLOR").fetchall()
     
@@ -564,18 +587,40 @@ def glass_inventory():
     if sort_by == 'COLOR_HSV':
 
         def color_sort_key(x):
-            val = x['COLOR_HSV']
+
+            val = x.get('COLOR_HSV')
+
+            if val is None:
+
+                return (1, 1.0, 0, 0)
+
+            if isinstance(val, tuple):
+
+                h, s, v = val[:3] if len(val) >= 3 else (0, 0, 0)
+
+                is_greyscale = 1 if s < 0.05 else 0
+
+                return (is_greyscale, -v if is_greyscale else h, s, v)
+
             if val >= 999999.0:
+
                 return (1, 1.0, 0, val)
+
             h = val // 1000
+
             rem = val % 1000
+
             s = rem // 100
+
             v = rem % 100
+
             is_greyscale = 1 if s < 0.05 else 0
+
             return (is_greyscale, -v if is_greyscale else h, s, v)
 
-        inventory_items.sort(key=color_sort_key, reverse=(order == 'desc'))
 
+
+        inventory_items.sort(key=color_sort_key, reverse=(order == 'desc'))
 
     textures = db.execute("SELECT DISTINCT GLSTEX FROM GSI WHERE ISACTIVE = 1 AND GLSTEX IS NOT NULL AND GLSTEX != '' ORDER BY GLSTEX").fetchall()
     raw_colors = db.execute("SELECT * FROM COLOR").fetchall()

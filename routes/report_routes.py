@@ -24,7 +24,7 @@ report_bp = Blueprint('report_bp', __name__)
 
 # Configurable domain variable for generated PDF item links
 
-BASE_URL = "http://192.168.1.18:7665"
+BASE_URL = "http://localhost:5000"
 
 
 
@@ -562,6 +562,12 @@ def generate_pdf_report():
 
     net_revenue = total_sales_revenue - total_expenses
 
+    
+
+    # Subtotal for table 1 (Sales minus Item Production Expenses)
+
+    subtotal_item_net = total_sales_revenue - total_item_expenses
+
 
 
     # Generate PDF Report
@@ -593,8 +599,6 @@ def generate_pdf_report():
     table_header_style = ParagraphStyle('TableHeader', parent=styles['Normal'], fontSize=9, leading=11, textColor=colors.HexColor('#1a365d'), fontName='Helvetica-Bold')
 
     table_cell_style = ParagraphStyle('TableCell', parent=styles['Normal'], fontSize=9, leading=11, textColor=colors.HexColor('#2d3748'))
-
-    table_link_style = ParagraphStyle('TableLink', parent=styles['Normal'], fontSize=9, leading=11, textColor=colors.HexColor('#2b6cb0'))
 
     table_total_style = ParagraphStyle('TableTotal', parent=styles['Normal'], fontSize=9, leading=11, textColor=colors.HexColor('#1a365d'), fontName='Helvetica-Bold')
 
@@ -740,8 +744,6 @@ def generate_pdf_report():
 
         
 
-        # Alternate white and light gray backgrounds for data rows
-
         for i in range(1, len(data_rows) + 1):
 
             bg = colors.HexColor('#ffffff') if i % 2 != 0 else colors.HexColor('#f7fafc')
@@ -772,7 +774,7 @@ def generate_pdf_report():
 
             str(r['item_id']), 
 
-            f"<a href='{BASE_URL}/item/{r['item_id']}'>{r['item']}</a>", 
+            f"<a href='{BASE_URL}/items/{r['item_id']}'>{r['item']}</a>", 
 
             str(r['units']), 
 
@@ -802,7 +804,7 @@ def generate_pdf_report():
 
             str(r['item_id']), 
 
-            f"<a href='{BASE_URL}/item/{r['item_id']}'>{r['item']}</a>", 
+            f"<a href='{BASE_URL}/items/{r['item_id']}'>{r['item']}</a>", 
 
             str(r['quantity']), 
 
@@ -862,7 +864,7 @@ def generate_pdf_report():
 
             str(r['msi_id']), 
 
-            f"<a href='{BASE_URL}/misc_item/{r['msi_id']}'>{r['misc_item']}</a>", 
+            f"<a href='{BASE_URL}/misc/{r['msi_id']}'>{r['misc_item']}</a>", 
 
             str(r['quantity']), 
 
@@ -888,23 +890,71 @@ def generate_pdf_report():
 
     
 
+    # Table 1: Item Sales & Item Production Expenses
+
+    subtotal_color_hex = '#22543d' if subtotal_item_net >= 0 else '#742a2a'
+
+    subtotal_bg_hex = '#c6f6d5' if subtotal_item_net >= 0 else '#fed7d7'
+
+    subtotal_label = "Net Item Profit (Positive)" if subtotal_item_net >= 0 else "Net Item Loss (Negative)"
+
+    subtotal_style = ParagraphStyle('SubTotalStyle', parent=styles['Normal'], fontSize=10, leading=12, textColor=colors.HexColor(subtotal_color_hex), fontName='Helvetica-Bold')
+
+
+
+    table1_rows = [
+
+        [Paragraph("<b>Total Item Sales Revenue</b>", table_cell_style), Paragraph(f"<b>${total_sales_revenue:.2f}</b>", table_cell_style)],
+
+        [Paragraph("<b>Total Item Production Expenses</b>", table_cell_style), Paragraph(f"<b>-${total_item_expenses:.2f}</b>", table_cell_style)],
+
+        [Paragraph(f"<b>{subtotal_label}</b>", subtotal_style), Paragraph(f"<b>${subtotal_item_net:.2f}</b>", subtotal_style)]
+
+    ]
+
+    
+
+    sum_table_1 = Table(table1_rows, colWidths=[260, 160])
+
+    sum_table_1.setStyle(TableStyle([
+
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#cbd5e0')),
+
+        ('TOPPADDING', (0,0), (-1,-1), 6),
+
+        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+
+        ('BACKGROUND', (0,0), (-1,-2), colors.HexColor('#ffffff')),
+
+        ('LINEABOVE', (0, -1), (-1, -1), 1.5, colors.HexColor('#718096')),
+
+        ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor(subtotal_bg_hex)),
+
+    ]))
+
+    
+
+    story.append(sum_table_1)
+
+    story.append(Spacer(1, 20))
+
+
+
+    # Table 2: Sales, Glass Expenses, Misc Expenses, Total Expenses, and Net Revenue
+
     net_color_hex = '#22543d' if net_revenue >= 0 else '#742a2a'
 
     net_bg_hex = '#c6f6d5' if net_revenue >= 0 else '#fed7d7'
 
     net_label = "Net Profit (Positive)" if net_revenue >= 0 else "Net Loss (Negative)"
 
-    
-
     net_style = ParagraphStyle('NetStyle', parent=styles['Normal'], fontSize=10, leading=12, textColor=colors.HexColor(net_color_hex), fontName='Helvetica-Bold')
 
 
 
-    summary_rows = [
+    table2_rows = [
 
         [Paragraph("<b>Total Item Sales Revenue</b>", table_cell_style), Paragraph(f"<b>${total_sales_revenue:.2f}</b>", table_cell_style)],
-
-        [Paragraph("<b>Total Item Production Expenses</b>", table_cell_style), Paragraph(f"<b>-${total_item_expenses:.2f}</b>", table_cell_style)],
 
         [Paragraph("<b>Total Glass Expenses</b>", table_cell_style), Paragraph(f"<b>-${total_glass_expenses:.2f}</b>", table_cell_style)],
 
@@ -918,9 +968,9 @@ def generate_pdf_report():
 
     
 
-    sum_table = Table(summary_rows, colWidths=[260, 160])
+    sum_table_2 = Table(table2_rows, colWidths=[260, 160])
 
-    sum_table.setStyle(TableStyle([
+    sum_table_2.setStyle(TableStyle([
 
         ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#cbd5e0')),
 
@@ -938,7 +988,9 @@ def generate_pdf_report():
 
     ]))
 
-    story.append(sum_table)
+    
+
+    story.append(sum_table_2)
 
     
 
