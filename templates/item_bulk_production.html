@@ -1,0 +1,639 @@
+{% extends 'base.html' %}
+
+
+
+{% block content %}
+
+
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+
+    <div>
+
+        <a href="{{ url_for('production_bp.production_board') }}" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Production Board</a>
+
+        <h2 class="mb-0" id="pageTitle">Bulk Add Items to Production Workflow</h2>
+
+    </div>
+
+    <div>
+
+        <button type="button" class="btn btn-primary" onclick="submitBulkProduction()">💾 Save All Changes</button>
+
+    </div>
+
+</div>
+
+
+
+<!-- Controls Bar -->
+
+<div class="card shadow-sm mb-4">
+
+    <div class="card-body">
+
+        <div class="row g-3 align-items-center">
+
+            <div class="col-md-3">
+
+                <label for="bulkDate" class="form-label fw-bold">Transaction Date</label>
+
+                <input type="date" id="bulkDate" class="form-control" value="{{ today_date }}" required>
+
+            </div>
+
+            <div class="col-md-4">
+
+                <label for="bulkStateSelect" class="form-label fw-bold">Workflow State</label>
+
+                <select id="bulkStateSelect" class="form-select" onchange="renderItemSections()">
+
+                    <option value="cut">Cut</option>
+
+                    <option value="grnd">Grind</option>
+
+                    <option value="wash">Wash</option>
+
+                    <option value="foil">Foil</option>
+
+                    <option value="sldr">Solder</option>
+
+                    <option value="polish">Polish</option>
+
+                    <option value="done">Done</option>
+
+                    <option value="in_stock">In Stock</option>
+
+                </select>
+
+            </div>
+
+            <div class="col-md-5">
+
+                <label class="form-label fw-bold d-block">Filters</label>
+
+                <div class="form-check form-check-inline">
+
+                    <input class="form-check-input filter-checkbox" type="checkbox" id="filterOneOff" onchange="renderItemSections()">
+
+                    <label class="form-check-label" for="filterOneOff">One-off</label>
+
+                </div>
+
+                <div class="form-check form-check-inline">
+
+                    <input class="form-check-input filter-checkbox" type="checkbox" id="filterInStock" onchange="renderItemSections()">
+
+                    <label class="form-check-label" for="filterInStock">In Stock</label>
+
+                </div>
+
+                <div class="form-check form-check-inline">
+
+                    <input class="form-check-input filter-checkbox" type="checkbox" id="filterInactive" onchange="renderItemSections()">
+
+                    <label class="form-check-label" for="filterInactive">Inactive</label>
+
+                </div>
+
+                <div class="form-check form-check-inline">
+
+                    <input class="form-check-input filter-checkbox" type="checkbox" id="filterAllItems" onchange="renderItemSections()">
+
+                    <label class="form-check-label fw-bold text-primary" for="filterAllItems">All Items</label>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<!-- Dynamic Content Container -->
+
+<div id="itemSectionsContainer">
+
+    <div class="text-center py-5 text-muted card shadow-sm">
+
+        <h4>Loading item catalog...</h4>
+
+    </div>
+
+</div>
+
+
+
+<!-- Bottom Save Bar -->
+
+<div class="d-flex justify-content-end mt-4 mb-5">
+
+    <button type="button" class="btn btn-primary btn-lg" onclick="submitBulkProduction()">💾 Save All Changes</button>
+
+</div>
+
+
+
+<!-- Status Modal -->
+
+<div class="modal fade" id="statusModal" tabindex="-1" aria-hidden="true">
+
+    <div class="modal-dialog modal-dialog-centered">
+
+        <div class="modal-content">
+
+            <div class="modal-header bg-dark text-white">
+
+                <h5 class="modal-title" id="statusModalTitle">Status</h5>
+
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+
+            </div>
+
+            <div class="modal-body" id="statusModalBody">Changes saved successfully!</div>
+
+            <div class="modal-footer">
+
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<!-- Large Hover Popup Container (Cursor Following) -->
+
+<div id="image-popup" class="card shadow-lg position-fixed d-none" style="width: 300px; z-index: 1050; pointer-events: none;">
+
+    <div class="card-body p-2 bg-light text-center">
+
+        <img id="popup-img" src="" alt="Enlarged Preview" class="img-fluid rounded" style="max-height: 280px; object-fit: contain;">
+
+    </div>
+
+</div>
+
+
+
+<style>
+
+.cursor-pointer {
+
+    cursor: pointer;
+
+}
+
+</style>
+
+
+
+<script>
+
+let loadedItemData = [];
+
+
+
+document.addEventListener("DOMContentLoaded", function() {
+
+    loadItems();
+
+    initHoverPreview();
+
+});
+
+
+
+function loadItems() {
+
+    const container = document.getElementById('itemSectionsContainer');
+
+    container.innerHTML = '<div class="text-center py-5 card shadow-sm"><div class="spinner-border text-primary" role="status"></div><p class="mt-2 text-muted">Loading items...</p></div>';
+
+    
+
+    fetch(`{{ url_for('production_bp.api_bulk_production_data') }}`)
+
+        .then(response => response.json())
+
+        .then(data => {
+
+            loadedItemData = data.items || [];
+
+            renderItemSections();
+
+        })
+
+        .catch(err => {
+
+            container.innerHTML = '<div class="alert alert-danger">Failed to load item catalog.</div>';
+
+        });
+
+}
+
+
+
+function renderItemSections() {
+
+    const container = document.getElementById('itemSectionsContainer');
+
+    const selectedState = document.getElementById('bulkStateSelect').value;
+
+    const showOneOff = document.getElementById('filterOneOff').checked;
+
+    const showInStock = document.getElementById('filterInStock').checked;
+
+    const showInactive = document.getElementById('filterInactive').checked;
+
+    const showAllItems = document.getElementById('filterAllItems').checked;
+
+    
+
+    let filtered = loadedItemData.filter(item => {
+
+        if (showOneOff && !item.ONEOFF) return false;
+
+        if (showInStock && (item.CURRENT_STOCK === null || item.CURRENT_STOCK <= 0)) return false;
+
+        
+
+        if (!showAllItems) {
+
+            const isActivelySold = (item.ISACTIVE === 1 && item.CURRENT === 1);
+
+            if (showInactive) {
+
+                if (isActivelySold) return false;
+
+            } else {
+
+                if (!isActivelySold) return false;
+
+            }
+
+        }
+
+        return true;
+
+    });
+
+
+
+    if (filtered.length === 0) {
+
+        container.innerHTML = '<div class="alert alert-warning text-center py-4">No matching items found for the selected filters.</div>';
+
+        return;
+
+    }
+
+
+
+    let groups = {};
+
+    filtered.forEach(item => {
+
+        let groupKey = item.ITMGRP ? item.ITMGRP : 'Uncategorized';
+
+        if (!groups[groupKey]) groups[groupKey] = [];
+
+        groups[groupKey].push(item);
+
+    });
+
+
+
+    let sortedGroupKeys = Object.keys(groups).sort();
+
+    let html = '';
+
+    
+
+    sortedGroupKeys.forEach(groupName => {
+
+        let itemsInGroup = groups[groupName];
+
+        itemsInGroup.sort((a, b) => (a.ITMNAME || '').localeCompare(b.ITMNAME || ''));
+
+
+
+        html += `
+
+            <div class="card shadow-sm mb-4">
+
+                <div class="card-header bg-dark text-white fw-bold">
+
+                    ${groupName} <span class="badge bg-secondary ms-2">${itemsInGroup.length} items</span>
+
+                </div>
+
+                <div class="card-body bg-light">
+
+                    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
+
+        `;
+
+
+
+        itemsInGroup.forEach(item => {
+
+            let rawImg = item.ITMIMG ? item.ITMIMG.replace(/^\/+/, '') : '';
+
+            let thumbUrl = rawImg ? "{{ url_for('static', filename='') }}" + (rawImg.includes('thumb/') ? rawImg : 'images/item/thumb/' + rawImg.split('/').pop()) : null;
+
+            let fullUrl = rawImg ? "{{ url_for('static', filename='') }}" + (rawImg.startsWith('images/') ? rawImg : 'images/item/' + rawImg.split('/').pop()) : null;
+
+            
+
+            // Determine current value based on selected state picker
+
+            let currentVal = 0;
+
+            if (selectedState === 'cut') currentVal = item.IPCUT || 0;
+
+            else if (selectedState === 'grnd') currentVal = item.IPGRND || 0;
+
+            else if (selectedState === 'wash') currentVal = item.IPWASH || 0;
+
+            else if (selectedState === 'foil') currentVal = item.IPFOIL || 0;
+
+            else if (selectedState === 'sldr') currentVal = item.IPSLDR || 0;
+
+            else if (selectedState === 'polish') currentVal = item.IPPOLISH || 0;
+
+            else if (selectedState === 'done') currentVal = item.IPDONE || 0;
+
+            else if (selectedState === 'in_stock') currentVal = item.CURRENT_STOCK || 0;
+
+
+
+            // Allow negative numbers only when In Stock is selected
+
+            let minAttr = selectedState === 'in_stock' ? '' : 'min="0"';
+
+
+
+            html += `
+
+                <div class="col item-card-col">
+
+                    <div class="card h-100 shadow-sm border">
+
+                        <div class="card-body d-flex gap-3 align-items-center">
+
+                            <div class="flex-shrink-0">
+
+                                ${thumbUrl ? 
+
+                                    `<img src="${thumbUrl}" class="rounded border item-thumb" data-full-img="${fullUrl}" style="width: 64px; height: 64px; object-fit: cover;" alt="Item">` :
+
+                                    `<div class="bg-secondary text-white rounded d-flex align-items-center justify-content-center small" style="width: 64px; height: 64px;">No Image</div>`
+
+                                }
+
+                            </div>
+
+                            <div class="flex-grow-1">
+
+                                <h6 class="fw-bold mb-1 text-primary">${item.ITMNAME}</h6>
+
+                                <div class="row g-2 align-items-center">
+
+                                    <div class="col-6">
+
+                                        <span class="text-muted small d-block">Current</span>
+
+                                        <span class="fw-bold text-dark fs-6">${currentVal}</span>
+
+                                    </div>
+
+                                    <div class="col-6">
+
+                                        <label class="form-label small text-muted mb-0">Qty to Add</label>
+
+                                        <input type="number" ${minAttr} class="form-control form-control-sm qty-input" data-itemid="${item.ITEMID}" value="0">
+
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            `;
+
+        });
+
+
+
+        html += `</div></div></div>`;
+
+    });
+
+
+
+    container.innerHTML = html;
+
+}
+
+
+
+function initHoverPreview() {
+
+    const popup = document.getElementById('image-popup');
+
+    const popupImg = document.getElementById('popup-img');
+
+    const container = document.getElementById('itemSectionsContainer');
+
+
+
+    container.addEventListener('mouseover', function(e) {
+
+        const thumb = e.target.closest('.item-thumb');
+
+        if (thumb) {
+
+            const fullUrl = thumb.getAttribute('data-full-img');
+
+            if (fullUrl) {
+
+                popupImg.src = fullUrl;
+
+                popup.classList.remove('d-none');
+
+            }
+
+        }
+
+    });
+
+
+
+    container.addEventListener('mousemove', function(e) {
+
+        const thumb = e.target.closest('.item-thumb');
+
+        if (thumb && !popup.classList.contains('d-none')) {
+
+            const offsetX = 20;
+
+            const offsetY = 20;
+
+            let left = e.clientX + offsetX;
+
+            let top = e.clientY + offsetY;
+
+            
+
+            if (left + 320 > window.innerWidth) {
+
+                left = e.clientX - 320 - offsetX;
+
+            }
+
+            if (top + 300 > window.innerHeight) {
+
+                top = window.innerHeight - 310;
+
+            }
+
+
+
+            popup.style.left = left + 'px';
+
+            popup.style.top = top + 'px';
+
+        }
+
+    });
+
+
+
+    container.addEventListener('mouseout', function(e) {
+
+        const thumb = e.target.closest('.item-thumb');
+
+        if (thumb) {
+
+            popup.classList.add('d-none');
+
+            popupImg.src = '';
+
+        }
+
+    });
+
+}
+
+
+
+function submitBulkProduction() {
+
+    const dateVal = document.getElementById('bulkDate').value;
+
+    const stateVal = document.getElementById('bulkStateSelect').value;
+
+    
+
+    if (!dateVal) {
+
+        alert('Please select a valid transaction date.');
+
+        return;
+
+    }
+
+
+
+    let updates = [];
+
+    loadedItemData.forEach(item => {
+
+        const qtyInput = document.querySelector(`.qty-input[data-itemid="${item.ITEMID}"]`);
+
+        
+
+        if (qtyInput) {
+
+            let qtyVal = qtyInput.value !== '' ? parseInt(qtyInput.value) : 0;
+
+            if (qtyVal !== 0) {
+
+                updates.push({
+
+                    ITEMID: item.ITEMID,
+
+                    quantity: qtyVal
+
+                });
+
+            }
+
+        }
+
+    });
+
+
+
+    fetch("{{ url_for('production_bp.bulk_production_submit') }}", {
+
+        method: 'POST',
+
+        headers: { 'Content-Type': 'application/json' },
+
+        body: JSON.stringify({ date: dateVal, state: stateVal, items: updates })
+
+    })
+
+    .then(response => response.json())
+
+    .then(data => {
+
+        if (data.status === 'success') {
+
+            document.getElementById('statusModalTitle').textContent = 'Success';
+
+            document.getElementById('statusModalBody').textContent = data.message;
+
+            let modal = new bootstrap.Modal(document.getElementById('statusModal'));
+
+            modal.show();
+
+            loadItems();
+
+        } else {
+
+            alert('Error: ' + data.message);
+
+        }
+
+    })
+
+    .catch(err => {
+
+        alert('An unexpected network error occurred.');
+
+    });
+
+}
+
+</script>
+
+
+
+{% endblock %}
