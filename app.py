@@ -25,7 +25,12 @@ from routes.settings_routes import settings_bp
 
 
 app = Flask(__name__, static_folder='static')
-app.secret_key = "changethislatertoaenv"
+
+app.secret_key = os.environ.get("FLASK_SECRET_KEY")
+
+if not app.secret_key:
+    raise ValueError("No FLASK_SECRET_KEY set for the application constraint in production environment.")
+
 DATABASE = "inventory.db"
 
 app.jinja_env.filters['inch_format'] = format_fractional_inches
