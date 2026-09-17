@@ -1,0 +1,801 @@
+{% extends 'base.html' %}
+
+
+
+{% block content %}
+
+<style>
+
+    .clickable-row {
+
+        cursor: pointer;
+
+        transition: background-color 0.15s ease-in-out;
+
+        user-select: none;
+
+    }
+
+    .clickable-row:hover {
+
+        background-color: #e9ecef !important;
+
+    }
+
+    .clickable-row.selected-row {
+
+        background-color: #cfe2ff !important;
+
+        font-weight: 500;
+
+    }
+
+    .master-row.selected-row {
+
+        background-color: #d1e7dd !important;
+
+    }
+
+</style>
+
+
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+
+    <div>
+
+        <a href="{{ url_for('item_bp.hourly_visuals') }}" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Hourly Sales Entry</a>
+
+        <h2>Hourly Sales Visualizations</h2>
+
+    </div>
+
+    <div>
+
+        <button class="btn btn-outline-primary btn-sm" onclick="resetFilters()">🔄 Reset All Filters</button>
+
+    </div>
+
+</div>
+
+
+
+<!-- Progressive Filter Panel -->
+
+<div class="card shadow-sm mb-4 border-0">
+
+    <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between align-items-center">
+
+        <span>Filter Hourly Sales Data</span>
+
+        <button class="btn btn-sm btn-outline-light" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse">
+
+            Toggle Filters
+
+        </button>
+
+    </div>
+
+    <div class="collapse show" id="filterCollapse">
+
+        <div class="card-body bg-light">
+
+            <div class="row g-3">
+
+                <div class="col-md-4">
+
+                    <label class="form-label fw-bold small">Date Options & Limits</label>
+
+                    <div class="d-flex align-items-center gap-2 mt-1">
+
+                        <button type="button" class="btn btn-outline-secondary btn-sm text-nowrap" onclick="applyVenueDates()">Venue Dates</button>
+
+                        <div class="form-check ms-1">
+
+                            <input class="form-check-input" type="checkbox" id="allTimeCheck" onchange="toggleAllTime()">
+
+                            <label class="form-check-label small fw-bold text-secondary" for="allTimeCheck">All-Time</label>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="col-md-4">
+
+                    <label class="form-label fw-bold small">Start Date</label>
+
+                    <input type="date" id="startDate" class="form-control form-control-sm" onchange="triggerFilterRefresh()">
+
+                </div>
+
+                <div class="col-md-4">
+
+                    <label class="form-label fw-bold small">End Date</label>
+
+                    <input type="date" id="endDate" class="form-control form-control-sm" value="{{ today_date }}" onchange="triggerFilterRefresh()">
+
+                </div>
+
+
+
+                <div class="col-md-12">
+
+                    <label class="form-label fw-bold small">Venue Selector</label>
+
+                    <div class="border bg-white rounded p-0 shadow-sm" style="height: 140px; overflow-y: auto;" id="venueContainer">
+
+                        <div class="px-3 py-2 border-bottom bg-light sticky-top clickable-row master-row selected-row m-0" onclick="selectVenueMaster(event)">
+
+                            <span class="small fw-bold text-primary w-100">-- All Venues --</span>
+
+                        </div>
+
+                        <div id="venueOptionsList">
+
+                            {% for v in venues %}
+
+                                <div class="px-3 py-2 border-bottom clickable-row m-0" data-value="{{ v.VENUEID }}" onclick="selectVenueItem(this, event)">
+
+                                    <span class="small w-100">{{ v.VENNAME }}</span>
+
+                                </div>
+
+                            {% endfor %}
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<!-- Summary KPI Metrics Cards -->
+
+<div class="row g-3 mb-4 text-center">
+
+    <div class="col-md-6">
+
+        <div class="card shadow-sm border-0 bg-white py-3">
+
+            <h6 class="text-muted text-uppercase small mb-1">Total Units Sold (Filtered)</h6>
+
+            <h3 id="kpiUnits" class="fw-bold text-primary mb-0">0</h3>
+
+        </div>
+
+    </div>
+
+    <div class="col-md-6">
+
+        <div class="card shadow-sm border-0 bg-white py-3">
+
+            <h6 class="text-muted text-uppercase small mb-1">Active Sales Days Tracked</h6>
+
+            <h3 id="kpiDays" class="fw-bold text-success mb-0">0</h3>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<!-- Visualization Layout -->
+
+<div class="row g-4 mb-5">
+
+    <div class="col-lg-12">
+
+        <div class="card shadow-sm border-0 h-100">
+
+            <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between align-items-center">
+
+                <span>Sales Volume by Hour of Day</span>
+
+                <select id="hourlyGroupMode" class="form-select form-select-sm bg-light text-dark fw-bold" style="width: 160px;" onchange="updateHourlyChart()">
+
+                    <option value="aggregate">Aggregated Hours</option>
+
+                    <option value="venue">Split by Venue</option>
+
+                </select>
+
+            </div>
+
+            <div class="card-body">
+
+                <div style="position: relative; height: 380px;">
+
+                    <canvas id="hourlyBarChart"></canvas>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <div class="col-lg-12">
+
+        <div class="card shadow-sm border-0 h-100">
+
+            <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between align-items-center">
+
+                <span>Daily Sales Timeline Trends</span>
+
+            </div>
+
+            <div class="card-body">
+
+                <div style="position: relative; height: 380px;">
+
+                    <canvas id="timelineSalesChart"></canvas>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+
+
+
+<script>
+
+Chart.register(ChartDataLabels);
+
+
+
+let currentSalesData = [];
+
+let hourlyBarChart = null;
+
+let timelineChart = null;
+
+let selectedVenueId = null;
+
+
+
+const GLOBAL_PALETTE = ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#858796', '#5a5c69', '#fd7e14', '#6f42c1', '#20c9a6'];
+
+let globalColorMap = {};
+
+
+
+function assignConsistentColors(keys) {
+
+    keys.forEach((key, idx) => {
+
+        if (!globalColorMap[key]) {
+
+            globalColorMap[key] = GLOBAL_PALETTE[idx % GLOBAL_PALETTE.length];
+
+        }
+
+    });
+
+}
+
+
+
+const SHARED_DATALABELS_CONFIG = {
+
+    color: '#000000',
+
+    font: { weight: 'bold', size: 12 },
+
+    textStrokeColor: '#ffffff',
+
+    textStrokeWidth: 3
+
+};
+
+
+
+document.addEventListener("DOMContentLoaded", function() {
+
+    fetchSalesData();
+
+});
+
+
+
+function selectVenueMaster(event) {
+
+    selectedVenueId = null;
+
+    const container = document.getElementById('venueContainer');
+
+    container.querySelector('.master-row').classList.add('selected-row');
+
+    container.querySelectorAll('.clickable-row:not(.master-row)').forEach(r => r.classList.remove('selected-row'));
+
+    triggerFilterRefresh();
+
+}
+
+
+
+function selectVenueItem(rowElement, event) {
+
+    selectedVenueId = rowElement.getAttribute('data-value');
+
+    const container = document.getElementById('venueContainer');
+
+    container.querySelector('.master-row').classList.remove('selected-row');
+
+    container.querySelectorAll('.clickable-row:not(.master-row)').forEach(r => r.classList.remove('selected-row'));
+
+    rowElement.classList.add('selected-row');
+
+    triggerFilterRefresh();
+
+}
+
+
+
+function getVenueFilterArray() {
+
+    return selectedVenueId ? [selectedVenueId] : [];
+
+}
+
+
+
+function toggleAllTime() {
+
+    const isAllTime = document.getElementById('allTimeCheck').checked;
+
+    document.getElementById('startDate').disabled = isAllTime;
+
+    document.getElementById('endDate').disabled = isAllTime;
+
+    triggerFilterRefresh();
+
+}
+
+
+
+function applyVenueDates() {
+
+    fetch("{{ url_for('item_bp.api_venue_date_bounds') }}", {
+
+        method: 'POST',
+
+        headers: { 'Content-Type': 'application/json' },
+
+        body: JSON.stringify({ venue_ids: getVenueFilterArray() })
+
+    })
+
+    .then(res => res.json())
+
+    .then(data => {
+
+        if (data.status === 'success') {
+
+            if (data.min_date) document.getElementById('startDate').value = data.min_date;
+
+            if (data.max_date) document.getElementById('endDate').value = data.max_date;
+
+            document.getElementById('allTimeCheck').checked = false;
+
+            document.getElementById('startDate').disabled = false;
+
+            document.getElementById('endDate').disabled = false;
+
+            triggerFilterRefresh();
+
+        }
+
+    })
+
+    .catch(err => console.error('Error fetching date bounds:', err));
+
+}
+
+
+
+function resetFilters() {
+
+    document.getElementById('startDate').value = '';
+
+    document.getElementById('endDate').value = '{{ today_date }}';
+
+    document.getElementById('allTimeCheck').checked = false;
+
+    document.getElementById('startDate').disabled = false;
+
+    document.getElementById('endDate').disabled = false;
+
+    
+
+    selectedVenueId = null;
+
+    const vContainer = document.getElementById('venueContainer');
+
+    vContainer.querySelector('.master-row').classList.add('selected-row');
+
+    vContainer.querySelectorAll('.clickable-row:not(.master-row)').forEach(r => r.classList.remove('selected-row'));
+
+
+
+    document.getElementById('hourlyGroupMode').value = 'aggregate';
+
+    fetchSalesData();
+
+}
+
+
+
+function triggerFilterRefresh() {
+
+    fetchSalesData();
+
+}
+
+
+
+function fetchSalesData() {
+
+    const isAllTime = document.getElementById('allTimeCheck').checked;
+
+    const payload = {
+
+        start_date: isAllTime ? null : document.getElementById('startDate').value,
+
+        end_date: isAllTime ? null : document.getElementById('endDate').value,
+
+        venue_ids: getVenueFilterArray()
+
+    };
+
+
+
+    fetch("{{ url_for('item_bp.api_hourly_sales_data') }}", {
+
+        method: 'POST',
+
+        headers: { 'Content-Type': 'application/json' },
+
+        body: JSON.stringify(payload)
+
+    })
+
+    .then(res => res.json())
+
+    .then(data => {
+
+        if (data.status === 'success') {
+
+            currentSalesData = data.sales;
+
+            let venuesSet = new Set();
+
+            currentSalesData.forEach(s => venuesSet.add(s.VENNAME));
+
+            assignConsistentColors(Array.from(venuesSet));
+
+
+
+            updateKPIs();
+
+            updateHourlyChart();
+
+            updateTimelineChart();
+
+        }
+
+    })
+
+    .catch(err => console.error('Error loading sales visualization data:', err));
+
+}
+
+
+
+function updateKPIs() {
+
+    let totalUnits = 0;
+
+    let uniqueDays = new Set();
+
+
+
+    currentSalesData.forEach(sale => {
+
+        totalUnits += parseInt(sale.SUNITS) || 0;
+
+        if (sale.SDATE) uniqueDays.add(sale.SDATE);
+
+    });
+
+
+
+    document.getElementById('kpiUnits').textContent = totalUnits;
+
+    document.getElementById('kpiDays').textContent = uniqueDays.size;
+
+}
+
+
+
+function updateHourlyChart() {
+
+    const mode = document.getElementById('hourlyGroupMode').value;
+
+    const ctx = document.getElementById('hourlyBarChart').getContext('2d');
+
+    if (hourlyBarChart) hourlyBarChart.destroy();
+
+
+
+    let hoursList = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'];
+
+    
+
+    currentSalesData.forEach(s => {
+
+        if (s.STIME && !hoursList.includes(s.STIME)) {
+
+            hoursList.push(s.STIME);
+
+        }
+
+    });
+
+    hoursList.sort();
+
+
+
+    if (mode === 'aggregate') {
+
+        let hourAgg = {};
+
+        hoursList.forEach(h => hourAgg[h] = 0);
+
+
+
+        currentSalesData.forEach(sale => {
+
+            let h = sale.STIME || '00:00';
+
+            hourAgg[h] = (hourAgg[h] || 0) + (parseInt(sale.SUNITS) || 0);
+
+        });
+
+
+
+        let values = hoursList.map(h => hourAgg[h]);
+
+
+
+        hourlyBarChart = new Chart(ctx, {
+
+            type: 'bar',
+
+            data: {
+
+                labels: hoursList,
+
+                datasets: [{
+
+                    label: 'Units Sold',
+
+                    data: values,
+
+                    backgroundColor: '#4e73df',
+
+                    borderWidth: 1
+
+                }]
+
+            },
+
+            options: {
+
+                responsive: true,
+
+                maintainAspectRatio: false,
+
+                scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+
+                plugins: {
+
+                    legend: { display: false },
+
+                    datalabels: { ...SHARED_DATALABELS_CONFIG, anchor: 'end', align: 'top', formatter: (v) => v > 0 ? v : '' }
+
+                }
+
+            }
+
+        });
+
+    } else {
+
+        let venueHourMap = {};
+
+        let venuesSet = new Set();
+
+
+
+        currentSalesData.forEach(sale => {
+
+            let vName = sale.VENNAME;
+
+            let h = sale.STIME || '00:00';
+
+            venuesSet.add(vName);
+
+            if (!venueHourMap[vName]) venueHourMap[vName] = {};
+
+            venueHourMap[vName][h] = (venueHourMap[vName][h] || 0) + (parseInt(sale.SUNITS) || 0);
+
+        });
+
+
+
+        let datasets = Array.from(venuesSet).map(vName => {
+
+            let dataPoints = hoursList.map(h => (venueHourMap[vName] && venueHourMap[vName][h]) ? venueHourMap[vName][h] : 0);
+
+            return {
+
+                label: vName,
+
+                data: dataPoints,
+
+                backgroundColor: globalColorMap[vName] || '#4e73df',
+
+                borderWidth: 1
+
+            };
+
+        });
+
+
+
+        hourlyBarChart = new Chart(ctx, {
+
+            type: 'bar',
+
+            data: { labels: hoursList, datasets: datasets },
+
+            options: {
+
+                responsive: true,
+
+                maintainAspectRatio: false,
+
+                scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } } },
+
+                plugins: {
+
+                    legend: { position: 'bottom' },
+
+                    datalabels: { ...SHARED_DATALABELS_CONFIG, anchor: 'center', align: 'center', formatter: (v) => v > 0 ? v : '' }
+
+                }
+
+            }
+
+        });
+
+    }
+
+}
+
+
+
+function updateTimelineChart() {
+
+    const ctx = document.getElementById('timelineSalesChart').getContext('2d');
+
+    if (timelineChart) timelineChart.destroy();
+
+
+
+    let dateMap = {};
+
+    let datesSet = new Set();
+
+
+
+    currentSalesData.forEach(sale => {
+
+        let dt = sale.SDATE;
+
+        if (dt) {
+
+            datesSet.add(dt);
+
+            dateMap[dt] = (dateMap[dt] || 0) + (parseInt(sale.SUNITS) || 0);
+
+        }
+
+    });
+
+
+
+    let sortedDates = Array.from(datesSet).sort();
+
+    let values = sortedDates.map(dt => dateMap[dt]);
+
+
+
+    timelineChart = new Chart(ctx, {
+
+        type: 'line',
+
+        data: {
+
+            labels: sortedDates,
+
+            datasets: [{
+
+                label: 'Total Units Sold',
+
+                data: values,
+
+                borderColor: '#1cc88a',
+
+                backgroundColor: '#1cc88a',
+
+                fill: false,
+
+                tension: 0.1
+
+            }]
+
+        },
+
+        options: {
+
+            responsive: true,
+
+            maintainAspectRatio: false,
+
+            scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+
+            plugins: {
+
+                legend: { position: 'bottom' },
+
+                datalabels: { ...SHARED_DATALABELS_CONFIG, align: 'top', formatter: (v) => v > 0 ? v : '' }
+
+            }
+
+        }
+
+    });
+
+}
+
+</script>
+
+{% endblock %}

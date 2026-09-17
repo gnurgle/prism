@@ -2858,3 +2858,325 @@ def list_sales():
 
 
     return render_template("sales_list.html", sales=sales, items=items, item_groups=item_groups, venues=venues)
+
+@item_bp.route('/sales/hourly', methods=['GET'])
+
+def hourly_sales():
+
+    db = get_db()
+
+    venues = db.execute("SELECT VENUEID, VENNAME FROM VENUE WHERE ISACTIVE = 1 ORDER BY VENNAME ASC").fetchall()
+
+    return render_template('hourly_sales.html', venues=venues)
+
+
+
+@item_bp.route('/sales/api/venue-config/<int:venue_id>', methods=['GET'])
+
+def api_venue_config(venue_id):
+
+    db = get_db()
+
+    venue = db.execute("SELECT * FROM VENUE WHERE VENUEID = ?", (venue_id,)).fetchone()
+
+    if not venue:
+
+        return {'status': 'error', 'message': 'Venue not found'}, 404
+
+    return dict(venue)
+
+
+
+@item_bp.route('/sales/api/hourly-sales', methods=['GET'])
+
+def api_get_hourly_sales():
+
+    venue_id = request.args.get('venue_id')
+
+    date_str = request.args.get('date')
+
+    db = get_db()
+
+    sales = db.execute(
+
+        "SELECT TSTIME, TSUNITS FROM TIMESALE WHERE VENUEID = ? AND TSDATE = ?",
+
+        (venue_id, date_str)
+
+    ).fetchall()
+
+    return {'sales': {row['TSTIME']: row['TSUNITS'] for row in sales}}
+
+
+
+@item_bp.route('/sales/hourly/save', methods=['POST'])
+
+def save_hourly_sales():
+
+    db = get_db()
+
+    data = request.get_json()
+
+    venue_id = data.get('venue_id')
+
+    date_str = data.get('date')
+
+    hourly_data = data.get('hourly_data', {})
+
+
+
+    if not venue_id or not date_str:
+
+        return {'status': 'error', 'message': 'Venue and Date are required.'}, 400
+
+
+
+    try:
+
+        for tstime, units in hourly_data.items():
+
+            try:
+
+                units_int = int(units)
+
+            except (TypeError, ValueError):
+
+                units_int = 0
+
+
+
+            existing = db.execute(
+
+                "SELECT TSALEID FROM TIMESALE WHERE VENUEID = ? AND TSDATE = ? AND TSTIME = ?",
+
+                (venue_id, date_str, tstime)
+
+            ).fetchone()
+
+
+
+            if existing:
+
+                db.execute(
+
+                    "UPDATE TIMESALE SET TSUNITS = ? WHERE TSALEID = ?",
+
+                    (units_int, existing['TSALEID'])
+
+                )
+
+            else:
+
+                if units_int > 0:
+
+                    db.execute(
+
+                        "INSERT INTO TIMESALE (VENUEID, TSDATE, TSTIME, TSUNITS) VALUES (?, ?, ?, ?)",
+
+                        (venue_id, date_str, tstime, units_int)
+
+                    )
+
+        db.commit()
+
+        return {'status': 'success', 'message': 'Hourly sales saved successfully!'}
+
+    except Exception as e:
+
+        db.rollback()
+
+        return {'status': 'error', 'message': str(e)}, 500
+
+
+
+
+
+
+
+@item_bp.route('/visuals/hourly')
+
+def hourly_visuals():
+
+  """Renders the hourly sales visualization dashboard page."""
+
+  db = get_db()
+
+  venues = db.execute(
+
+      'SELECT VENUEID, VENNAME FROM VENUE ORDER BY VENNAME'
+
+  ).fetchall()
+
+  today_date = date.today().strftime('%Y-%m-%d')
+
+  return render_template(
+
+      'hourly_visuals.html', venues=venues, today_date=today_date
+
+  )
+
+
+
+
+
+@item_bp.route('/visuals/hourly/api/date-bounds', methods=['POST'])
+
+def api_venue_date_bounds():
+
+  """Returns min and max date bounds for selected venues."""
+
+  db = get_db()
+
+  req_data = request.get_json() or {}
+
+  venue_ids = req_data.get('venue_ids', [])
+
+
+
+  if venue_ids:
+
+    placeholders = ','.join(['?'] * len(venue_ids))
+
+    query = f"""
+
+            SELECT MIN(TSDATE) as min_date, MAX(TSDATE) as max_date 
+
+            FROM TIMESALE WHERE VENUEID IN ({placeholders})
+
+        """
+
+    res = db.execute(query, venue_ids).fetchone()
+
+  else:
+
+    res = db.execute(
+
+        'SELECT MIN(TSDATE) as min_date, MAX(TSDATE) as max_date FROM TIMESALE'
+
+    ).fetchone()
+
+
+
+  if res and res['min_date']:
+
+    return jsonify(
+
+        {
+
+            'status': 'success',
+
+            'min_date': res['min_date'],
+
+            'max_date': res['max_date'],
+
+        }
+
+    )
+
+  return jsonify(
+
+      {
+
+          'status': 'success',
+
+          'min_date': date.today().strftime('%Y-%m-%d'),
+
+          'max_date': date.today().strftime('%Y-%m-%d'),
+
+      }
+
+  )
+
+
+
+
+
+@item_bp.route('/visuals/hourly/api/data', methods=['POST'])
+
+def api_hourly_sales_data():
+
+  """API endpoint providing hourly sales data filtered by date, venue, and hours."""
+
+  db = get_db()
+
+  req_data = request.get_json() or {}
+
+  start_date = req_data.get('start_date')
+
+  end_date = req_data.get('end_date')
+
+  venue_ids = req_data.get('venue_ids', [])
+
+
+
+  query = """
+
+        SELECT TS.VENUEID, V.VENNAME, TS.TSDATE as SDATE, TS.TSTIME as STIME, TS.TSUNITS as SUNITS
+
+        FROM TIMESALE TS
+
+        LEFT JOIN VENUE V ON TS.VENUEID = V.VENUEID
+
+        WHERE 1=1
+
+    """
+
+  params = []
+
+
+
+  if start_date:
+
+    query += ' AND TS.TSDATE >= ?'
+
+    params.append(start_date)
+
+  if end_date:
+
+    query += ' AND TS.TSDATE <= ?'
+
+    params.append(end_date)
+
+  if venue_ids:
+
+    placeholders = ','.join(['?'] * len(venue_ids))
+
+    query += f' AND TS.VENUEID IN ({placeholders})'
+
+    params.extend(venue_ids)
+
+
+
+  sales_records = db.execute(
+
+      f'{query} ORDER BY TS.TSDATE ASC, TS.TSTIME ASC', params
+
+  ).fetchall()
+
+
+
+  formatted_sales = []
+
+  for row in sales_records:
+
+    formatted_sales.append(
+
+        {
+
+            'VENUEID': row['VENUEID'],
+
+            'VENNAME': row['VENNAME'] or 'Unknown Venue',
+
+            'SDATE': row['SDATE'],
+
+            'STIME': row['STIME'],
+
+            'SUNITS': row['SUNITS'],
+
+        }
+
+    )
+
+
+
+  return jsonify({'status': 'success', 'sales': formatted_sales})

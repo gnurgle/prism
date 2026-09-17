@@ -1,0 +1,457 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<!-- Flatpickr CSS -->
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+
+
+
+<div class="row justify-content-center">
+
+    <div class="col-md-9">
+
+        <div class="card shadow-sm">
+
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+
+                <h5 class="mb-0">Enter Sales Per Hour</h5>
+
+            </div>
+
+            <div class="card-body">
+
+                <form id="hourlySalesForm">
+
+                    <!-- Venue Selector -->
+
+                    <div class="mb-3">
+
+                        <label for="venueSelect" class="form-label fw-bold">Select Venue</label>
+
+                        <select class="form-select" id="venueSelect" required>
+
+                            <option value="" selected disabled>-- Choose Venue --</option>
+
+                            {% for venue in venues %}
+
+                            <option value="{{ venue.VENUEID }}">{{ venue.VENNAME }}</option>
+
+                            {% endfor %}
+
+                        </select>
+
+                    </div>
+
+
+
+                    <!-- Date Selector (Handled by Flatpickr) -->
+
+                    <div class="mb-3">
+
+                        <label for="saleDate" class="form-label fw-bold">Sale Date</label>
+
+                        <input type="text" class="form-control" id="saleDate" placeholder="Select a venue first..." disabled required>
+
+                        <div id="dateHelp" class="form-text text-muted">Closed days of the week and out-of-range dates will be greyed out automatically.</div>
+
+                    </div>
+
+                </form>
+
+
+
+                <!-- Hourly Breakdown Container -->
+
+                <div id="hourlyContainer" class="mt-4" style="display: none;">
+
+                    <hr>
+
+                    <h6 class="fw-bold mb-3">Hourly Units Sold</h6>
+
+                    <div id="hourlyInputsList" class="row g-3">
+
+                        <!-- Dynamically populated hour inputs go here -->
+
+                    </div>
+
+                    <div class="mt-4 d-grid">
+
+                        <button type="button" id="saveHourlySalesBtn" class="btn btn-primary">
+
+                            <i class="fas fa-save me-1"></i> Save Hourly Sales
+
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+
+                <div id="scheduleAlert" class="alert alert-warning mt-3" style="display: none;" role="alert">
+
+                    The selected venue has no operating hours configured for this day.
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<!-- Flatpickr JS -->
+
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+<script>
+
+let currentVenueConfig = {};
+
+let fpInstance = null;
+
+
+
+// Helper: Convert 24-hour string to AM/PM format
+
+function formatTimeToAMPM(timeStr) {
+
+    if (!timeStr) return '';
+
+    let parts = timeStr.split(':');
+
+    let h = parseInt(parts[0], 10);
+
+    let m = parts[1] || '00';
+
+    let ampm = h >= 12 ? 'PM' : 'AM';
+
+    h = h % 12;
+
+    h = h ? h : 12;
+
+    return `${h}:${m} ${ampm}`;
+
+}
+
+
+
+// Helper: Get Day Config for a specific Date object
+
+function getDayConfigForDate(dateObj) {
+
+    let jsDay = dateObj.getDay(); // 0 = Sunday, 1 = Monday...
+
+    let prismDayIndex = (jsDay === 0) ? 6 : jsDay - 1; // Map to Monday=0 ... Sunday=6
+
+
+
+    const dayMappings = [
+
+        { active: currentVenueConfig.VM, start: currentVenueConfig.VMST, end: currentVenueConfig.VMET },
+
+        { active: currentVenueConfig.VTE, start: currentVenueConfig.VTST, end: currentVenueConfig.VTET },
+
+        { active: currentVenueConfig.VW, start: currentVenueConfig.VWST, end: currentVenueConfig.VWET },
+
+        { active: currentVenueConfig.VR, start: currentVenueConfig.VRST, end: currentVenueConfig.VRET },
+
+        { active: currentVenueConfig.VF, start: currentVenueConfig.VFST, end: currentVenueConfig.VFET },
+
+        { active: currentVenueConfig.VST, start: currentVenueConfig.VSTST, end: currentVenueConfig.VSTET },
+
+        { active: currentVenueConfig.VSN, start: currentVenueConfig.VSNST, end: currentVenueConfig.VSNET }
+
+    ];
+
+
+
+    return dayMappings[prismDayIndex];
+
+}
+
+
+
+document.getElementById('venueSelect').addEventListener('change', async function() {
+
+    const venueId = this.value;
+
+    const dateInput = document.getElementById('saleDate');
+
+    const dateHelp = document.getElementById('dateHelp');
+
+    
+
+    document.getElementById('hourlyContainer').style.display = 'none';
+
+    document.getElementById('scheduleAlert').style.display = 'none';
+
+
+
+    if (!venueId) return;
+
+
+
+    try {
+
+        const response = await fetch(`/sales/api/venue-config/${venueId}`);
+
+        currentVenueConfig = await response.json();
+
+
+
+        // Destroy previous flatpickr instance if it exists
+
+        if (fpInstance) {
+
+            fpInstance.destroy();
+
+        }
+
+
+
+        dateInput.disabled = false;
+
+        dateInput.value = '';
+
+        dateHelp.textContent = `Select a date. Closed days of the week are automatically disabled.`;
+
+
+
+        // Initialize Flatpickr with custom disable rules to grey out unallowed dates/days
+
+        fpInstance = flatpickr("#saleDate", {
+
+            dateFormat: "Y-m-d",
+
+            minDate: currentVenueConfig.VSDATE || null,
+
+            maxDate: currentVenueConfig.VEDATE || null,
+
+            disable: [
+
+                function(date) {
+
+                    const dayConfig = getDayConfigForDate(date);
+
+                    if (!dayConfig || !dayConfig.active || !dayConfig.start || !dayConfig.end) {
+
+                        return true;
+
+                    }
+
+                    return false;
+
+                }
+
+            ],
+
+            onChange: async function(selectedDates, dateStr) {
+
+                if (!dateStr) return;
+
+                loadHourlyInputs(dateStr);
+
+            }
+
+        });
+
+
+
+    } catch (err) {
+
+        console.error('Error fetching venue config:', err);
+
+    }
+
+});
+
+
+
+async function loadHourlyInputs(selectedDateStr) {
+
+    const hourlyContainer = document.getElementById('hourlyContainer');
+
+    const scheduleAlert = document.getElementById('scheduleAlert');
+
+    
+
+    hourlyContainer.style.display = 'none';
+
+    scheduleAlert.style.display = 'none';
+
+
+
+    const dateObj = new Date(selectedDateStr + 'T00:00:00');
+
+    const dayConfig = getDayConfigForDate(dateObj);
+
+
+
+    if (!dayConfig || !dayConfig.active || !dayConfig.start || !dayConfig.end) {
+
+        scheduleAlert.style.display = 'block';
+
+        return;
+
+    }
+
+
+
+    // Fetch existing sales data for prefilling
+
+    const venueId = document.getElementById('venueSelect').value;
+
+    let existingSales = {};
+
+    try {
+
+        const res = await fetch(`/sales/api/hourly-sales?venue_id=${venueId}&date=${selectedDateStr}`);
+
+        const data = await res.json();
+
+        existingSales = data.sales || {};
+
+    } catch (err) {
+
+        console.error('Error fetching existing sales:', err);
+
+    }
+
+
+
+    // Generate hourly increments from start time up to one hour past end time
+
+    const hourlyListDiv = document.getElementById('hourlyInputsList');
+
+    hourlyListDiv.innerHTML = '';
+
+
+
+    let startHour = parseInt(dayConfig.start.split(':')[0], 10);
+
+    let endHour = parseInt(dayConfig.end.split(':')[0], 10);
+
+
+
+    if (isNaN(startHour) || isNaN(endHour) || startHour > endHour) {
+
+        scheduleAlert.style.display = 'block';
+
+        return;
+
+    }
+
+
+
+    for (let h = startHour; h <= endHour; h++) {
+
+        let currentHourStr = String(h).padStart(2, '0') + ':00';
+
+        let nextHourNum = h + 1;
+
+        let nextHourStr = String(nextHourNum).padStart(2, '0') + ':00';
+
+
+
+        let rangeLabel = `${formatTimeToAMPM(currentHourStr)} - ${formatTimeToAMPM(nextHourStr)}`;
+
+        let prefillVal = existingSales[currentHourStr] !== undefined ? existingSales[currentHourStr] : '';
+
+
+
+        let col = document.createElement('div');
+
+        col.className = 'col-md-6';
+
+        col.innerHTML = `
+
+            <div class="input-group">
+
+                <span class="input-group-text bg-light text-dark fw-semibold" style="width: 175px; justify-content: center; font-size: 0.85rem;">${rangeLabel}</span>
+
+                <input type="number" min="0" class="form-control hourly-input text-center" data-time="${currentHourStr}" value="${prefillVal}" placeholder="0">
+
+            </div>
+
+        `;
+
+        hourlyListDiv.appendChild(col);
+
+    }
+
+
+
+    hourlyContainer.style.display = 'block';
+
+}
+
+
+
+document.getElementById('saveHourlySalesBtn').addEventListener('click', async function() {
+
+    const venueId = document.getElementById('venueSelect').value;
+
+    const saleDate = document.getElementById('saleDate').value;
+
+    const hourlyInputs = document.querySelectorAll('.hourly-input');
+
+    
+
+    let hourlyData = {};
+
+    hourlyInputs.forEach(input => {
+
+        let time = input.getAttribute('data-time');
+
+        let val = input.value.trim();
+
+        hourlyData[time] = val === '' ? 0 : parseInt(val, 10);
+
+    });
+
+
+
+    try {
+
+        const response = await fetch('/sales/hourly/save', {
+
+            method: 'POST',
+
+            headers: { 'Content-Type': 'application/json' },
+
+            body: JSON.stringify({ venue_id: venueId, date: saleDate, hourly_data: hourlyData })
+
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+
+            alert(result.message);
+
+        } else {
+
+            alert('Error: ' + result.message);
+
+        }
+
+    } catch (err) {
+
+        console.error('Save failed:', err);
+
+        alert('An unexpected error occurred while saving.');
+
+    }
+
+});
+
+</script>
+
+{% endblock %}
