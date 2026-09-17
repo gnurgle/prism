@@ -44,7 +44,7 @@
 
     <div>
 
-        <a href="{{ url_for('item_bp.hourly_visuals') }}" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Hourly Sales Entry</a>
+        <a href="{{ url_for('item_bp.hourly_sales') }}" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Hourly Sales Entry</a>
 
         <h2>Hourly Sales Visualizations</h2>
 
@@ -106,7 +106,7 @@
 
                     <label class="form-label fw-bold small">Start Date</label>
 
-                    <input type="date" id="startDate" class="form-control form-control-sm" onchange="triggerFilterRefresh()">
+                    <input type="date" id="startDate" class="form-control form-control-sm" value="2020-01-01" onchange="triggerFilterRefresh()">
 
                 </div>
 
@@ -196,6 +196,8 @@
 
 <div class="row g-4 mb-5">
 
+    <!-- Chart 1: Sales Volume by Hour of Day -->
+
     <div class="col-lg-12">
 
         <div class="card shadow-sm border-0 h-100">
@@ -204,11 +206,11 @@
 
                 <span>Sales Volume by Hour of Day</span>
 
-                <select id="hourlyGroupMode" class="form-select form-select-sm bg-light text-dark fw-bold" style="width: 160px;" onchange="updateHourlyChart()">
+                <select id="hourlyVolumeMetric" class="form-select form-select-sm bg-light text-dark fw-bold" style="width: 240px;" onchange="updateHourlyChart()">
 
-                    <option value="aggregate">Aggregated Hours</option>
+                    <option value="total">Total Sales (Stacked Bar)</option>
 
-                    <option value="venue">Split by Venue</option>
+                    <option value="average">Average Sales (Bar Chart)</option>
 
                 </select>
 
@@ -230,6 +232,8 @@
 
 
 
+    <!-- Chart 2: Daily Sales Timeline Trends -->
+
     <div class="col-lg-12">
 
         <div class="card shadow-sm border-0 h-100">
@@ -237,6 +241,14 @@
             <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between align-items-center">
 
                 <span>Daily Sales Timeline Trends</span>
+
+                <select id="timelineMetric" class="form-select form-select-sm bg-light text-dark fw-bold" style="width: 240px;" onchange="updateTimelineChart()">
+
+                    <option value="daily_total">Total Sales</option>
+
+                    <option value="hourly_line">Hourly Total (Multi-Line)</option>
+
+                </select>
 
             </div>
 
@@ -422,7 +434,7 @@ function applyVenueDates() {
 
 function resetFilters() {
 
-    document.getElementById('startDate').value = '';
+    document.getElementById('startDate').value = '2020-01-01';
 
     document.getElementById('endDate').value = '{{ today_date }}';
 
@@ -444,7 +456,9 @@ function resetFilters() {
 
 
 
-    document.getElementById('hourlyGroupMode').value = 'aggregate';
+    document.getElementById('hourlyVolumeMetric').value = 'total';
+
+    document.getElementById('timelineMetric').value = 'daily_total';
 
     fetchSalesData();
 
@@ -494,11 +508,11 @@ function fetchSalesData() {
 
             currentSalesData = data.sales;
 
-            let venuesSet = new Set();
+            let datesSet = new Set();
 
-            currentSalesData.forEach(s => venuesSet.add(s.VENNAME));
+            currentSalesData.forEach(s => { if (s.SDATE) datesSet.add(s.SDATE); });
 
-            assignConsistentColors(Array.from(venuesSet));
+            assignConsistentColors(Array.from(datesSet));
 
 
 
@@ -544,9 +558,27 @@ function updateKPIs() {
 
 
 
+// Helper to get active hours present in the dataset, sorted chronologically
+
+function getActiveHours(data) {
+
+    let hoursSet = new Set();
+
+    data.forEach(s => {
+
+        if (s.STIME) hoursSet.add(s.STIME);
+
+    });
+
+    return Array.from(hoursSet).sort();
+
+}
+
+
+
 function updateHourlyChart() {
 
-    const mode = document.getElementById('hourlyGroupMode').value;
+    const metric = document.getElementById('hourlyVolumeMetric').value;
 
     const ctx = document.getElementById('hourlyBarChart').getContext('2d');
 
@@ -554,43 +586,209 @@ function updateHourlyChart() {
 
 
 
-    let hoursList = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'];
-
-    
-
-    currentSalesData.forEach(s => {
-
-        if (s.STIME && !hoursList.includes(s.STIME)) {
-
-            hoursList.push(s.STIME);
-
-        }
-
-    });
-
-    hoursList.sort();
+    const activeHours = getActiveHours(currentSalesData);
 
 
 
-    if (mode === 'aggregate') {
+    if (metric === 'total') {
 
-        let hourAgg = {};
+        // Stacked bar chart of all days broken down per date
 
-        hoursList.forEach(h => hourAgg[h] = 0);
+        const dates = [...new Set(currentSalesData.map(item => item.SDATE))].sort();
 
+        const datasets = dates.map((dateVal, index) => {
 
+            const dataPoints = activeHours.map(hour => {
 
-        currentSalesData.forEach(sale => {
+                const match = currentSalesData.find(d => d.SDATE === dateVal && d.STIME === hour);
 
-            let h = sale.STIME || '00:00';
+                return match ? parseInt(match.SUNITS) || 0 : 0;
 
-            hourAgg[h] = (hourAgg[h] || 0) + (parseInt(sale.SUNITS) || 0);
+            });
+
+            return {
+
+                label: dateVal,
+
+                data: dataPoints,
+
+                backgroundColor: globalColorMap[dateVal] || GLOBAL_PALETTE[index % GLOBAL_PALETTE.length],
+
+                borderWidth: 1
+
+            };
 
         });
 
 
 
-        let values = hoursList.map(h => hourAgg[h]);
+        // Custom plugin to draw total text above the topmost stacked bar segment
+
+        const stackedTotalPlugin = {
+
+            id: 'stackedTotalPlugin',
+
+            afterDatasetsDraw(chart) {
+
+                const { ctx, scales: { x, y } } = chart;
+
+                ctx.save();
+
+                
+
+                activeHours.forEach((hour, index) => {
+
+                    let sum = 0;
+
+                    chart.data.datasets.forEach(dataset => {
+
+                        sum += dataset.data[index] || 0;
+
+                    });
+
+
+
+                    if (sum > 0) {
+
+                        // Find the highest point of the stack on the canvas
+
+                        let topmostY = null;
+
+                        for (let i = chart.data.datasets.length - 1; i >= 0; i--) {
+
+                            const meta = chart.getDatasetMeta(i);
+
+                            if (meta && meta.data[index] && !meta.hidden) {
+
+                                topmostY = meta.data[index].y;
+
+                                break;
+
+                            }
+
+                        }
+
+
+
+                        if (topmostY !== null) {
+
+                            const xCoord = chart.getDatasetMeta(0).data[index].x;
+
+                            const yCoord = topmostY - 12; // Floating just above the bar segment
+
+
+
+                            ctx.font = 'bold 12px sans-serif';
+
+                            ctx.fillStyle = '#000000';
+
+                            ctx.textAlign = 'center';
+
+                            ctx.textBaseline = 'bottom';
+
+                            
+
+                            // Text stroke for readability
+
+                            ctx.strokeStyle = '#ffffff';
+
+                            ctx.lineWidth = 3;
+
+                            ctx.strokeText(sum, xCoord, yCoord);
+
+                            ctx.fillText(sum, xCoord, yCoord);
+
+                        }
+
+                    }
+
+                });
+
+                ctx.restore();
+
+            }
+
+        };
+
+
+
+        hourlyBarChart = new Chart(ctx, {
+
+            type: 'bar',
+
+            data: { labels: activeHours, datasets: datasets },
+
+            options: {
+
+                responsive: true,
+
+                maintainAspectRatio: false,
+
+                scales: {
+
+                    x: { stacked: true },
+
+                    y: { stacked: true, beginAtZero: true, grace: '20%', ticks: { precision: 0 } }
+
+                },
+
+                plugins: {
+
+                    legend: { position: 'bottom' },
+
+                    datalabels: {
+
+                        ...SHARED_DATALABELS_CONFIG,
+
+                        anchor: 'center',
+
+                        align: 'center',
+
+                        formatter: (v) => v > 0 ? v : '' // Show segment values inside each stack block
+
+                    }
+
+                }
+
+            },
+
+            plugins: [stackedTotalPlugin]
+
+        });
+
+    } else {
+
+        // Average Sales: Bar chart showing average of days per hour
+
+        const hourTotals = {};
+
+        const hourCounts = {};
+
+        activeHours.forEach(h => { hourTotals[h] = 0; hourCounts[h] = new Set(); });
+
+
+
+        currentSalesData.forEach(sale => {
+
+            if (hourTotals[sale.STIME] !== undefined) {
+
+                hourTotals[sale.STIME] += parseInt(sale.SUNITS) || 0;
+
+                hourCounts[sale.STIME].add(sale.SDATE);
+
+            }
+
+        });
+
+
+
+        const avgData = activeHours.map(h => {
+
+            const uniqueDaysCount = hourCounts[h].size;
+
+            return uniqueDaysCount > 0 ? Number((hourTotals[h] / uniqueDaysCount).toFixed(2)) : 0;
+
+        });
 
 
 
@@ -600,13 +798,13 @@ function updateHourlyChart() {
 
             data: {
 
-                labels: hoursList,
+                labels: activeHours,
 
                 datasets: [{
 
-                    label: 'Units Sold',
+                    label: 'Average Units Sold',
 
-                    data: values,
+                    data: avgData,
 
                     backgroundColor: '#4e73df',
 
@@ -622,83 +820,17 @@ function updateHourlyChart() {
 
                 maintainAspectRatio: false,
 
-                scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+                scales: {
+
+                    y: { beginAtZero: true, grace: '20%', ticks: { precision: 0 } }
+
+                },
 
                 plugins: {
 
                     legend: { display: false },
 
                     datalabels: { ...SHARED_DATALABELS_CONFIG, anchor: 'end', align: 'top', formatter: (v) => v > 0 ? v : '' }
-
-                }
-
-            }
-
-        });
-
-    } else {
-
-        let venueHourMap = {};
-
-        let venuesSet = new Set();
-
-
-
-        currentSalesData.forEach(sale => {
-
-            let vName = sale.VENNAME;
-
-            let h = sale.STIME || '00:00';
-
-            venuesSet.add(vName);
-
-            if (!venueHourMap[vName]) venueHourMap[vName] = {};
-
-            venueHourMap[vName][h] = (venueHourMap[vName][h] || 0) + (parseInt(sale.SUNITS) || 0);
-
-        });
-
-
-
-        let datasets = Array.from(venuesSet).map(vName => {
-
-            let dataPoints = hoursList.map(h => (venueHourMap[vName] && venueHourMap[vName][h]) ? venueHourMap[vName][h] : 0);
-
-            return {
-
-                label: vName,
-
-                data: dataPoints,
-
-                backgroundColor: globalColorMap[vName] || '#4e73df',
-
-                borderWidth: 1
-
-            };
-
-        });
-
-
-
-        hourlyBarChart = new Chart(ctx, {
-
-            type: 'bar',
-
-            data: { labels: hoursList, datasets: datasets },
-
-            options: {
-
-                responsive: true,
-
-                maintainAspectRatio: false,
-
-                scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } } },
-
-                plugins: {
-
-                    legend: { position: 'bottom' },
-
-                    datalabels: { ...SHARED_DATALABELS_CONFIG, anchor: 'center', align: 'center', formatter: (v) => v > 0 ? v : '' }
 
                 }
 
@@ -714,85 +846,165 @@ function updateHourlyChart() {
 
 function updateTimelineChart() {
 
+    const metric = document.getElementById('timelineMetric').value;
+
     const ctx = document.getElementById('timelineSalesChart').getContext('2d');
 
     if (timelineChart) timelineChart.destroy();
 
 
 
-    let dateMap = {};
+    if (metric === 'daily_total') {
 
-    let datesSet = new Set();
+        let dateMap = {};
 
-
-
-    currentSalesData.forEach(sale => {
-
-        let dt = sale.SDATE;
-
-        if (dt) {
-
-            datesSet.add(dt);
-
-            dateMap[dt] = (dateMap[dt] || 0) + (parseInt(sale.SUNITS) || 0);
-
-        }
-
-    });
+        let datesSet = new Set();
 
 
 
-    let sortedDates = Array.from(datesSet).sort();
+        currentSalesData.forEach(sale => {
 
-    let values = sortedDates.map(dt => dateMap[dt]);
+            let dt = sale.SDATE;
+
+            if (dt) {
+
+                datesSet.add(dt);
+
+                dateMap[dt] = (dateMap[dt] || 0) + (parseInt(sale.SUNITS) || 0);
+
+            }
+
+        });
 
 
 
-    timelineChart = new Chart(ctx, {
+        let sortedDates = Array.from(datesSet).sort();
 
-        type: 'line',
+        let values = sortedDates.map(dt => dateMap[dt]);
 
-        data: {
 
-            labels: sortedDates,
 
-            datasets: [{
+        timelineChart = new Chart(ctx, {
 
-                label: 'Total Units Sold',
+            type: 'line',
 
-                data: values,
+            data: {
 
-                borderColor: '#1cc88a',
+                labels: sortedDates,
 
-                backgroundColor: '#1cc88a',
+                datasets: [{
+
+                    label: 'Total Units Sold',
+
+                    data: values,
+
+                    borderColor: '#1cc88a',
+
+                    backgroundColor: '#1cc88a',
+
+                    fill: false,
+
+                    tension: 0.1
+
+                }]
+
+            },
+
+            options: {
+
+                responsive: true,
+
+                maintainAspectRatio: false,
+
+                scales: {
+
+                    y: { beginAtZero: true, grace: '20%', ticks: { precision: 0 } }
+
+                },
+
+                plugins: {
+
+                    legend: { position: 'bottom' },
+
+                    datalabels: { ...SHARED_DATALABELS_CONFIG, align: 'top', formatter: (v) => v > 0 ? v : '' }
+
+                }
+
+            }
+
+        });
+
+    } else {
+
+        // Hourly Total: Multi-line chart showing a different line for each day over the active hours
+
+        const activeHours = getActiveHours(currentSalesData);
+
+        const dates = [...new Set(currentSalesData.map(item => item.SDATE))].sort();
+
+
+
+        const datasets = dates.map((dateVal, index) => {
+
+            const dataPoints = activeHours.map(hour => {
+
+                const match = currentSalesData.find(d => d.SDATE === dateVal && d.STIME === hour);
+
+                return match ? parseInt(match.SUNITS) || 0 : 0;
+
+            });
+
+            return {
+
+                label: dateVal,
+
+                data: dataPoints,
+
+                borderColor: globalColorMap[dateVal] || GLOBAL_PALETTE[index % GLOBAL_PALETTE.length],
+
+                backgroundColor: globalColorMap[dateVal] || GLOBAL_PALETTE[index % GLOBAL_PALETTE.length],
 
                 fill: false,
 
                 tension: 0.1
 
-            }]
+            };
 
-        },
+        });
 
-        options: {
 
-            responsive: true,
 
-            maintainAspectRatio: false,
+        timelineChart = new Chart(ctx, {
 
-            scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+            type: 'line',
 
-            plugins: {
+            data: { labels: activeHours, datasets: datasets },
 
-                legend: { position: 'bottom' },
+            options: {
 
-                datalabels: { ...SHARED_DATALABELS_CONFIG, align: 'top', formatter: (v) => v > 0 ? v : '' }
+                responsive: true,
+
+                maintainAspectRatio: false,
+
+                scales: {
+
+                    y: { beginAtZero: true, grace: '20%', ticks: { precision: 0 } }
+
+                },
+
+                plugins: {
+
+                    legend: { position: 'bottom' },
+
+                    datalabels: { ...SHARED_DATALABELS_CONFIG, align: 'top', formatter: (v) => v > 0 ? v : '' }
+
+                }
 
             }
 
-        }
+        });
 
-    });
+    }
 
 }
 

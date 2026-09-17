@@ -197,13 +197,13 @@
 
                 { name: 'End of Day Sales', url: "{{ url_for('item_bp.item_bulk_sales') }}" },
 
-                { name: 'Expense and Revenue Report', url: "{{ url_for('report_bp.expense_revenue_report') }}" },
-
-                { name: 'Manual Inventory Edit', url: "{{ url_for('inventory_status') }}" }
-
                 { name: 'List of Sales', url: "{{ url_for('item_bp.list_sales') }}" },
 
-                { name: 'Sales Visualization', url: "{{ url_for('item_bp.sales_visuals') }}" },
+                { name: 'Sales Visualization', url: "{{ url_for('visuals_bp.sales_visuals') }}" },
+
+                { name: 'Hourly Sales Input', url: "{{ url_for('item_bp.hourly_sales') }}" },
+
+                { name: 'Hourly Sales Visualization', url: "{{ url_for('item_bp.hourly_visuals') }}" }
 
 
 
@@ -239,7 +239,11 @@
 
                 { name: 'Create Venue', url: "{{ url_for('venue_bp.create_venue') }}" },
 
-                { name: 'List Venues', url: "{{ url_for('venue_bp.list_venues') }}" }
+                { name: 'List Venues', url: "{{ url_for('venue_bp.list_venues') }}" },
+
+                { name: 'Expense and Revenue Report', url: "{{ url_for('report_bp.expense_revenue_report') }}" }
+
+
 
             ]
 
