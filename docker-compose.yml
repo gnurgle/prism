@@ -1,0 +1,22 @@
+name: <your project name>
+
+services:
+
+    stained-glass-app:
+
+        ports:
+
+            - 7665:7665
+
+        environment:
+
+            - FLASK_SECRET_KEY=9p8sdfgusduiguhsidfjgs
+
+        volumes:
+
+            - /home/gnurgle/.config/prism/inventory.db:/app/inventory.db
+            - /home/gnurgle/.config/prism/static/images:/app/static/images
+
+        container_name: prism-server
+
+        image: prism-app

@@ -12,7 +12,6 @@
 
         <div>
 
-
         </div>
 
     </div>
@@ -113,17 +112,17 @@
 
             items: [
 
-                { name: 'Go Back', url: '#', action: 'goBack', isBack: true },
+                { name: 'Go Back', url: '#', action: 'goBack', isBack: true, icon: 'fa-arrow-left' },
 
-                { name: 'Create Item', url: "{{ url_for('item_bp.create_item') }}" },
+                { name: 'Create Item', url: "{{ url_for('item_bp.create_item') }}", icon: 'fa-square-plus' },
 
-                { name: 'Create Item Variation', url: "{{ url_for('item_bp.color_variation_select') }}" },
+                { name: 'Create Item Variation', url: "{{ url_for('item_bp.color_variation_select') }}", icon: 'fa-palette' },
 
-                { name: 'List Items', url: "{{ url_for('item_bp.item_list') }}" },
+                { name: 'List Items', url: "{{ url_for('item_bp.item_list') }}", icon: 'fa-list-check' },
 
-                { name: 'Item Inventory', url: "{{ url_for('item_bp.item_inventory') }}" },
+                { name: 'Item Inventory', url: "{{ url_for('item_bp.item_inventory') }}", icon: 'fa-boxes-stacked' },
 
-                { name: 'Bulk Add Items', url: "{{ url_for('production_bp.bulk_production_page') }}" }
+                { name: 'Bulk Add Items', url: "{{ url_for('production_bp.bulk_production_page') }}", icon: 'fa-cube-stacked' }
 
             ]
 
@@ -141,17 +140,17 @@
 
             items: [
 
-                { name: 'Go Back', url: '#', action: 'goBack', isBack: true },
+                { name: 'Go Back', url: '#', action: 'goBack', isBack: true, icon: 'fa-arrow-left' },
 
-                { name: 'Create Glass', url: "{{ url_for('glass_bp.create_glass') }}" },
+                { name: 'Create Glass', url: "{{ url_for('glass_bp.create_glass') }}", icon: 'fa-square-plus' },
 
-                { name: 'List Glass', url: "{{ url_for('glass_bp.list_glass') }}" },
+                { name: 'List Glass', url: "{{ url_for('glass_bp.list_glass') }}", icon: 'fa-list-check' },
 
-                { name: 'Glass Inventory', url: "{{ url_for('glass_bp.glass_inventory') }}" },
+                { name: 'Glass Inventory', url: "{{ url_for('glass_bp.glass_inventory') }}", icon: 'fa-boxes-stacked' },
 
-                { name: 'Glass Bulk Input', url: "{{ url_for('glass_bp.bulk_inventory_adjustment') }}" },
+                { name: 'Glass Bulk Input', url: "{{ url_for('glass_bp.bulk_inventory_adjustment') }}", icon: 'fa-cubes-stacked' },
 
-                { name: 'Glass Web Scraper', url: "{{ url_for('scraper_bp.scrape_glass_page') }}" }
+                { name: 'Glass Web Scraper', url: "{{ url_for('scraper_bp.scrape_glass_page') }}", icon: 'fa-globe' }
 
             ]
 
@@ -169,13 +168,13 @@
 
             items: [
 
-                { name: 'Go Back', url: '#', action: 'goBack', isBack: true },
+                { name: 'Go Back', url: '#', action: 'goBack', isBack: true, icon: 'fa-arrow-left' },
 
-                { name: 'Create Misc Item', url: "{{ url_for('misc_bp.create_misc') }}" },
+                { name: 'Create Misc Item', url: "{{ url_for('misc_bp.create_misc') }}", icon: 'fa-square-plus' },
 
-                { name: 'List Misc Items', url: "{{ url_for('misc_bp.list_misc') }}" },
+                { name: 'List Misc Items', url: "{{ url_for('misc_bp.list_misc') }}", icon: 'fa-list-check' },
 
-                { name: 'Misc Item Inventory', url: "{{ url_for('misc_bp.misc_inventory') }}" }
+                { name: 'Misc Item Inventory', url: "{{ url_for('misc_bp.misc_inventory') }}", icon: 'fa-boxes-stacked' }
 
             ]
 
@@ -193,19 +192,17 @@
 
             items: [
 
-                { name: 'Go Back', url: '#', action: 'goBack', isBack: true },
+                { name: 'Go Back', url: '#', action: 'goBack', isBack: true, icon: 'fa-arrow-left' },
 
-                { name: 'End of Day Sales', url: "{{ url_for('item_bp.item_bulk_sales') }}" },
+                { name: 'End of Day Sales', url: "{{ url_for('item_bp.item_bulk_sales') }}", icon: 'fa-cash-register' },
 
-                { name: 'List of Sales', url: "{{ url_for('item_bp.list_sales') }}" },
+                { name: 'List of Sales', url: "{{ url_for('item_bp.list_sales') }}", icon: 'fa-receipt' },
 
-                { name: 'Sales Visualization', url: "{{ url_for('visuals_bp.sales_visuals') }}" },
+                { name: 'Sales Visualization', url: "{{ url_for('visuals_bp.sales_visuals') }}", icon: 'fa-chart-line' },
 
-                { name: 'Hourly Sales Input', url: "{{ url_for('item_bp.hourly_sales') }}" },
+                { name: 'Hourly Sales Input', url: "{{ url_for('item_bp.hourly_sales') }}", icon: 'fa-clock' },
 
-                { name: 'Hourly Sales Visualization', url: "{{ url_for('item_bp.hourly_visuals') }}" }
-
-
+                { name: 'Hourly Sales Visualization', url: "{{ url_for('item_bp.hourly_visuals') }}", icon: 'fa-chart-column' }
 
             ]
 
@@ -233,17 +230,15 @@
 
             items: [
 
-                { name: 'Go Back', url: '#', action: 'goBack', isBack: true },
+                { name: 'Go Back', url: '#', action: 'goBack', isBack: true, icon: 'fa-arrow-left' },
 
-                { name: 'Settings', url: "{{ url_for('settings') }}" },
+                { name: 'Settings', url: "{{ url_for('settings') }}", icon: 'fa-gear' },
 
-                { name: 'Create Venue', url: "{{ url_for('venue_bp.create_venue') }}" },
+                { name: 'Create Venue', url: "{{ url_for('venue_bp.create_venue') }}", icon: 'fa-store' },
 
-                { name: 'List Venues', url: "{{ url_for('venue_bp.list_venues') }}" },
+                { name: 'List Venues', url: "{{ url_for('venue_bp.list_venues') }}", icon: 'fa-mountain-city' },
 
-                { name: 'Expense and Revenue Report', url: "{{ url_for('report_bp.expense_revenue_report') }}" }
-
-
+                { name: 'Expense and Revenue Report', url: "{{ url_for('report_bp.expense_revenue_report') }}", icon: 'fa-file-invoice-dollar' }
 
             ]
 
@@ -340,6 +335,8 @@
                 <div class="card hub-card shadow-sm h-100 square-box ${cardTheme}">
 
                     <div class="card-body d-flex flex-column align-items-center justify-content-center text-center p-3">
+
+                        <i class="fa-solid ${sub.icon || 'fa-circle'} fa-2x mb-3"></i>
 
                         <h5 class="card-title fw-bold mb-0">${sub.name}</h5>
 

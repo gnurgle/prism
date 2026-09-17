@@ -18,7 +18,7 @@
 
     <!-- Dynamically Load Selected Theme CSS -->
 
-    {% set theme = request.cookies.get('app_theme', 'light-purple') %}
+    {% set theme = request.cookies.get('app_theme', 'lightpurple') %}
 
     <link href="{{ url_for('static', filename='css/theme-' ~ theme ~ '.css') }}" rel="stylesheet">
 
