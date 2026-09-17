@@ -3,12 +3,21 @@ from datetime import date
 from utils import hex_to_hsv, process_and_save_image
 from datetime import datetime, date, timedelta
 
+import sqlite3
+
 glass_bp = Blueprint('glass_bp', __name__)
 
 def get_db_from_app():
     # Import get_db from your main app context or pass connection handling appropriately
-    from __main__ import get_db
-    return get_db()
+    conn = sqlite3.connect("inventory.db")
+
+    conn.row_factory = sqlite3.Row
+
+    conn.execute("PRAGMA foreign_keys = ON;")
+
+    return conn
+
+
 
 @glass_bp.route('/glass')
 def list_glass():

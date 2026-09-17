@@ -6,7 +6,7 @@ import io
 
 import os
 
-
+import sqlite3
 
 from reportlab.lib.pagesizes import letter
 
@@ -30,9 +30,13 @@ BASE_URL = "http://localhost:5000"
 
 def get_db():
 
-    from __main__ import get_db
+    conn = sqlite3.connect("inventory.db")
 
-    return get_db()
+    conn.row_factory = sqlite3.Row
+
+    conn.execute("PRAGMA foreign_keys = ON;")
+
+    return conn
 
 
 

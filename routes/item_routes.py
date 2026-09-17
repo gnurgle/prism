@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from datetime import datetime, timedelta, date
 
 import os
+import sqlite3
 
 import xml.etree.ElementTree as ET
 
@@ -17,10 +18,15 @@ item_bp = Blueprint('item_bp', __name__)
 
 def get_db():
 
-    from __main__ import get_db
+    # Connect directly to the SQLite database instead of importing from __main__
 
-    return get_db()
+    conn = sqlite3.connect("inventory.db")
 
+    conn.row_factory = sqlite3.Row
+
+    conn.execute("PRAGMA foreign_keys = ON;")
+
+    return conn
 
 
 # Conversion Constants

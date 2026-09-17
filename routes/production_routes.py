@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, request, jsonify, flash, redirect,
 
 from datetime import datetime
 
-
+import sqlite3
 
 production_bp = Blueprint('production_bp', __name__)
 
@@ -10,9 +10,13 @@ production_bp = Blueprint('production_bp', __name__)
 
 def get_db_from_app():
 
-    from __main__ import get_db
+    conn = sqlite3.connect("inventory.db")
 
-    return get_db()
+    conn.row_factory = sqlite3.Row
+
+    conn.execute("PRAGMA foreign_keys = ON;")
+
+    return conn
 
 
 
