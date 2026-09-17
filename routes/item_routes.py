@@ -1393,6 +1393,12 @@ def record_sale():
 
         venueid = request.form.get("VENUEID") or None
 
+        
+
+        # Fix: Capture the sale date from the form request instead of forcing DATE('now')
+
+        sdate = request.form.get("SDATE") or date.today().strftime('%Y-%m-%d')
+
 
 
         db.execute(
@@ -1401,11 +1407,11 @@ def record_sale():
 
             INSERT INTO ITMSALE (ITEMID, SUNITS, SDATE, VENUEID)
 
-            VALUES (?, ?, DATE('now'), ?)
+            VALUES (?, ?, ?, ?)
 
         """,
 
-            (itemid, sunits, venueid),
+            (itemid, sunits, sdate, venueid),
 
         )
 
@@ -1424,6 +1430,7 @@ def record_sale():
     venues = db.execute("SELECT VENUEID, VENUELOC FROM VENUE").fetchall()
 
     return render_template("sale_form.html", items=items, venues=venues)
+
 
 @item_bp.route('/item/bulk-sales', methods=['GET'])
 
@@ -1469,6 +1476,7 @@ def api_item_bulk_sales_data():
 
     return {'items': item_list}
 
+
 @item_bp.route('/item/api/bulk-sales-adjustment', methods=['POST'])
 
 def bulk_sales_adjustment():
@@ -1503,23 +1511,9 @@ def bulk_sales_adjustment():
 
             
 
-            # Fetch current stock
-
-            stock_row = db.execute(
-
-                "SELECT ITMSTOCK FROM ITMINV WHERE ITEMID = ? ORDER BY TS DESC LIMIT 1",
-
-                (item_id,)
-
-            ).fetchone()
-
-            current_stock = stock_row['ITMSTOCK'] if stock_row and stock_row['ITMSTOCK'] is not None else 0
-
-            
-
-            # 1. If items were sold, record entry in ITMSALE and subtract from stock
-
             if amt_sold > 0:
+
+                # 1. Record the sale in ITMSALE
 
                 db.execute(
 
@@ -1537,25 +1531,89 @@ def bulk_sales_adjustment():
 
                 
 
-                new_stock = max(0, current_stock - amt_sold)
+                # 2. Fetch all inventory records chronologically for timeline propagation
 
-                db.execute(
+                inv_rows = db.execute(
 
-                    """
+                    "SELECT ITMTRNID, ITMSTOCK, TS FROM ITMINV WHERE ITEMID = ? ORDER BY TS ASC, ITMTRNID ASC",
 
-                    INSERT INTO ITMINV (ITEMID, ITMSTOCK, TS)
+                    (item_id,)
 
-                    VALUES (?, ?, CURRENT_TIMESTAMP)
+                ).fetchall()
 
-                    """,
+                
 
-                    (item_id, new_stock)
+                exact_match = None
 
-                )
+                latest_before = None
+
+                future_rows = []
+
+                
+
+                for row in inv_rows:
+
+                    if row['TS'] == sale_date:
+
+                        exact_match = row
+
+                    elif row['TS'] < sale_date:
+
+                        latest_before = row
+
+                    elif row['TS'] > sale_date:
+
+                        future_rows.append(row)
+
+                
+
+                # 3. Adjust stock on the sale_date (update exact match or insert new baseline)
+
+                if exact_match:
+
+                    new_stock = max(0, exact_match['ITMSTOCK'] - amt_sold)
+
+                    db.execute(
+
+                        "UPDATE ITMINV SET ITMSTOCK = ? WHERE ITMTRNID = ?",
+
+                        (new_stock, exact_match['ITMTRNID'])
+
+                    )
+
+                else:
+
+                    baseline_stock = latest_before['ITMSTOCK'] if latest_before else 0
+
+                    new_stock = max(0, baseline_stock - amt_sold)
+
+                    db.execute(
+
+                        "INSERT INTO ITMINV (ITEMID, ITMSTOCK, TS) VALUES (?, ?, ?)",
+
+                        (item_id, new_stock, sale_date)
+
+                    )
+
+                
+
+                # 4. Extrapolate forward: decrease all future inventory records by amt_sold
+
+                for f_row in future_rows:
+
+                    f_new_stock = max(0, f_row['ITMSTOCK'] - amt_sold)
+
+                    db.execute(
+
+                        "UPDATE ITMINV SET ITMSTOCK = ? WHERE ITMTRNID = ?",
+
+                        (f_new_stock, f_row['ITMTRNID'])
+
+                    )
 
             
 
-            # 2. Update price if changed (using the standard IPC adjustment approach)
+            # 5. Update price if changed
 
             if new_price is not None:
 
@@ -1579,8 +1637,6 @@ def bulk_sales_adjustment():
 
                 if not current_price_row or float(current_price_row['ITMPRICE']) != float(new_price):
 
-                    # Close out current price range
-
                     db.execute(
 
                         """
@@ -1594,8 +1650,6 @@ def bulk_sales_adjustment():
                         (sale_date, item_id)
 
                     )
-
-                    # Insert new price tier
 
                     db.execute(
 
@@ -1622,6 +1676,7 @@ def bulk_sales_adjustment():
         db.rollback()
 
         return {'status': 'error', 'message': str(e)}, 500
+
 
 
 @item_bp.route("/item/<int:item_id>/process_workflow", methods=["GET", "POST"])
