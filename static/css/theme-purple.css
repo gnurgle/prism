@@ -46,7 +46,9 @@ a:hover {
 
 
 
-.text {
+/* Text-type colors */
+
+.text, .text-body {
 
     color: #dcd6f7 !important;
 
@@ -62,9 +64,73 @@ a:hover {
 
 
 
+.text-secondary {
+
+    color: #9e96b8 !important;
+
+}
+
+
+
+.text-success {
+
+    color: #75b798 !important;
+
+}
+
+
+
+.text-danger {
+
+    color: #ea868f !important;
+
+}
+
+
+
+.text-warning {
+
+    color: #ffda6a !important;
+
+}
+
+
+
+.text-info {
+
+    color: #6edff6 !important;
+
+}
+
+
+
+.text-light {
+
+    color: #f4f0ea !important;
+
+}
+
+
+
+.text-dark {
+
+    color: #13111c !important;
+
+}
+
+
+
 .text-muted {
 
     color: #9e96b8 !important;
+
+}
+
+
+
+.text-white {
+
+    color: #ffffff !important;
 
 }
 
@@ -122,7 +188,9 @@ hr {
 
 
 
-.table {
+/* Table border color & general table styles */
+
+.table, .table-bordered, .table-group-divider {
 
     color: #dcd6f7 !important;
 
@@ -161,6 +229,42 @@ hr {
     background-color: #29213d !important;
 
     color: #ffffff !important;
+
+}
+
+
+
+/* Table light & table-light-striped */
+
+.table-light {
+
+    background-color: #312A48 !important;
+
+    color: #f4f0ea !important;
+
+    border-color: #2c2445 !important;
+
+}
+
+
+
+.table-light > * > * {
+
+    background-color: transparent !important;
+
+    color: #f4f0ea !important;
+
+    border-bottom-color: #2c2445 !important;
+
+}
+
+
+
+.table-striped > tbody > tr.table-light > * {
+
+    background-color: #383053 !important;
+
+    color: #f4f0ea !important;
 
 }
 
@@ -220,6 +324,8 @@ hr {
 
     border-color: #5c3d88 !important;
 
+    color: #ffffff !important;
+
 }
 
 
@@ -227,6 +333,8 @@ hr {
 .btn-primary:hover {
 
     background-color: #5c3d88 !important;
+
+    color: #ffffff !important;
 
 }
 
@@ -278,6 +386,30 @@ hr {
 
 
 
+/* All btn-outline colors */
+
+.btn-outline-primary {
+
+    color: #b19cd9 !important;
+
+    border-color: #b19cd9 !important;
+
+}
+
+
+
+.btn-outline-primary:hover {
+
+    background-color: #b19cd9 !important;
+
+    color: #13111c !important;
+
+    border-color: #b19cd9 !important;
+
+}
+
+
+
 .btn-outline-secondary {
 
     color: #b19cd9 !important;
@@ -293,5 +425,338 @@ hr {
     background-color: #5c3d88 !important;
 
     color: #ffffff !important;
+
+}
+
+
+
+.btn-outline-success {
+
+    color: #75b798 !important;
+
+    border-color: #75b798 !important;
+
+}
+
+
+
+.btn-outline-success:hover {
+
+    background-color: #75b798 !important;
+
+    color: #13111c !important;
+
+    border-color: #75b798 !important;
+
+}
+
+
+
+.btn-outline-danger {
+
+    color: #ea868f !important;
+
+    border-color: #ea868f !important;
+
+}
+
+
+
+.btn-outline-danger:hover {
+
+    background-color: #ea868f !important;
+
+    color: #13111c !important;
+
+    border-color: #ea868f !important;
+
+}
+
+
+
+.btn-outline-warning {
+
+    color: #ffda6a !important;
+
+    border-color: #ffda6a !important;
+
+}
+
+
+
+.btn-outline-warning:hover {
+
+    background-color: #ffda6a !important;
+
+    color: #13111c !important;
+
+    border-color: #ffda6a !important;
+
+}
+
+
+
+.btn-outline-info {
+
+    color: #6edff6 !important;
+
+    border-color: #6edff6 !important;
+
+}
+
+
+
+.btn-outline-info:hover {
+
+    background-color: #6edff6 !important;
+
+    color: #13111c !important;
+
+    border-color: #6edff6 !important;
+
+}
+
+
+
+.btn-outline-light {
+
+    color: #f4f0ea !important;
+
+    border-color: #43376b !important;
+
+}
+
+
+
+.btn-outline-light:hover {
+
+    background-color: #312A48 !important;
+
+    color: #f4f0ea !important;
+
+    border-color: #43376b !important;
+
+}
+
+
+
+.btn-outline-dark {
+
+    color: #dcd6f7 !important;
+
+    border-color: #43376b !important;
+
+}
+
+
+
+.btn-outline-dark:hover {
+
+    background-color: #43376b !important;
+
+    color: #ffffff !important;
+
+    border-color: #43376b !important;
+
+}
+
+.btn-outline-primary {
+
+    color: #b19cd9 !important;
+
+    border-color: #b19cd9 !important;
+
+}
+
+.btn-outline-primary:hover {
+
+    background-color: #b19cd9 !important;
+
+    color: #13111c !important;
+
+    border-color: #b19cd9 !important;
+
+}
+
+
+
+.btn-outline-secondary {
+
+    color: #b19cd9 !important;
+
+    border-color: #5c3d88 !important;
+
+}
+
+.btn-outline-secondary:hover {
+
+    background-color: #5c3d88 !important;
+
+    color: #ffffff !important;
+
+}
+
+
+
+.btn-outline-success {
+
+    color: #75b798 !important;
+
+    border-color: #75b798 !important;
+
+}
+
+.btn-outline-success:hover {
+
+    background-color: #75b798 !important;
+
+    color: #13111c !important;
+
+    border-color: #75b798 !important;
+
+}
+
+
+
+.btn-outline-danger {
+
+    color: #ea868f !important;
+
+    border-color: #ea868f !important;
+
+}
+
+.btn-outline-danger:hover {
+
+    background-color: #ea868f !important;
+
+    color: #13111c !important;
+
+    border-color: #ea868f !important;
+
+}
+
+
+
+.btn-outline-warning {
+
+    color: #ffda6a !important;
+
+    border-color: #ffda6a !important;
+
+}
+
+.btn-outline-warning:hover {
+
+    background-color: #ffda6a !important;
+
+    color: #13111c !important;
+
+    border-color: #ffda6a !important;
+
+}
+
+
+
+.btn-outline-info {
+
+    color: #6edff6 !important;
+
+    border-color: #6edff6 !important;
+
+}
+
+.btn-outline-info:hover {
+
+    background-color: #6edff6 !important;
+
+    color: #13111c !important;
+
+    border-color: #6edff6 !important;
+
+}
+
+
+
+.btn-outline-light {
+
+    color: #f4f0ea !important;
+
+    border-color: #43376b !important;
+
+}
+
+.btn-outline-light:hover {
+
+    background-color: #312A48 !important;
+
+    color: #f4f0ea !important;
+
+    border-color: #43376b !important;
+
+}
+
+
+
+.btn-outline-dark {
+
+    color: #dcd6f7 !important;
+
+    border-color: #43376b !important;
+
+}
+
+.btn-outline-dark:hover {
+
+    background-color: #43376b !important;
+
+    color: #ffffff !important;
+
+    border-color: #43376b !important;
+
+}
+
+
+.btn-outline-primary {
+
+    --bs-btn-color: #b19cd9 !important;
+
+    --bs-btn-border-color: #b19cd9 !important;
+
+    --bs-btn-hover-bg: #b19cd9 !important;
+
+    --bs-btn-hover-color: #13111c !important;
+
+    --bs-btn-hover-border-color: #b19cd9 !important;
+
+    --bs-btn-active-bg: #b19cd9 !important;
+
+    --bs-btn-active-color: #13111c !important;
+
+    --bs-btn-active-border-color: #b19cd9 !important;
+
+    color: #b19cd9 !important;
+
+    border-color: #b19cd9 !important;
+
+    background-color: transparent !important;
+
+}
+
+
+
+.btn-outline-primary:hover, 
+
+.btn-outline-primary:focus, 
+
+.btn-outline-primary.active, 
+
+.btn-outline-primary:active {
+
+    background-color: #b19cd9 !important;
+
+    color: #13111c !important;
+
+    border-color: #b19cd9 !important;
 
 }
