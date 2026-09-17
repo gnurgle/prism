@@ -215,40 +215,12 @@ def update_inventory(item_id):
 
 
 # ============================================================================
+
 # 4. SALES AND VENUE MANAGEMENT (ITMSALE, TIMESALE, VENUE)
+
 # ============================================================================
 
-@app.route("/sales")
 
-def list_sales():
-
-    db = get_db()
-
-    sales = db.execute("""
-
-        SELECT s.SALEID, i.ITEMID, i.ITMNAME, i.ITMGRP, s.SUNITS, s.SDATE, v.VENUEID, v.VENNAME 
-
-        FROM ITMSALE s
-
-        JOIN ITM i ON s.ITEMID = i.ITEMID
-
-        LEFT JOIN VENUE v ON s.VENUEID = v.VENUEID
-
-        ORDER BY s.SDATE DESC
-
-    """).fetchall()
-
-    
-
-    items = db.execute("SELECT DISTINCT ITMNAME FROM ITM WHERE ITMNAME IS NOT NULL AND ITMNAME != '' ORDER BY ITMNAME COLLATE NOCASE").fetchall()
-
-    item_groups = db.execute("SELECT DISTINCT ITMGRP FROM ITM WHERE ITMGRP IS NOT NULL AND ITMGRP != '' ORDER BY ITMGRP COLLATE NOCASE").fetchall()
-
-    venues = db.execute("SELECT DISTINCT VENNAME FROM VENUE WHERE VENNAME IS NOT NULL AND VENNAME != '' ORDER BY VENNAME COLLATE NOCASE").fetchall()
-
-
-
-    return render_template("sales_list.html", sales=sales, items=items, item_groups=item_groups, venues=venues)
 
 
 @app.route("/sales/new", methods=["GET", "POST"])

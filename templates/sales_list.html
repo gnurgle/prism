@@ -94,7 +94,7 @@
 
                     <th class="text-light">{{ sort_header('SDATE', 'Sale Date') }}</th>
 
-                    <th class="text-light">Venue / Event</th>
+                    <th class="text-light">{{ sort_header('VENNAME', 'Venue / Event') }}</th>
 
                 </tr>
 
@@ -182,25 +182,7 @@
 
             <div class="modal-body">
 
-                <div class="mb-3">
-
-                    <label class="form-label fw-bold">Item Name</label>
-
-                    <select id="filterItem" class="form-select">
-
-                        <option value="">-- All Items --</option>
-
-                        {% for item in items %}
-
-                        <option value="{{ item.ITMNAME }}">{{ item.ITMNAME }}</option>
-
-                        {% endfor %}
-
-                    </select>
-
-                </div>
-
-
+                <!-- Moved Item Group above Item Name -->
 
                 <div class="mb-3">
 
@@ -217,6 +199,26 @@
                         <option value="{{ g.ITMGRP }}">{{ g.ITMGRP }}</option>
 
                         {% endif %}
+
+                        {% endfor %}
+
+                    </select>
+
+                </div>
+
+
+
+                <div class="mb-3">
+
+                    <label class="form-label fw-bold">Item Name</label>
+
+                    <select id="filterItem" class="form-select">
+
+                        <option value="">-- All Items --</option>
+
+                        {% for item in items %}
+
+                        <option value="{{ item.ITMNAME }}" data-group="{{ item.ITMGRP or '' }}">{{ item.ITMNAME }}</option>
 
                         {% endfor %}
 
@@ -310,6 +312,56 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 
+    // Store original item options for dynamic filtering
+
+    const itemSelect = document.getElementById('filterItem');
+
+    const allItemOptions = Array.from(itemSelect.querySelectorAll('option')).slice(1); // skip default '-- All Items --'
+
+    const groupSelect = document.getElementById('filterGroup');
+
+
+
+    // Dynamic Item Dropdown Limiting based on Group Selection
+
+    groupSelect.addEventListener('change', function() {
+
+        const selectedGroup = this.value.toLowerCase();
+
+        
+
+        // Clear current item options except default
+
+        itemSelect.innerHTML = '<option value="">-- All Items --</option>';
+
+
+
+        allItemOptions.forEach(opt => {
+
+            const optGroup = (opt.getAttribute('data-group') || '').toLowerCase();
+
+            if (!selectedGroup || optGroup === selectedGroup) {
+
+                itemSelect.appendChild(opt.cloneNode(true));
+
+            }
+
+        });
+
+
+
+        // Reset item selection if currently selected item is no longer available
+
+        if (!Array.from(itemSelect.options).some(o => o.value === itemSelect.value)) {
+
+            itemSelect.value = '';
+
+        }
+
+    });
+
+
+
     sortRowsData();
 
     updateTable();
@@ -386,9 +438,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function clearFilterFields() {
 
-        document.getElementById('filterItem').value = '';
+        groupSelect.value = '';
 
-        document.getElementById('filterGroup').value = '';
+        // Trigger change to reset item dropdown options
+
+        groupSelect.dispatchEvent(new Event('change'));
+
+        itemSelect.value = '';
 
         document.getElementById('filterStartDate').value = '';
 
@@ -402,9 +458,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function applyFilters() {
 
-        const itemVal = document.getElementById('filterItem').value.toLowerCase();
+        const itemVal = itemSelect.value.toLowerCase();
 
-        const groupVal = document.getElementById('filterGroup').value.toLowerCase();
+        const groupVal = groupSelect.value.toLowerCase();
 
         const startDateVal = document.getElementById('filterStartDate').value;
 
@@ -488,17 +544,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 
-        if (item) {
+        if (group) {
 
-            badgesHtml += `<span class="badge bg-light text-dark border">Item: ${document.getElementById('filterItem').value}</span>`;
+            badgesHtml += `<span class="badge bg-light text-dark border">Group: ${groupSelect.options[groupSelect.selectedIndex].text}</span>`;
 
             activeCount++;
 
         }
 
-        if (group) {
+        if (item) {
 
-            badgesHtml += `<span class="badge bg-light text-dark border">Group: ${document.getElementById('filterGroup').value}</span>`;
+            badgesHtml += `<span class="badge bg-light text-dark border">Item: ${itemSelect.options[itemSelect.selectedIndex].text}</span>`;
 
             activeCount++;
 
@@ -586,6 +642,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 attrName = 'itemname';
 
+            } else if (currentSortColumn === 'VENNAME') {
+
+                attrName = 'venue';
+
             }
 
 
@@ -596,7 +656,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 
-            if (currentSortColumn === 'ITMNAME') {
+            // Handle empty venue names (Direct / Studio Sales) gracefully
+
+            if (currentSortColumn === 'VENNAME') {
+
+                if (!valA) valA = 'Direct / Studio Sale';
+
+                if (!valB) valB = 'Direct / Studio Sale';
+
+            }
+
+
+
+            if (currentSortColumn === 'ITMNAME' || currentSortColumn === 'VENNAME') {
 
                 return currentSortOrder === 'asc' 
 

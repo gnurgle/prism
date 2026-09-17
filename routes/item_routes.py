@@ -1379,31 +1379,6 @@ def update_inventory(item_id):
     return redirect(url_for("item_bp.inventory_status"))
 
 
-
-@item_bp.route("/sales")
-
-def list_sales():
-
-    db = get_db()
-
-    sales = db.execute("""
-
-        SELECT s.SALEID, i.ITMNAME, s.SUNITS, s.SDATE, v.VENUELOC 
-
-        FROM ITMSALE s
-
-        JOIN ITM i ON s.ITEMID = i.ITEMID
-
-        LEFT JOIN VENUE v ON s.VENUEID = v.VENUEID
-
-        ORDER BY s.SDATE DESC
-
-    """).fetchall()
-
-    return render_template("sales_list.html", sales=sales)
-
-
-
 @item_bp.route("/sales/new", methods=["GET", "POST"])
 
 def record_sale():
@@ -2848,3 +2823,38 @@ def item_visuals(item_id):
         end_date=request.args.get('end_date', '')
 
     )
+
+
+@item_bp.route("/sales")
+
+def list_sales():
+
+    db = get_db()
+
+    sales = db.execute("""
+
+        SELECT s.SALEID, s.ITEMID, i.ITMNAME, i.ITMGRP, s.SUNITS, s.SDATE, v.VENNAME 
+
+        FROM ITMSALE s
+
+        JOIN ITM i ON s.ITEMID = i.ITEMID
+
+        LEFT JOIN VENUE v ON s.VENUEID = v.VENUEID
+
+        ORDER BY s.SDATE DESC
+
+    """).fetchall()
+
+
+
+    # Added ITMGRP here so the frontend can read the data-group attribute correctly
+
+    items = db.execute("SELECT DISTINCT ITEMID, ITMNAME, ITMGRP FROM ITM ORDER BY ITMNAME ASC").fetchall()
+
+    item_groups = db.execute("SELECT DISTINCT ITMGRP FROM ITM WHERE ITMGRP IS NOT NULL AND ITMGRP != '' ORDER BY ITMGRP ASC").fetchall()
+
+    venues = db.execute("SELECT VENUEID, VENNAME FROM VENUE WHERE ISACTIVE = 1 ORDER BY VENNAME ASC").fetchall()
+
+
+
+    return render_template("sales_list.html", sales=sales, items=items, item_groups=item_groups, venues=venues)
