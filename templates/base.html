@@ -50,9 +50,211 @@
 
     </script>
 
+
+
+    <!-- Global Loading Splash Screen & Animation Styles -->
+
+    <style>
+
+        #globalPageLoader {
+
+            position: fixed !important;
+
+            top: 0 !important;
+
+            left: 0 !important;
+
+            width: 100vw !important;
+
+            height: 100vh !important;
+
+            background-color: #f8f9fa !important; /* Bootstrap bg-light background */
+
+            display: flex !important;
+
+            flex-direction: column !important;
+
+            justify-content: center !important;
+
+            align-items: center !important;
+
+            z-index: 999999 !important;
+
+            opacity: 0;
+
+            visibility: hidden;
+
+            transition: opacity 0.3s ease-out !important; /* Fade-in duration */
+
+        }
+
+        #globalPageLoader.visible {
+
+            opacity: 1;
+
+            visibility: visible;
+
+        }
+
+        #globalPageLoader.fade-out {
+
+            opacity: 0 !important;
+
+            pointer-events: none !important;
+
+            transition: opacity 0.15s ease-out !important; /* Fade-out duration */
+
+        }
+
+
+
+        /* Custom CSS Loader Animation */
+
+        .loader {
+
+            display: flex;
+
+            width: 50px;
+
+            aspect-ratio: 1;
+
+            animation: l10-0 1.5s infinite linear;
+
+        }
+
+        .loader:before,
+
+        .loader:after {
+
+            content: "";
+
+            width: 50%;
+
+            background: #514b82;
+
+            clip-path: polygon(0 0,100% 50%,0% 100%);
+
+            animation: inherit;
+
+            animation-name: l10-1;
+
+            transform-origin: bottom left;
+
+        }
+
+        .loader:before {
+
+            clip-path: polygon(0 50%,100% 0,100% 100%);
+
+            transform-origin: bottom right;
+
+            --s:-1;
+
+        }
+
+        @keyframes l10-0 {
+
+            0%,34.99% {transform: scaley(1)}
+
+            35%,70%   {transform: scaley(-1)}
+
+            90%,100%  {transform: scaley(-1) rotate(180deg)}
+
+        }
+
+        @keyframes l10-1 {
+
+            0%,10%,70%,100%{transform:translateY(-100%) rotate(calc(var(--s,1)*135deg))}
+
+            35%            {transform:translateY(0%)    rotate(0deg)}
+
+        }
+
+    </style>
+
 </head>
 
 <body class="bg-light">
+
+
+
+    <!-- Global Loading Splash Screen -->
+
+    <div id="globalPageLoader">
+
+        <div style="margin-bottom: 16px !important;">
+
+            <div class="loader"></div>
+
+        </div>
+
+        <span style="font-size: 0.85rem !important; font-weight: 700 !important; color: #6c757d !important; font-family: system-ui, -apple-system, sans-serif !important;">Loading PRISM...</span>
+
+    </div>
+
+
+
+    <!-- 20ms Grace Period & Interruptible Fade Logic -->
+
+    <script>
+
+        let isLoaded = false;
+
+        const loader = document.getElementById('globalPageLoader');
+
+
+
+        // Trigger fade-in if page takes longer than 20ms
+
+        const showTimeout = setTimeout(() => {
+
+            if (!isLoaded && loader) {
+
+                loader.classList.add('visible');
+
+            }
+
+        }, 20);
+
+
+
+        function dismissLoader() {
+
+            isLoaded = true;
+
+            clearTimeout(showTimeout);
+
+            if (loader) {
+
+                loader.classList.add('fade-out');
+
+                setTimeout(() => {
+
+                    loader.remove();
+
+                }, 150); // Matches the 0.15s fade-out duration
+
+            }
+
+        }
+
+
+
+        window.addEventListener('load', dismissLoader);
+
+
+
+        // Safety fallback
+
+        document.addEventListener('DOMContentLoaded', function() {
+
+            setTimeout(dismissLoader, 1500);
+
+        });
+
+    </script>
+
+
 
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
 

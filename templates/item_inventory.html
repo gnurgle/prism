@@ -10,7 +10,7 @@
 
     /* Dynamic sizing variables for the item grid container and rows */
 
-    #inventoryGridContainer.size-s {
+    #inventoryGridContainer.size-s, .grouped-grid.size-s {
 
         --img-height: 90px;
 
@@ -18,13 +18,13 @@
 
     }
 
-    #inventoryGridContainer.size-s .card-body {
+    #inventoryGridContainer.size-s .card-body, .grouped-grid.size-s .card-body {
 
         padding: 0.5rem;
 
     }
 
-    #inventoryGridContainer.size-s .card-title {
+    #inventoryGridContainer.size-s .card-title, .grouped-grid.size-s .card-title {
 
         font-size: 0.95rem;
 
@@ -34,7 +34,7 @@
 
 
 
-    #inventoryGridContainer.size-m {
+    #inventoryGridContainer.size-m, .grouped-grid.size-m {
 
         --img-height: 140px;
 
@@ -42,13 +42,13 @@
 
     }
 
-    #inventoryGridContainer.size-m .card-body {
+    #inventoryGridContainer.size-m .card-body, .grouped-grid.size-m .card-body {
 
         padding: 0.75rem;
 
     }
 
-    #inventoryGridContainer.size-m .card-title {
+    #inventoryGridContainer.size-m .card-title, .grouped-grid.size-m .card-title {
 
         font-size: 1.05rem;
 
@@ -58,7 +58,7 @@
 
 
 
-    #inventoryGridContainer.size-l {
+    #inventoryGridContainer.size-l, .grouped-grid.size-l {
 
         --img-height: 200px;
 
@@ -66,13 +66,13 @@
 
     }
 
-    #inventoryGridContainer.size-l .card-body {
+    #inventoryGridContainer.size-l .card-body, .grouped-grid.size-l .card-body {
 
         padding: 1rem;
 
     }
 
-    #inventoryGridContainer.size-l .card-title {
+    #inventoryGridContainer.size-l .card-title, .grouped-grid.size-l .card-title {
 
         font-size: 1.25rem;
 
@@ -84,7 +84,7 @@
 
     /* Apply the dynamic image container height */
 
-    #inventoryGridContainer .card-img-container {
+    #inventoryGridContainer .card-img-container, .grouped-grid .card-img-container {
 
         height: var(--img-height, 200px);
 
@@ -96,13 +96,25 @@
 
 
 
+{% set total_stock_sum = namespace(val=0) %}
+
+{% for item in inventory_items %}
+
+    {% set s = item.CURRENT_STOCK if item.CURRENT_STOCK is not none else 0 %}
+
+    {% set total_stock_sum.val = total_stock_sum.val + s %}
+
+{% endfor %}
+
+
+
 <!-- Title Block on Top -->
 
 <div class="mb-2">
 
     <h2 class="mb-0 fs-3">Item Inventory</h2>
 
-    <small class="text-muted">{{ inventory_items|length }} item(s) found</small>
+    <small class="text-muted">{{ inventory_items|length }} item(s) found  -  {{ total_stock_sum.val }} items in inventory</small>
 
 </div>
 
@@ -119,6 +131,12 @@
         <button type="button" id="btnViewVisual" class="btn btn-outline-primary active px-3" onclick="switchViewMode('visual')" title="Visual Gallery View">
 
             🖼️
+
+        </button>
+
+        <button type="button" id="btnViewGrouped" class="btn btn-outline-primary px-3" onclick="switchViewMode('grouped')" title="Grouped Visual View">
+
+            🗂️️
 
         </button>
 
@@ -153,7 +171,6 @@
         <label class="btn btn-outline-secondary" for="sizeL">L</label>
 
     </div>
-
 
 
 
@@ -192,8 +209,6 @@
         </button>
 
     </div>
-
-
 
 
 
@@ -391,9 +406,199 @@
 
 
 
+<!-- 3. Grouped Visual View Mode Container -->
+
+<div id="groupedViewContainer">
+
+    {% set groups_dict = {} %}
+
+    {% for item in inventory_items %}
+
+        {% set gname = item.ITMGRP if item.ITMGRP else 'Uncategorized' %}
+
+        {% if gname not in groups_dict %}
+
+            {% set _ = groups_dict.update({gname: []}) %}
+
+        {% endif %}
+
+        {% set _ = groups_dict[gname].append(item) %}
+
+    {% endfor %}
+
+
+
+    {% for group_name in groups_dict.keys() | sort %}
+
+        {% set group_items = groups_dict[group_name] %}
+
+        {% set group_stock_sum = namespace(val=0) %}
+
+        {% for item in group_items %}
+
+            {% set s = item.CURRENT_STOCK if item.CURRENT_STOCK is not none else 0 %}
+
+            {% set group_stock_sum.val = group_stock_sum.val + s %}
+
+        {% endfor %}
+
+        
+
+        <div class="card shadow-sm mb-4">
+
+            <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between align-items-center">
+
+                <span>{{ group_name }}</span>
+
+                <span>
+
+                    <span class="badge btn-secondary ms-2">{{ group_items | length }} items</span>
+
+                    <span class="badge btn-primary text-light ms-2">{{ group_stock_sum.val }} items in inventory</span>
+
+                </span>
+
+            </div>
+
+            <div class="card-body bg-light">
+
+                <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-3 grouped-grid size-l">
+
+                    {% for item in group_items %}
+
+                    {% set stock = item.CURRENT_STOCK if item.CURRENT_STOCK is not none else 0 %}
+
+                    {% set img_src = item.ITMIMG %}
+
+                    {% if img_src %}
+
+                        {% if not img_src.startswith('http') and not img_src.startswith('/') and not img_src.startswith('static/') %}
+
+                            {% set img_src = 'static/' + img_src %}
+
+                        {% endif %}
+
+                    {% endif %}
+
+                    <div class="col">
+
+                        <div class="card h-100 shadow-sm border position-relative">
+
+                            <div class="card-header py-1 px-2 d-flex justify-content-between align-items-center 
+
+                                {% if stock <= 0 %}bg-danger text-white{% else %}bg-light text-dark border-bottom{% endif %}">
+
+                                <span class="small fw-bold">Stock:</span>
+
+                                <span class="badge {% if stock <= 0 %}bg-white text-danger{% else %}bg-success text-white{% endif %} fs-6 px-2 py-0">
+
+                                    {{ stock }}
+
+                                </span>
+
+                            </div>
+
+                            <div class="text-center overflow-hidden position-relative card-img-container">
+
+                                {% if img_src %}
+
+                                    {% set resolved_img_url = url_for('static', filename=img_src.replace('static/', '')) if img_src.startswith('static/') else img_src %}
+
+                                    <a href="javascript:void(0);" data-bs-toggle="modal" data-bs-target="#imagePreviewModal" 
+
+                                       data-imgsrc="{{ resolved_img_url }}" data-itemname="{{ item.ITMNAME }}">
+
+                                        <img src="{{ resolved_img_url }}" class="w-100 h-100" style="object-fit: contain; transition: transform 0.2s;" alt="{{ item.ITMNAME }}"
+
+                                             onmouseover="this.style.transform='scale(1.02)';" onmouseout="this.style.transform='scale(1.00)';">
+
+                                    </a>
+
+                                {% else %}
+
+                                    <div class="w-100 h-100 d-flex flex-column align-items-center justify-content-center bg-secondary text-white">
+
+                                        <span style="font-size: 2rem;">📷</span>
+
+                                        <small class="mt-1">No Image Available</small>
+
+                                    </div>
+
+                                {% endif %}
+
+                            </div>
+
+                            <div class="card-body d-flex flex-column">
+
+                                <div class="mb-1 text-muted small">
+
+                                    {% if item.ITMGRP %}<span class="badge bg-secondary">{{ item.ITMGRP }}</span>{% endif %}
+
+                                    {% if item.ONEOFF %}<span class="badge bg-warning text-dark">One-Off</span>{% endif %}
+
+                                </div>
+
+                                <h5 class="card-title mb-2">
+
+                                    <a href="{{ url_for('item_bp.item_detail', item_id=item.ITEMID) }}" class="text-decoration-none text-dark stretched-link">
+
+                                        {{ item.ITMNAME }}
+
+                                    </a>
+
+                                </h5>
+
+                                <div class="mt-auto pt-2 border-top d-flex justify-content-between align-items-center">
+
+                                    <span class="fw-bold text-success">
+
+                                        {% if item.ITMPRICE %}${{ "%.2f"|format(item.ITMPRICE) }}{% else %}—{% endif %}
+
+                                    </span>
+
+                                    <span class="text-muted small">
+
+                                        {% if item.LAST_UPDATED %}{{ item.LAST_UPDATED.split('T')[0].split(' ')[0] }}{% else %}Never{% endif %}
+
+                                    </span>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    {% endfor %}
+
+                </div>
+
+            </div>
+
+        </div>
+
+    {% else %}
+
+    <div class="text-center py-5 text-muted bg-white rounded shadow-sm border">
+
+        <h4>No items match your criteria.</h4>
+
+        <p class="mb-3">Try adjusting your filters or search options.</p>
+
+        <a href="{{ url_for('item_bp.item_inventory') }}" class="btn btn-outline-primary btn-sm">Reset Filters</a>
+
+    </div>
+
+    {% endfor %}
+
+</div>
+
+
+
 <!-- 2. Compact List View Mode Container with Dark Header & Column Sorting -->
 
-<div id="listViewContainer" style="display: none;">
+<div id="listViewContainer">
 
     <div class="card shadow-sm border">
 
@@ -609,7 +814,7 @@
 
             <div class="modal-header bg-dark text-white">
 
-                <h5 class="modal-title" id="filterModalLabel">Filter Item Inventory</h5>
+                <h5 class="modal-title text-light" id="filterModalLabel">Filter Item Inventory</h5>
 
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
 
@@ -769,29 +974,33 @@ function cycleStockDisplay() {
 
 function setCardSize(size) {
 
-    const grid = document.getElementById('inventoryGridContainer');
+    const grids = document.querySelectorAll('#inventoryGridContainer, .grouped-grid');
 
     
 
-    grid.classList.remove('size-s', 'size-m', 'size-l', 'row-cols-sm-3', 'row-cols-md-4', 'row-cols-lg-6', 'row-cols-sm-2', 'row-cols-md-3', 'row-cols-lg-5', 'row-cols-lg-4', 'g-4', 'g-3');
+    grids.forEach(grid => {
 
-    grid.classList.add('g-3');
+        grid.classList.remove('size-s', 'size-m', 'size-l', 'row-cols-sm-3', 'row-cols-md-4', 'row-cols-lg-6', 'row-cols-sm-2', 'row-cols-md-3', 'row-cols-lg-5', 'row-cols-lg-4', 'g-4', 'g-3');
+
+        grid.classList.add('g-3');
 
 
 
-    if (size === 'S') {
+        if (size === 'S') {
 
-        grid.classList.add('size-s', 'row-cols-sm-3', 'row-cols-md-4', 'row-cols-lg-6');
+            grid.classList.add('size-s', 'row-cols-sm-3', 'row-cols-md-4', 'row-cols-lg-6');
 
-    } else if (size === 'M') {
+        } else if (size === 'M') {
 
-        grid.classList.add('size-m', 'row-cols-sm-2', 'row-cols-md-3', 'row-cols-lg-5');
+            grid.classList.add('size-m', 'row-cols-sm-2', 'row-cols-md-3', 'row-cols-lg-5');
 
-    } else {
+        } else {
 
-        grid.classList.add('size-l', 'row-cols-sm-2', 'row-cols-md-3', 'row-cols-lg-4', 'g-4');
+            grid.classList.add('size-l', 'row-cols-sm-2', 'row-cols-md-3', 'row-cols-lg-4', 'g-4');
 
-    }
+        }
+
+    });
 
     
 
@@ -805,9 +1014,13 @@ function switchViewMode(mode) {
 
     const visualContainer = document.getElementById('visualViewContainer');
 
+    const groupedContainer = document.getElementById('groupedViewContainer');
+
     const listContainer = document.getElementById('listViewContainer');
 
     const btnVisual = document.getElementById('btnViewVisual');
+
+    const btnGrouped = document.getElementById('btnViewGrouped');
 
     const btnList = document.getElementById('btnViewList');
 
@@ -815,29 +1028,51 @@ function switchViewMode(mode) {
 
 
 
+    if (visualContainer) visualContainer.style.display = 'none';
+
+    if (groupedContainer) groupedContainer.style.display = 'none';
+
+    if (listContainer) listContainer.style.display = 'none';
+
+    if (btnVisual) btnVisual.classList.remove('active');
+
+    if (btnGrouped) btnGrouped.classList.remove('active');
+
+    if (btnList) btnList.classList.remove('active');
+
+
+
+    // Update data-view attribute so CSS rules stay synchronized
+
+    document.documentElement.setAttribute('data-view', mode);
+
+
+
     if (mode === 'list') {
 
-        visualContainer.style.display = 'none';
+        if (listContainer) listContainer.style.display = 'block';
 
-        listContainer.style.display = 'block';
-
-        btnList.classList.add('active');
-
-        btnVisual.classList.remove('active');
-
-        // Hide S/M/L buttons when in list view since sizing only applies to visual cards
+        if (btnList) btnList.classList.add('active');
 
         if (sizeToggleWrapper) sizeToggleWrapper.style.visibility = 'hidden';
 
+    } else if (mode === 'grouped') {
+
+        if (groupedContainer) groupedContainer.style.display = 'block';
+
+        if (btnGrouped) btnGrouped.classList.add('active');
+
+        if (sizeToggleWrapper) sizeToggleWrapper.style.visibility = 'visible';
+
+        const savedSize = localStorage.getItem('preferredItemCardSize') || 'L';
+
+        setCardSize(savedSize);
+
     } else {
 
-        visualContainer.style.display = 'block';
+        if (visualContainer) visualContainer.style.display = 'block';
 
-        listContainer.style.display = 'none';
-
-        btnVisual.classList.add('active');
-
-        btnList.classList.remove('active');
+        if (btnVisual) btnVisual.classList.add('active');
 
         if (sizeToggleWrapper) sizeToggleWrapper.style.visibility = 'visible';
 
@@ -869,9 +1104,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
         radioBtn.checked = true;
 
-        setCardSize(savedSize);
-
     }
+
+    setCardSize(savedSize);
 
 
 
@@ -894,6 +1129,24 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('modalImageCaption').textContent = itemName;
 
         });
+
+    }
+
+
+
+    // Smoothly fade out and remove the loader overlay once DOM is ready
+
+    const loader = document.getElementById('pageLoaderOverlay');
+
+    if (loader) {
+
+        loader.classList.add('fade-out');
+
+        setTimeout(() => {
+
+            loader.remove();
+
+        }, 250);
 
     }
 
