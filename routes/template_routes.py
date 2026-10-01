@@ -378,6 +378,7 @@ def edit_template(item_id):
     conn = get_db()
 
 
+
     came_from_upload = False
 
     if request.referrer and '/template/upload' in request.referrer:
@@ -504,6 +505,12 @@ def edit_template(item_id):
 
 
 
+    # Grab file modification timestamp for cache-busting under production/Gunicorn
+
+    svg_mtime = int(os.path.getmtime(svg_path)) if os.path.exists(svg_path) else 0
+
+
+
     conn.close()
 
 
@@ -543,8 +550,20 @@ def edit_template(item_id):
             print(f"Error reading paths for template view: {e}")
 
 
-    return render_template('edit_template.html', item=item, paths_list=paths_list, came_from_upload=came_from_upload)
 
+    return render_template(
+
+        'edit_template.html', 
+
+        item=item, 
+
+        paths_list=paths_list, 
+
+        came_from_upload=came_from_upload,
+
+        svg_mtime=svg_mtime
+
+    )
 
 
 
