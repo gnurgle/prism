@@ -2,265 +2,529 @@
 
 
 
+
+
+
+
 {% block content %}
+
+
 
 <div class="d-flex justify-content-between align-items-center mb-3">
 
+
+
     <div>
+
+
 
         <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Dashboard</a>
 
+
+
         <h2 class="mb-0">Create Color Variation</h2>
 
-    </div>
 
-    <div>
-
-        <form id="variation-form" method="POST" class="d-inline">
-
-            <input type="hidden" name="source_item_id" id="source_item_id">
-
-            <input type="hidden" name="new_item_name" id="hidden_new_item_name">
-
-            <button type="submit" id="make-variation-btn" class="btn btn-primary" disabled>💾 Make Color Variation</button>
-
-        </form>
 
     </div>
+
+
 
 </div>
 
 
 
-<!-- Controls & Name Input Bar -->
 
-<div class="card shadow-sm mb-4">
+
+
+
+<!-- Controls & Name Input Bar (Sticky with 5px dark border) -->
+
+<div class="card shadow-sm mb-4 sticky-top my-3 border border-1 border-dark" style="top: 1rem; z-index: 1020; background-color: rgba(255, 255, 255, 0.95); backdrop-filter: blur(5px); border-color: var(--bs-dark) !important;">
+
+
 
     <div class="card-body">
 
+
+
         <div class="row g-3 align-items-center">
 
-            <div class="col-md-7">
 
-                <label for="new_item_name" class="form-label fw-bold">New Color Variation Item Name <span class="text-danger">*</span></label>
-
-                <input type="text" class="form-control" id="new_item_name" placeholder="Enter name for the new variation..." required>
-
-            </div>
 
             <div class="col-md-5">
 
-                <label for="groupFilter" class="form-label fw-bold">Filter by Group</label>
 
-                <select id="groupFilter" class="form-select">
 
-                    <option value="">All Groups (Grouped)</option>
+                <label for="new_item_name" class="form-label fw-bold">New Color Variation Item Name <span class="text-danger">*</span></label>
 
-                    {% for group in groups %}
 
-                        <option value="{{ group.ITMGRP }}">{{ group.ITMGRP }}</option>
 
-                    {% endfor %}
+                <input type="text" class="form-control" id="new_item_name" placeholder="Enter name for the new variation..." required>
 
-                </select>
+
 
             </div>
 
+
+
+            <div class="col-md-4">
+
+
+
+                <label for="groupFilter" class="form-label fw-bold">Filter by Group</label>
+
+
+
+                <select id="groupFilter" class="form-select">
+
+
+
+                    <option value="">All Groups (Grouped)</option>
+
+
+
+                    {% for group in groups %}
+
+
+
+                        <option value="{{ group.ITMGRP }}">{{ group.ITMGRP }}</option>
+
+
+
+                    {% endfor %}
+
+
+
+                </select>
+
+
+
+            </div>
+
+
+
+            <div class="col-md-3 text-md-end d-flex align-items-end justify-content-md-end mt-4">
+
+
+
+                <form id="variation-form" method="POST" class="w-100">
+
+
+
+                    <input type="hidden" name="source_item_id" id="source_item_id">
+
+
+
+                    <input type="hidden" name="new_item_name" id="hidden_new_item_name">
+
+
+
+                    <button type="submit" id="make-variation-btn" class="btn btn-primary w-100" disabled>💾 Make Color Variation</button>
+
+
+
+                </form>
+
+
+
+            </div>
+
+
+
         </div>
+
+
 
     </div>
 
+
+
 </div>
+
+
+
+
 
 
 
 <!-- Dynamic Items Container -->
 
+
+
 <div id="itemSectionsContainer">
+
+
 
     {% set current_group = namespace(val=None) %}
 
+
+
     {% for item in items %}
+
+
 
         {% set item_group = item.ITMGRP or 'Uncategorized' %}
 
+
+
         {% if current_group.val != item_group %}
+
+
 
             {% if not loop.first %}</div></div></div>{% endif %}
 
+
+
             {% set current_group.val = item_group %}
+
+
 
             <div class="card shadow-sm mb-4 group-section" data-group="{{ item.ITMGRP or '' }}">
 
+
+
                 <div class="card-header bg-dark text-white fw-bold">
+
+
 
                     {{ item_group }}
 
+
+
                 </div>
+
+
 
                 <div class="card-body bg-light">
 
+
+
                     <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
+
+
 
         {% endif %}
 
 
 
+
+
+
+
         <div class="col item-card-col" data-group="{{ item.ITMGRP or '' }}">
+
+
 
             <div class="card h-100 shadow-sm border item-card" data-item-id="{{ item.ITEMID }}" style="cursor: pointer;">
 
+
+
                 <div class="card-body d-flex gap-3 align-items-center">
+
+
 
                     <div class="flex-shrink-0">
 
+
+
                         {% if item.ITMIMG %}
+
+
 
                             {% set rawImg = item.ITMIMG.replace('\\', '/') %}
 
+
+
                             {% set thumbUrl = url_for('static', filename='') + ('images/item/thumb/' + rawImg.split('/')[-1] if 'thumb/' not in rawImg else rawImg.lstrip('/')) %}
+
+
 
                             {% set fullUrl = url_for('static', filename='') + ('images/item/' + rawImg.split('/')[-1] if not rawImg.startswith('images/') else rawImg.lstrip('/')) %}
 
+
+
                             <img src="{{ thumbUrl }}" class="rounded border item-thumb" data-full-img="{{ fullUrl }}" style="width: 64px; height: 64px; object-fit: cover;" alt="Item">
+
+
 
                         {% else %}
 
+
+
                             <div class="bg-secondary text-white rounded d-flex align-items-center justify-content-center small" style="width: 64px; height: 64px;">No Image</div>
+
+
 
                         {% endif %}
 
+
+
                     </div>
+
+
 
                     <div class="flex-grow-1">
 
+
+
                         <h6 class="fw-bold mb-1 text-primary">{{ item.ITMNAME }}</h6>
+
+
 
                         <p class="text-muted small mb-0">{{ item.ITMGRP or 'Unassigned' }}</p>
 
+
+
                     </div>
+
+
 
                 </div>
 
+
+
             </div>
+
+
 
         </div>
 
 
 
+
+
+
+
         {% if loop.last %}</div></div></div>{% endif %}
+
+
 
     {% endfor %}
 
+
+
 </div>
+
+
+
+
 
 
 
 <!-- Bottom Action Bar -->
 
+
+
 <div class="d-flex justify-content-end mt-4 mb-5">
+
+
 
     <button type="button" id="make-variation-btn-bottom" class="btn btn-primary btn-lg" disabled onclick="document.getElementById('variation-form').submit();">💾 Make Color Variation</button>
 
+
+
 </div>
+
+
+
+
 
 
 
 <!-- Large Hover Popup Container (Cursor Following) -->
 
+
+
 <div id="image-popup" class="card shadow-lg position-fixed d-none" style="width: 300px; z-index: 1050; pointer-events: none;">
+
+
 
     <div class="card-body p-2 bg-light text-center">
 
+
+
         <img id="popup-img" src="" alt="Enlarged Preview" class="img-fluid rounded" style="max-height: 280px; object-fit: contain;">
 
+
+
     </div>
+
+
 
 </div>
 
 
 
+
+
+
+
 <style>
+
+
 
     .item-card:hover {
 
+
+
         border-color: #0d6efd !important;
+
+
 
         box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
 
+
+
     }
+
+
 
     .item-card.selected {
 
+
+
         border: 2px solid #198754 !important;
+
+
 
         background-color: #f8f9fa;
 
+
+
     }
+
+
 
 </style>
 
 
 
+
+
+
+
 <script>
+
+
 
     document.addEventListener('DOMContentLoaded', function() {
 
+
+
         const cards = document.querySelectorAll('.item-card');
+
+
 
         const sourceInput = document.getElementById('source_item_id');
 
+
+
         const hiddenNameInput = document.getElementById('hidden_new_item_name');
+
+
 
         const makeBtnTop = document.getElementById('make-variation-btn');
 
+
+
         const makeBtnBottom = document.getElementById('make-variation-btn-bottom');
+
+
 
         const groupFilter = document.getElementById('groupFilter');
 
+
+
         const groupSections = document.querySelectorAll('.group-section');
+
+
 
         const nameInput = document.getElementById('new_item_name');
 
+
+
         
+
+
 
         const popup = document.getElementById('image-popup');
 
+
+
         const popupImg = document.getElementById('popup-img');
+
+
 
         const container = document.getElementById('itemSectionsContainer');
 
 
 
+
+
+
+
         // Form validation synchronization
+
+
 
         function validateForm() {
 
+
+
             const hasId = sourceInput.value !== '';
+
+
 
             const hasName = nameInput.value.trim() !== '';
 
+
+
             
+
+
 
             hiddenNameInput.value = nameInput.value.trim();
 
 
 
+
+
+
+
             if (hasId && hasName) {
+
+
 
                 makeBtnTop.removeAttribute('disabled');
 
+
+
                 makeBtnBottom.removeAttribute('disabled');
+
+
 
             } else {
 
+
+
                 makeBtnTop.setAttribute('disabled', 'true');
+
+
 
                 makeBtnBottom.setAttribute('disabled', 'true');
 
+
+
             }
 
+
+
         }
+
+
+
+
 
 
 
@@ -268,132 +532,264 @@
 
 
 
+
+
+
+
         // Card selection logic
+
+
 
         cards.forEach(card => {
 
+
+
             card.addEventListener('click', function() {
+
+
 
                 cards.forEach(c => c.classList.remove('selected'));
 
+
+
                 this.classList.add('selected');
+
+
 
                 sourceInput.value = this.getAttribute('data-item-id');
 
+
+
                 validateForm();
+
+
 
             });
 
+
+
         });
+
+
+
+
 
 
 
         // Group filter logic
 
+
+
         groupFilter.addEventListener('change', function() {
+
+
 
             const selectedGroup = this.value;
 
+
+
             groupSections.forEach(section => {
+
+
 
                 const group = section.getAttribute('data-group');
 
+
+
                 if (!selectedGroup || group === selectedGroup) {
+
+
 
                     section.style.display = '';
 
+
+
                 } else {
+
+
 
                     section.style.display = 'none';
 
+
+
                 }
+
+
 
             });
 
+
+
         });
+
+
+
+
 
 
 
         // Hover Preview Event Handlers
 
+
+
         container.addEventListener('mouseover', function(e) {
+
+
 
             const thumb = e.target.closest('.item-thumb');
 
+
+
             if (thumb) {
+
+
 
                 const fullUrl = thumb.getAttribute('data-full-img');
 
+
+
                 if (fullUrl) {
+
+
 
                     popupImg.src = fullUrl;
 
+
+
                     popup.classList.remove('d-none');
+
+
 
                 }
 
+
+
             }
 
+
+
         });
+
+
+
+
 
 
 
         container.addEventListener('mousemove', function(e) {
 
+
+
             const thumb = e.target.closest('.item-thumb');
+
+
 
             if (thumb && !popup.classList.contains('d-none')) {
 
+
+
                 const offsetX = 20;
+
+
 
                 const offsetY = 20;
 
+
+
                 let left = e.clientX + offsetX;
+
+
 
                 let top = e.clientY + offsetY;
 
+
+
                 
+
+
 
                 if (left + 320 > window.innerWidth) {
 
+
+
                     left = e.clientX - 320 - offsetX;
 
+
+
                 }
+
+
 
                 if (top + 300 > window.innerHeight) {
 
+
+
                     top = window.innerHeight - 310;
 
+
+
                 }
+
+
+
+
 
 
 
                 popup.style.left = left + 'px';
 
+
+
                 popup.style.top = top + 'px';
+
+
 
             }
 
+
+
         });
+
+
+
+
 
 
 
         container.addEventListener('mouseout', function(e) {
 
+
+
             const thumb = e.target.closest('.item-thumb');
+
+
 
             if (thumb) {
 
+
+
                 popup.classList.add('d-none');
+
+
 
                 popupImg.src = '';
 
+
+
             }
+
+
 
         });
 
+
+
     });
 
+
+
 </script>
+
+
 
 {% endblock %}
