@@ -1,0 +1,285 @@
+{% extends 'base.html' %}
+
+
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+
+    <div>
+
+        <h2 class="mb-1">Weekly Restock Projections</h2>
+
+    </div>
+
+    <a href="/" class="btn btn-outline-secondary btn-sm">← Back to Dashboard</a>
+
+</div>
+
+
+
+<!-- Date Selectors & Filters Form -->
+
+<div class="card shadow-sm mb-4">
+
+    <div class="card-body">
+
+        <form method="GET" action="{{ url_for('report_bp.restock_projection') }}" class="row g-3 align-items-end">
+
+            <div class="col-md-4">
+
+                <label for="ref_week" class="form-label fw-bold">Sales Reference Week</label>
+
+                <input type="date" class="form-control" id="ref_week" name="ref_week" value="{{ ref_week }}" required>
+
+                <div class="form-text">Select any date in reference week.</div>
+
+            </div>
+
+            <div class="col-md-4">
+
+                <label for="start_week" class="form-label fw-bold">Restock Start Week</label>
+
+                <input type="date" class="form-control" id="start_week" name="start_week" value="{{ start_week }}" required>
+
+                <div class="form-text">Week to begin restock calculations.</div>
+
+            </div>
+
+            <div class="col-md-4">
+
+                <label for="last_week" class="form-label fw-bold">Last Week</label>
+
+                <input type="date" class="form-control" id="last_week" name="last_week" value="{{ last_week }}" required>
+
+                <div class="form-text">Final week of projection.</div>
+
+            </div>
+
+            
+
+            <!-- Checkbox Filter -->
+
+            <div class="col-12">
+
+                <div class="form-check">
+
+                    <input class="form-check-input" type="checkbox" id="exclude_non_current" name="exclude_non_current" {% if exclude_non_current %}checked{% endif %}>
+
+                    <label class="form-check-label fw-bold text-dark" for="exclude_non_current">
+
+                        Exclude items that are inactive
+
+                    </label>
+
+                </div>
+
+            </div>
+
+
+
+            <div class="col-12 text-end">
+
+                <button type="submit" class="btn btn-primary px-4">Calculate Projections</button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+
+<!-- Results Table -->
+
+<div class="card shadow-sm">
+
+    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+
+        <h5 class="mb-0 text-white">Recommended Production List</h5>
+
+        <span class="badge bg-secondary">{{ projections|length }} item(s) requiring production</span>
+
+    </div>
+
+    <div class="card-body p-0">
+
+        <div class="table-responsive table-striped">
+
+            <table class="table table-hover table-striped mb-0 align-middle">
+
+                <thead class="table-dark table-striped">
+
+                    <tr>
+
+                        <th>Item ID</th>
+
+                        <th>Item Name</th>
+
+                        <th class="text-center">Reference Sales</th>
+
+                        <th class="text-center">Current Inventory</th>
+
+                        <th class="text-center">Recommended to Make (Weekly)</th>
+
+                        <th class="text-center">Actions</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    {% if projections %}
+
+                        {% for p in projections %}
+
+                        <tr>
+
+                            <td>{{ p.item_id }}</td>
+
+                            <td>
+
+                                <a href="{{ url_for('item_bp.item_detail', item_id=p.item_id) }}" class="text-decoration-none fw-bold">
+
+                                    {{ p.item_name }}
+
+                                </a>
+
+                            </td>
+
+                            <td class="text-center">{{ p.amount_sold_ref }}</td>
+
+                            <td class="text-center">
+
+                                <span class="badge {% if p.current_inventory == 0 %}bg-danger{% else %}bg-success{% endif %}">
+
+                                    {{ p.current_inventory }}
+
+                                </span>
+
+                            </td>
+
+                            <td class="text-center">
+
+                                <span class="badge btn-primary fs-6 px-3 py-2">{{ p.recommended_to_make }}</span>
+
+                            </td>
+
+                            <td class="text-center">
+
+                                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#weeksRow-{{ loop.index }}" aria-expanded="false" aria-controls="weeksRow-{{ loop.index }}">
+
+                                    Show Weeks ▼
+
+                                </button>
+
+                            </td>
+
+                        </tr>
+
+                        <!-- Collapsible Sub-list Row -->
+
+                        <tr class="collapse bg-light table-striped" id="weeksRow-{{ loop.index }}">
+
+                            <td colspan="6" class="p-3">
+
+                                <div class="card border shadow-sm">
+
+                                    <div class="card-header btn-primary text-white py-2 small fw-bold">
+
+                                        Weekly Projected Inventory Breakdown — {{ p.item_name }}
+
+                                    </div>
+
+                                    <div class="card-body p-0">
+
+                                        <table class="table table-sm table-bordered mb-0 bg-white text-center align-middle">
+
+                                            <thead class="table-dark">
+
+                                                <tr class="small">
+
+                                                    <th>Week #</th>
+
+                                                    <th>Date Range</th>
+
+                                                    <th>Starting Inventory</th>
+
+                                                    <th>Produced (+)</th>
+
+                                                    <th>Projected Sales (-)</th>
+
+                                                    <th>Ending Inventory</th>
+
+                                                </tr>
+
+                                            </thead>
+
+                                            <tbody>
+
+                                                {% for wk in p.weekly_breakdown %}
+
+                                                <tr class="small">
+
+                                                    <td class="fw-bold">Week {{ wk.week_num }}</td>
+
+                                                    <td>{{ wk.start_date }} — {{ wk.end_date }}</td>
+
+                                                    <td>{{ wk.starting_inventory }}</td>
+
+                                                    <td class="text-success fw-bold">+{{ wk.produced }}</td>
+
+                                                    <td class="text-danger">-{{ wk.demand }}</td>
+
+                                                    <td class="fw-bold {% if wk.ending_inventory < 0 %}text-danger{% else %}text-dark{% endif %}">
+
+                                                        {{ wk.ending_inventory }}
+
+                                                    </td>
+
+                                                </tr>
+
+                                                {% endfor %}
+
+                                            </tbody>
+
+                                        </table>
+
+                                    </div>
+
+                                </div>
+
+                            </td>
+
+                        </tr>
+
+                        {% endfor %}
+
+                    {% else %}
+
+                        <tr>
+
+                            <td colspan="6" class="text-center py-4 text-muted">
+
+                                No active restock items found for the selected criteria.
+
+                            </td>
+
+                        </tr>
+
+                    {% endif %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}
