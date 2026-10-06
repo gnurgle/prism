@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, send_file, flash, redirect, url_for
-
-from datetime import datetime
+import math
+from datetime import datetime, timedelta
 
 import io
 
@@ -1027,3 +1027,310 @@ def download_pdf(filename):
     pdf_path = os.path.join('static', 'reports', filename)
 
     return send_file(pdf_path, as_attachment=True)
+
+
+
+
+
+
+
+
+
+
+import math
+
+from datetime import datetime, timedelta
+
+
+
+def get_monday_sunday(input_date):
+
+    """Given a date, return the Monday and Sunday of that week."""
+
+    start_monday = input_date - timedelta(days=input_date.weekday())
+
+    end_sunday = start_monday + timedelta(days=6)
+
+    return start_monday, end_sunday
+
+
+
+@report_bp.route('/reports/restock-projection', methods=['GET'])
+
+def restock_projection():
+
+    db = get_db()
+
+    
+
+    today = datetime.today().date()
+
+    default_ref = (today - timedelta(days=7)).strftime('%Y-%m-%d')
+
+    default_start = today.strftime('%Y-%m-%d')
+
+    default_last = (today + timedelta(days=28)).strftime('%Y-%m-%d')
+
+    
+
+    ref_week_str = request.args.get('ref_week', default_ref)
+
+    start_week_str = request.args.get('start_week', default_start)
+
+    last_week_str = request.args.get('last_week', default_last)
+
+    exclude_non_current = request.args.get('exclude_non_current') == 'on'
+
+    
+
+    projections = []
+
+    
+
+    try:
+
+        ref_input = datetime.strptime(ref_week_str, '%Y-%m-%d').date()
+
+        ref_start_dt, ref_end_dt = get_monday_sunday(ref_input)
+
+        
+
+        start_input = datetime.strptime(start_week_str, '%Y-%m-%d').date()
+
+        start_dt, _ = get_monday_sunday(start_input)
+
+        
+
+        last_input = datetime.strptime(last_week_str, '%Y-%m-%d').date()
+
+        _, last_end_dt = get_monday_sunday(last_input)
+
+        
+
+        # Generate all weeks from start_dt to last_end_dt
+
+        all_weeks = []
+
+        curr_w_start = start_dt
+
+        while curr_w_start <= last_end_dt:
+
+            curr_w_end = curr_w_start + timedelta(days=6)
+
+            all_weeks.append((curr_w_start, curr_w_end))
+
+            curr_w_start += timedelta(days=7)
+
+            
+
+        num_total_weeks = len(all_weeks)
+
+        if num_total_weeks == 0:
+
+            num_total_weeks = 1
+
+        
+
+        # Production happens in all weeks except the final week (last week has 0 production)
+
+        prod_weeks_count = max(1, num_total_weeks - 1)
+
+        
+
+        # 1. Get all items sold during reference week
+
+        sales_query = """
+
+            SELECT s.ITEMID, i.ITMNAME, i.CURRENT, SUM(s.SUNITS) as total_sold
+
+            FROM ITMSALE s
+
+            JOIN ITM i ON s.ITEMID = i.ITEMID
+
+            WHERE s.SDATE BETWEEN ? AND ?
+
+        """
+
+        params = [ref_start_dt.isoformat(), ref_end_dt.isoformat()]
+
+        
+
+        if exclude_non_current:
+
+            sales_query += " AND (i.CURRENT = 1)"
+
+            
+
+        sales_query += " GROUP BY s.ITEMID"
+
+        
+
+        sold_items = db.execute(sales_query, params).fetchall()
+
+        
+
+        for row in sold_items:
+
+            item_id = row['ITEMID']
+
+            item_name = row['ITMNAME']
+
+            amount_sold_ref = row['total_sold'] or 0
+
+            
+
+            # 2. Get inventory of the item at the start week
+
+            inv_row = db.execute(
+
+                """
+
+                SELECT ITMSTOCK FROM ITMINV 
+
+                WHERE ITEMID = ? AND TS <= ?
+
+                ORDER BY TS DESC, ITMTRNID DESC LIMIT 1
+
+                """,
+
+                (item_id, start_dt.isoformat())
+
+            ).fetchone()
+
+            
+
+            if not inv_row:
+
+                inv_row = db.execute(
+
+                    """
+
+                    SELECT ITMSTOCK FROM ITMINV 
+
+                    WHERE ITEMID = ? 
+
+                    ORDER BY TS DESC, ITMTRNID DESC LIMIT 1
+
+                    """,
+
+                    (item_id,)
+
+                ).fetchone()
+
+                
+
+            current_inventory = inv_row['ITMSTOCK'] if inv_row and inv_row['ITMSTOCK'] is not None else 0
+
+            
+
+            # 3. Iterative Loop Check for Recommended Weekly Production
+
+            recommended_to_make = 0
+
+            while True:
+
+                running_inv = current_inventory
+
+                for w_idx in range((num_total_weeks-1)):
+
+                    produced = recommended_to_make if w_idx < prod_weeks_count else 0
+
+                    running_inv = running_inv + produced - amount_sold_ref
+
+                
+
+                if running_inv >= 0:
+
+                    break
+
+                recommended_to_make += 1
+
+            
+
+            if recommended_to_make <= 0:
+
+                continue
+
+            
+
+            # 4. Generate week-by-week breakdown including the final week (with 0 production)
+
+            weekly_breakdown = []
+
+            running_inv = current_inventory
+
+            
+
+            for w_idx, (w_start, w_end) in enumerate(all_weeks):
+
+                produced = recommended_to_make 
+
+                demand = amount_sold_ref
+
+                ending_inv = running_inv + produced - demand
+
+                
+
+                weekly_breakdown.append({
+
+                    'week_num': w_idx + 1,
+
+                    'start_date': w_start.strftime('%b %d, %Y'),
+
+                    'end_date': w_end.strftime('%b %d, %Y'),
+
+                    'starting_inventory': running_inv,
+
+                    'produced': produced,
+
+                    'demand': demand,
+
+                    'ending_inventory': ending_inv
+
+                })
+
+                
+
+                running_inv = ending_inv
+
+            
+
+            projections.append({
+
+                'item_id': item_id,
+
+                'item_name': item_name,
+
+                'amount_sold_ref': amount_sold_ref,
+
+                'current_inventory': current_inventory,
+
+                'recommended_to_make': int(recommended_to_make),
+
+                'weekly_breakdown': weekly_breakdown
+
+            })
+
+            
+
+    except Exception as e:
+
+        flash(f'Error calculating projections: {str(e)}', 'danger')
+
+
+
+    return render_template(
+
+        'restock_projection.html',
+
+        ref_week=ref_week_str,
+
+        start_week=start_week_str,
+
+        last_week=last_week_str,
+
+        exclude_non_current=exclude_non_current,
+
+        projections=projections
+
+    )
