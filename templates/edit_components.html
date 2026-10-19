@@ -1,1309 +1,561 @@
 {% extends 'base.html' %}
-
-
-
 {% block content %}
-
-
-
 <!-- Reference the separate stylesheet for 25% transparency and effects -->
-
 <link rel="stylesheet" href="{{ url_for('static', filename='css/svg_effects.css') }}">
-
-
-
 <div class="row vh-80">
-
     <!-- Sidebar: Component Information & Edit Form -->
-
     <div class="col-md-4 bg-white border-end p-4 shadow-sm" style="height: 80vh; overflow-y: auto;">
-
         <div class="d-flex justify-content-between align-items-center mb-3">
-
             <h4 class="mb-0">Component Details</h4>
-
             <a href="{{ url_for('item_bp.item_detail', item_id=item.ITEMID) }}" class="btn btn-outline-secondary btn-sm">Back</a>
-
         </div>
-
         <hr>
-
-        
-
         <form id="components-batch-form" onsubmit="event.preventDefault(); saveAllComponents();">
-
             <div id="no-selection-msg" class="text-muted text-center py-5">
-
                 <p>Click any region to view and edit component properties.</p>
-
             </div>
-
-
-
             <div id="component-editor-fields" style="display: none;">
-
                 <input type="hidden" id="active_comp_id">
-
                 <input type="hidden" id="active_region_id">
-
-
-
                 <div class="mb-3">
-
                     <label for="comp_num" class="form-label fw-bold">Component Number</label>
-
                     <input type="number" class="form-control" id="comp_num" oninput="stageComponentChanges()">
-
                 </div>
-
-
-
                 <div class="mb-3">
-
                     <label for="comp_name" class="form-label fw-bold">Component Name</label>
-
                     <input type="text" class="form-control" id="comp_name" oninput="stageComponentChanges()">
-
                 </div>
-
-
-
                 <div class="row">
-
                     <div class="col-6 mb-3">
-
                         <label for="comp_len" class="form-label fw-bold">Length</label>
-
                         <input type="number" step="any" class="form-control" id="comp_len" oninput="stageComponentChanges()">
-
                     </div>
-
                     <div class="col-6 mb-3">
-
                         <label for="comp_wid" class="form-label fw-bold">Width</label>
-
                         <input type="number" step="any" class="form-control" id="comp_wid" oninput="stageComponentChanges()">
-
                     </div>
-
                 </div>
-
-
-
                 <!-- Component Glass Selector & Direct Color Grid -->
-
                 <div class="mb-3">
-
                     <label class="form-label fw-bold">Component Glass</label>
-
                     <input type="hidden" id="glass_id" onchange="handleGlassChange()">
-
-                    
-
                     <!-- Active Selected Glass Indicator -->
-
                     <div id="selected-glass-display" class="border rounded p-2 mb-2 bg-light d-flex align-items-center justify-content-between">
-
                         <span id="selected-glass-label" class="text-muted small">No glass selected</span>
-
                         <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" id="clear-glass-btn" style="display:none;" onclick="clearGlassSelection()">Clear</button>
-
                     </div>
-
-
-
                     <!-- Apply Previous Glass Button -->
-
                     <div class="mb-2">
-
                         <button type="button" class="btn btn-outline-secondary btn-sm w-100 text-muted" id="apply-prev-glass-btn" onclick="applyPreviousGlass()" disabled>
-
                             Apply Previous Glass: <span id="prev-glass-name">None</span>
-
                         </button>
-
                     </div>
-
-
-
                     <!-- Direct Color Grid in the Sidebar (Color Squares) -->
-
                     <label class="form-label small text-muted mb-1">Select Color:</label>
-
                     <div class="d-flex flex-wrap gap-1 p-2 border rounded bg-white" style="max-height: 140px; overflow-y: auto;">
-
                         {% for color in colors %}
-
                             <div class="color-square shadow-sm" 
-
                                  style="width: 28px; height: 28px; {% if color.COLOR == 'Transparent' %}background: repeating-conic-gradient(#ccc 0% 25%, #fff 0% 50%) 0 0/10px 10px;{% else %}background-color: #{{ color.CHEX }};{% endif %} border: 1px solid #ccc; cursor: pointer; border-radius: 3px;"
-
                                  title="{{ color.COLOR }}"
-
                                  data-color-name="{{ color.COLOR }}"
-
                                  onclick="openGlassGridModal('{{ color.COLOR }}')">
-
                             </div>
-
                         {% endfor %}
-
                     </div>
-
                 </div>
-
-
-
                 <div class="row">
-
                     <div class="col-4 mb-3 form-check">
-
                         <input type="checkbox" class="form-check-input" id="isscrap" onchange="stageComponentChanges()">
-
                         <label class="form-check-label" for="isscrap">Scrap</label>
-
                     </div>
-
-
-
                     <div class="col-8 mb-3 form-check">
-
                         <input type="checkbox" class="form-check-input" id="isgrain" onchange="stageComponentChanges()">
-
                         <label class="form-check-label" for="isgrain">Grain Specific</label>
-
                     </div>
-
                 </div>
-
             </div>
-
         </form>
-
     </div>
-
-
-
     <!-- Main Focus: Interactive SVG Canvas -->
-
     <div class="col-md-8 d-flex flex-column align-items-center justify-content-center bg-light p-3" style="height: 80vh;">
-
         <!-- Header row with Title and Save Button -->
-
         <div class="d-flex justify-content-between align-items-center w-100 mb-2 px-2">
-
             <h5 class="text-secondary mb-0">{{ item.ITMNAME }} - Interactive Layout</h5>
-
             <div class="d-flex align-items-center gap-2">
-
                 <div id="save-spinner" class="spinner-border spinner-border-sm text-success" role="status" style="display: none;">
-
                     <span class="visually-hidden">Loading...</span>
-
                 </div>
-
                 <button id="save-btn" type="button" class="btn btn-success btn-sm shadow-sm" onclick="saveAllComponents()">Save All Changes</button>
-
             </div>
-
         </div>
-
-        
-
         <!-- SVG Container -->
-
         <div id="svg-wrapper" class="svg-container border rounded bg-white p-2 shadow-sm w-100 h-100 d-flex justify-content-center align-items-center overflow-hidden position-relative" style="background-color: #ffffff; transition: background 0.3s ease;">
-
-            
-
             <!-- Background Toggle Buttons (Top-Right) -->
-
             <div class="position-absolute top-0 end-0 m-3 z-3 btn-group shadow-sm" role="group" aria-label="Background Switcher">
-
                 <button type="button" class="btn btn-light btn-sm border bg-white" id="bg-white-btn" title="White Background" onclick="setSvgBackground('white')">
-
                     <span style="display:inline-block; width:14px; height:14px; background:#ffffff; border:1px solid #ccc; vertical-align:middle;"></span>
-
                 </button>
-
                 <button type="button" class="btn btn-light btn-sm border" id="bg-outside-btn" title="Outside Background" onclick="setSvgBackground('outside')">
-
                     ☀️
-
                 </button>
-
                 <button type="button" class="btn btn-light btn-sm border" id="bg-transparent-btn" title="Transparent Background" onclick="setSvgBackground('transparent')">
-
                     <span style="display:inline-block; width:14px; height:14px; background:repeating-conic-gradient(#ccc 0% 25%, #fff 0% 50%) 0 0/10px 10px; border:1px solid #222; vertical-align:middle;"></span>
-
                 </button>
-
             </div>
-
-
-
             <!-- Reactive Joystick (Bottom-Left) -->
-
             <div id="bg-joystick" class="position-absolute bottom-0 start-0 m-3 z-3 bg-dark bg-opacity-50 border border-secondary rounded-circle shadow-lg d-flex align-items-center justify-content-center" style="display: none; width: 100px; height: 100px; touch-action: none; cursor: grab;">
-
                 <div id="joystick-knob" class="bg-white bg-opacity-75 rounded-circle shadow-sm position-absolute" style="width: 44px; height: 44px; transition: transform 0.05s linear; pointer-events: none;"></div>
-
             </div>
-
-
-
             <object data="{{ svg_url }}" type="image/svg+xml" id="svg-object" style="width: 100%; height: 100%; object-fit: contain;"></object>
-
-
-
             <!-- Bottom-right overlay buttons for stroke color and width adjustment -->
-
             <div style="position: absolute; bottom: 10px; right: 10px; z-index: 10; display: flex; flex-direction: column; gap: 5px; align-items: flex-end;">
-
                 <!-- Stroke Color / Patina Buttons -->
-
                 <div class="btn-group shadow-sm" role="group" aria-label="Stroke Color">
-
                     <button id="stroke-silver-btn" type="button" class="btn btn-sm btn-light active border" title="Silver Patina" onclick="setPatinaChoice('Silver')">
-
                         <span style="display:inline-block; width:12px; height:12px; background:#C0C0C0; border:1px solid #888; vertical-align:middle;"></span> Silver
-
                     </button>
-
                     <button id="stroke-copper-btn" type="button" class="btn btn-sm btn-light border" title="Copper Patina" onclick="setPatinaChoice('Copper')">
-
                         <span style="display:inline-block; width:12px; height:12px; background:#B87333; border:1px solid #888; vertical-align:middle;"></span> Copper
-
                     </button>
-
                     <button id="stroke-black-btn" type="button" class="btn btn-sm btn-light border" title="Black Patina" onclick="setPatinaChoice('Black')">
-
                         <span style="display:inline-block; width:12px; height:12px; background:#000000; border:1px solid #888; vertical-align:middle;"></span> Black
-
                     </button>
-
                 </div>
-
-
-
                 <!-- Stroke Width Buttons -->
-
                 <div class="btn-group shadow-sm" role="group" aria-label="Stroke Width">
-
                     <button id="stroke-thin-btn" type="button" class="btn btn-sm btn-secondary active text-white font-weight-bold" title="Thin Line" onclick="setStrokeWidthAndCookie(2)">🔽</button>
-
                     <button id="stroke-thick-btn" type="button" class="btn btn-sm btn-light text-dark font-weight-bold" title="Thick Line" onclick="setStrokeWidthAndCookie(22)">🔼</button>
-
                 </div>
-
             </div>
-
         </div>
-
     </div>
-
 </div>
-
-
-
 <!-- GLASS GRID MODAL -->
-
 <div class="modal fade" id="glassGridModal" tabindex="-1" aria-hidden="true">
-
     <div class="modal-dialog modal-xl modal-dialog-scrollable modal-dialog-centered">
-
         <div class="modal-content">
-
             <div class="modal-header">
-
                 <h5 class="modal-title" id="glassModalTitle">Glass Selection</h5>
-
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-
             </div>
-
             <div class="modal-body bg-light">
-
                 <div id="glass-cards-container" class="row row-cols-1 row-cols-md-3 g-3">
-
                     <!-- Populated dynamically via JS -->
-
                 </div>
-
             </div>
-
             <div class="modal-footer bg-white sticky-bottom shadow-sm justify-content-between">
-
                 <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Back to Colors</button>
-
                 <button type="button" class="btn btn-primary" id="use-glass-btn" onclick="confirmGlassSelection()" disabled>Use glass</button>
-
             </div>
-
         </div>
-
     </div>
-
 </div>
-
-
-
 <!-- MAGNIFYING GLASS ZOOM MODAL -->
-
 <div class="modal fade" id="imageZoomModal" tabindex="-1" aria-hidden="true">
-
     <div class="modal-dialog modal-dialog-centered modal-fullscreen p-4">
-
         <div class="modal-content bg-dark bg-opacity-75 border-0">
-
             <div class="modal-body text-center position-relative d-flex align-items-center justify-content-center p-0">
-
                 <div class="position-relative d-inline-block border border-3 border-white rounded shadow-lg bg-black">
-
                     <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-2 z-3 bg-secondary p-2 rounded-circle shadow" data-bs-dismiss="modal" aria-label="Close" style="opacity: 1;"></button>
-
                     <img id="zoomed-glass-img" src="" class="img-fluid rounded max-vh-85 object-fit-contain" alt="Zoomed Glass" style="max-height: 85vh;">
-
                 </div>
-
             </div>
-
         </div>
-
     </div>
-
 </div>
-
-
-
 <!-- Global Configurations for JS files -->
-
 <script>
-
     let componentsData = {{ components_json | tojson }};
-
     const outsideBgUrl = "{{ url_for('static', filename='images/backgrounds/outside.jpg') }}";
-
     const glassImgBaseUrl = "{{ url_for('static', filename='') }}";
-
     const effectImgBaseUrl = "{{ url_for('static', filename='images/effects/') }}";
-
     const initialPatina = "{{ patina_choice | default('Silver') }}";
-
-
-
     // Cookie helper functions
-
     function setCookie(name, value, days = 365) {
-
         let expires = "";
-
         if (days) {
-
             let date = new Date();
-
             date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
-
             expires = "; expires=" + date.toUTCString();
-
         }
-
         document.cookie = name + "=" + (value || "") + expires + "; path=/";
-
     }
-
-
-
     function getCookie(name) {
-
         let nameEQ = name + "=";
-
         let ca = document.cookie.split(';');
-
         for(let i=0; i < ca.length; i++) {
-
             let c = ca[i];
-
             while (c.charAt(0)==' ') c = c.substring(1,c.length);
-
             if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length,c.length);
-
         }
-
         return null;
-
     }
-
-
-
     // Deduplicate unique glass options mapping array
-
     const rawGlassOptions = [
-
         {% for glass in glass_options %}
-
         {
-
             id: "{{ glass.GLASSID }}",
-
             name: "{{ glass.GLSNAME }}",
-
             color: "{{ glass.COLOR }}",
-
             source: "{{ glass.GLSOURCE | default('Unknown') }}",
-
             price: "{{ '%.2f' | format(glass.GLSPRICE) }}",
-
             image: "{% if glass.GLSIMG %}{{ url_for('static', filename=glass.GLSIMG.replace('static/', '').lstrip('/')) }}{% endif %}",
-
             hex: "{{ glass.CHEX | default('cccccc') }}",
-
             tex: "{{ glass.GLSTEX | default('') }}",
-
             trns: "{{ glass.GTRNSV | default(75) }}"
-
         },
-
         {% endfor %}
-
     ];
-
-
-
     const allGlassOptions = Array.from(new Map(rawGlassOptions.map(item => [item.id, item])).values());
-
     let selectedTemporaryGlass = null;
-
     let currentSelectedGlass = null;  // Tracks the actively applied glass
-
     let previousSelectedGlass = null; // Tracks the actual previous glass
-
-
-
     function updatePreviousGlassButton() {
-
         const btn = document.getElementById('apply-prev-glass-btn');
-
         const nameSpan = document.getElementById('prev-glass-name');
-
-        
-
         if (previousSelectedGlass && btn && nameSpan) {
-
             btn.disabled = false;
-
             btn.classList.remove('text-muted');
-
             nameSpan.innerText = previousSelectedGlass.name;
-
         } else if (btn && nameSpan) {
-
             btn.disabled = true;
-
             btn.classList.add('text-muted');
-
             nameSpan.innerText = 'None';
-
         }
-
     }
-
-
-
     function applyPreviousGlass() {
-
         if (!previousSelectedGlass) return;
-
         selectedTemporaryGlass = previousSelectedGlass;
-
         confirmGlassSelection();
-
     }
-
-    
-
     function openGlassGridModal(colorName) {
-
         document.getElementById('glassModalTitle').innerText = `Glass Selection: ${colorName}`;
-
         const container = document.getElementById('glass-cards-container');
-
         container.innerHTML = '';
-
-
-
         const filteredGlass = allGlassOptions.filter(g => g.color === colorName);
-
-
-
         if (filteredGlass.length === 0) {
-
             container.innerHTML = `<div class="col-12 text-center text-muted py-4">No glass found for this color.</div>`;
-
         } else {
-
             filteredGlass.forEach(glass => {
-
                 const cardHtml = `
-
                     <div class="col">
-
                         <div class="card h-100 shadow-sm glass-card" data-glass-id="${glass.id}" style="cursor: pointer;" onclick="selectCard('${glass.id}')">
-
                             <div class="position-relative bg-secondary bg-opacity-10 text-center" style="height: 150px; overflow: hidden;">
-
                                 <img src="${glass.image}" class="w-100 h-100 object-fit-cover" alt="${glass.name}" onerror="this.src='{{ url_for('static', filename='images/placeholder.png') }}'">
-
                                 <button type="button" class="btn btn-light btn-sm position-absolute top-0 end-0 m-2 rounded-circle shadow-sm p-1" title="Zoom image" onclick="event.stopPropagation(); zoomGlassImage('${glass.image}')">
-
                                     🔍
-
                                 </button>
-
                             </div>
-
                             <div class="card-body p-2 d-flex flex-column justify-content-between">
-
                                 <div>
-
                                     <h6 class="card-title text-truncate mb-1" title="${glass.name}">${glass.name}</h6>
-
                                     <p class="card-text small text-muted mb-1">Source: ${glass.source}</p>
-
                                 </div>
-
                                 <p class="card-text fw-bold text-success mb-0">$${glass.price}</p>
-
                             </div>
-
                         </div>
-
                     </div>
-
                 `;
-
                 container.innerHTML += cardHtml;
-
             });
-
         }
-
-
-
         selectedTemporaryGlass = null;
-
         document.getElementById('use-glass-btn').disabled = true;
-
-
-
         const glassModal = new bootstrap.Modal(document.getElementById('glassGridModal'));
-
         glassModal.show();
-
     }
-
-
-
     function selectCard(glassId) {
-
         document.querySelectorAll('.glass-card').forEach(c => c.classList.remove('border-primary', 'bg-light', 'border-3'));
-
         const selectedCardEl = document.querySelector(`.glass-card[data-glass-id="${glassId}"]`);
-
         if (selectedCardEl) {
-
             selectedCardEl.classList.add('border-primary', 'bg-light', 'border-3');
-
         }
-
         selectedTemporaryGlass = allGlassOptions.find(g => String(g.id) === String(glassId));
-
         document.getElementById('use-glass-btn').disabled = false;
-
     }
-
-
-
     function zoomGlassImage(imgUrl) {
-
         document.getElementById('zoomed-glass-img').src = imgUrl;
-
         const zoomModal = new bootstrap.Modal(document.getElementById('imageZoomModal'));
-
         zoomModal.show();
-
     }
-
-
-
     function confirmGlassSelection() {
-
         if (!selectedTemporaryGlass) return;
-
-
-
         // Shift current glass to previous before updating current
-
         if (currentSelectedGlass && currentSelectedGlass.id !== selectedTemporaryGlass.id) {
-
             previousSelectedGlass = currentSelectedGlass;
-
         }
-
-        
-
         currentSelectedGlass = selectedTemporaryGlass;
-
         updatePreviousGlassButton();
-
-
-
         document.getElementById('glass_id').value = selectedTemporaryGlass.id;
-
         document.getElementById('selected-glass-label').innerText = `${selectedTemporaryGlass.name} (ID: ${selectedTemporaryGlass.id})`;
-
         document.getElementById('selected-glass-label').classList.remove('text-muted');
-
         document.getElementById('clear-glass-btn').style.display = 'inline-block';
-
-
-
         handleGlassChange();
-
-
-
         const glassModalEl = document.getElementById('glassGridModal');
-
         const glassModalInstance = bootstrap.Modal.getInstance(glassModalEl) || bootstrap.Modal.getOrCreateInstance(glassModalEl);
-
         if (glassModalInstance) {
-
             glassModalInstance.hide();
-
         }
-
     }
-
-
-
     function clearGlassSelection() {
-
         if (currentSelectedGlass) {
-
             previousSelectedGlass = currentSelectedGlass;
-
             currentSelectedGlass = null;
-
             updatePreviousGlassButton();
-
         }
-
-
-
         document.getElementById('glass_id').value = '';
-
         document.getElementById('selected-glass-label').innerText = 'No glass selected';
-
         document.getElementById('selected-glass-label').classList.add('text-muted');
-
         document.getElementById('clear-glass-btn').style.display = 'none';
-
-
-
         handleGlassChange();
-
     }
-
 </script>
-
-
-
 <!-- Referenced JS Modules -->
-
 <script src="{{ url_for('static', filename='js/joystick_background.js') }}"></script>
-
 <script src="{{ url_for('static', filename='js/component_sidebar.js') }}"></script>
-
 <script src="{{ url_for('static', filename='js/svg_renderer.js') }}"></script>
-
-
-
 <script>
-
 let localComponentsData = JSON.parse(JSON.stringify(componentsData));
-
-
-
 let currentPatina = (initialPatina && ['Silver', 'Copper', 'Black'].includes(initialPatina)) ? initialPatina : 'Silver';
-
 let currentStrokeColor = currentPatina === 'Copper' ? '#B87333' : (currentPatina === 'Black' ? '#000000' : '#C0C0C0');
-
-
-
 // Wrapper to set stroke width and save choice to cookie
-
 function setStrokeWidthAndCookie(widthVal) {
-
     if (typeof setStrokeWidth === 'function') {
-
         setStrokeWidth(widthVal);
-
     }
-
     setCookie('preferred_stroke_width', widthVal);
-
 }
-
-
-
 // Wrapper to intercept background mode changes and save to cookie
-
 const originalSetSvgBackground = window.setSvgBackground;
-
 window.setSvgBackground = function(mode) {
-
     if (typeof originalSetSvgBackground === 'function') {
-
         originalSetSvgBackground(mode);
-
     }
-
     setCookie('preferred_svg_background', mode);
-
 };
-
-
-
 window.addEventListener('DOMContentLoaded', () => {
-
     // Restore preferred stroke width from cookie if present
-
     const savedStrokeWidth = getCookie('preferred_stroke_width');
-
     if (savedStrokeWidth && typeof setStrokeWidth === 'function') {
-
         setStrokeWidth(parseFloat(savedStrokeWidth));
-
     }
-
-
-
     // Restore preferred background mode from cookie if present
-
     const savedBgMode = getCookie('preferred_svg_background');
-
     if (savedBgMode && typeof setSvgBackground === 'function') {
-
         // Prevent infinite loop by calling original implementation or direct function
-
         if (typeof originalSetSvgBackground === 'function') {
-
             originalSetSvgBackground(savedBgMode);
-
         }
-
     }
-
-
-
     if (typeof setAppearanceMode === 'function') {
-
         setAppearanceMode('image');
-
     }
-
     setPatinaChoice(currentPatina, true);
-
 });
-
-
-
 function setPatinaChoice(patina, triggerRender = true) {
-
     currentPatina = ['Silver', 'Copper', 'Black'].includes(patina) ? patina : 'Silver';
-
-    
-
     if (currentPatina === 'Silver') {
-
         currentStrokeColor = '#C0C0C0';
-
     } else if (currentPatina === 'Copper') {
-
         currentStrokeColor = '#B87333';
-
     } else if (currentPatina === 'Black') {
-
         currentStrokeColor = '#000000';
-
     }
-
-
-
     const silverBtn = document.getElementById('stroke-silver-btn');
-
     const copperBtn = document.getElementById('stroke-copper-btn');
-
     const blackBtn = document.getElementById('stroke-black-btn');
-
-
-
     if (silverBtn && copperBtn && blackBtn) {
-
         silverBtn.classList.toggle('active', currentPatina === 'Silver');
-
         silverBtn.classList.toggle('btn-secondary', currentPatina === 'Silver');
-
         silverBtn.classList.toggle('btn-light', currentPatina !== 'Silver');
-
-
-
         copperBtn.classList.toggle('active', currentPatina === 'Copper');
-
         copperBtn.classList.toggle('btn-secondary', currentPatina === 'Copper');
-
         copperBtn.classList.toggle('btn-light', currentPatina !== 'Copper');
-
-
-
         blackBtn.classList.toggle('active', currentPatina === 'Black');
-
         blackBtn.classList.toggle('btn-secondary', currentPatina === 'Black');
-
         blackBtn.classList.toggle('btn-light', currentPatina !== 'Black');
-
     }
-
-
-
     if (triggerRender && typeof renderSvgContent === 'function') {
-
         renderSvgContent();
-
     }
-
 }
-
-
-
 function populateSidebar(regionId) {
-
     document.getElementById('no-selection-msg').style.display = 'none';
-
     document.getElementById('component-editor-fields').style.display = 'block';
-
-
-
     const comp = Object.values(localComponentsData).find(c => String(c.SVGREG) === String(regionId));
-
     if (!comp) return;
-
-
-
     document.getElementById('active_comp_id').value = comp.COMPID;
-
     document.getElementById('active_region_id').value = regionId;
-
     document.getElementById('comp_num').value = comp.COMPNUM !== undefined ? comp.COMPNUM : '';
-
     document.getElementById('comp_name').value = comp.COMPNAME || '';
-
     document.getElementById('comp_len').value = comp.COMPLEN || '';
-
     document.getElementById('comp_wid').value = comp.COMPWID || '';
-
-    
-
     const glassId = comp.GLASSID !== null && comp.GLASSID !== undefined ? String(comp.GLASSID) : '';
-
     document.getElementById('glass_id').value = glassId;
-
-
-
     if (glassId) {
-
         const glassObj = allGlassOptions.find(g => String(g.id) === glassId);
-
         if (glassObj) {
-
             if (currentSelectedGlass && currentSelectedGlass.id !== glassObj.id) {
-
                 previousSelectedGlass = currentSelectedGlass;
-
             }
-
             currentSelectedGlass = glassObj;
-
             updatePreviousGlassButton();
-
-
-
             document.getElementById('selected-glass-label').innerText = `${glassObj.name} (ID: ${glassObj.id})`;
-
             document.getElementById('selected-glass-label').classList.remove('text-muted');
-
             document.getElementById('clear-glass-btn').style.display = 'inline-block';
-
         } else {
-
             document.getElementById('selected-glass-label').innerText = `Glass ID: ${glassId}`;
-
             document.getElementById('selected-glass-label').classList.remove('text-muted');
-
             document.getElementById('clear-glass-btn').style.display = 'inline-block';
-
         }
-
     } else {
-
         if (currentSelectedGlass) {
-
             previousSelectedGlass = currentSelectedGlass;
-
             currentSelectedGlass = null;
-
             updatePreviousGlassButton();
-
         }
-
         document.getElementById('selected-glass-label').innerText = 'No glass selected';
-
         document.getElementById('selected-glass-label').classList.add('text-muted');
-
         document.getElementById('clear-glass-btn').style.display = 'none';
-
     }
-
-
-
     document.getElementById('isscrap').checked = comp.ISSCRAP === 1;
-
     document.getElementById('isgrain').checked = comp.ISGRAIN === 1;
-
 }
-
-
-
 function stageComponentChanges() {
-
     const regionId = document.getElementById('active_region_id').value;
-
     if (!regionId) return;
-
-
-
     let comp = Object.values(localComponentsData).find(c => String(c.SVGREG) === String(regionId));
-
     if (!comp) return;
-
-
-
     comp.COMPNUM = document.getElementById('comp_num').value;
-
     comp.COMPNAME = document.getElementById('comp_name').value;
-
     comp.COMPLEN = document.getElementById('comp_len').value;
-
     comp.COMPWID = document.getElementById('comp_wid').value;
-
     comp.GLASSID = document.getElementById('glass_id').value;
-
     comp.ISSCRAP = document.getElementById('isscrap').checked ? 1 : 0;
-
     comp.ISGRAIN = document.getElementById('isgrain').checked ? 1 : 0;
-
-
-
     componentsData = localComponentsData; 
-
-
-
     if (typeof renderSvgContent === 'function') {
-
         renderSvgContent();
-
     }
-
 }
-
-
-
 function saveAllComponents() {
-
     const saveBtn = document.getElementById('save-btn');
-
     const spinner = document.getElementById('save-spinner');
-
-    
-
     saveBtn.disabled = true;
-
     spinner.style.display = 'inline-block';
-
-
-
     const payload = {
-
         item_id: "{{ item.ITEMID }}",
-
         patina_choice: currentPatina,
-
         components: Object.values(localComponentsData)
-
     };
-
-
-
     fetch("{{ url_for('component_bp.update_components_batch') }}", {
-
         method: 'POST',
-
         headers: { 'Content-Type': 'application/json' },
-
         body: JSON.stringify(payload)
-
     })
-
     .then(response => response.json())
-
     .then(data => {
-
         if (!data.success) {
-
             throw new Error(data.message || 'Error saving component changes.');
-
         }
-
         return fetch("{{ url_for('component_bp.api_export_components_image', item_id=item.ITEMID) }}");
-
     })
-
     .then(response => response.json())
-
     .then(exportData => {
-
         if (!exportData.success) {
-
             throw new Error('Failed to retrieve component export mapping.');
-
         }
-
         return generateAndPostImageSnapshot(exportData);
-
     })
-
     .then(saveRes => {
-
         if (!saveRes.success) {
-
             throw new Error(saveRes.message || 'Failed to save generated image.');
-
         }
-
         spinner.style.display = 'none';
-
         saveBtn.disabled = false;
-
         alert('Changes, patina, and component image updated successfully!');
-
     })
-
     .catch(error => {
-
         console.error('Error:', error);
-
         alert('An error occurred: ' + error.message);
-
         spinner.style.display = 'none';
-
         saveBtn.disabled = false;
-
     });
-
 }
-
-
-
 function generateAndPostImageSnapshot(exportData) {
-
     return new Promise((resolve, reject) => {
-
         const iframe = document.createElement('iframe');
-
         iframe.style.position = 'fixed';
-
         iframe.style.top = '-9999px';
-
         iframe.style.left = '-9999px';
-
         iframe.style.width = '1200px';
-
         iframe.style.height = '1200px';
-
         iframe.style.visibility = 'hidden';
-
-        
-
         iframe.src = "{{ url_for('component_bp.export_components_image', item_id=item.ITEMID) }}";
-
-
-
         iframe.onload = function() {
-
             setTimeout(() => {
-
                 try {
-
                     const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-
                     const canvas = iframeDoc.querySelector('canvas');
-
-
-
                     if (canvas && typeof canvas.toDataURL === 'function') {
-
                         const dataUrl = canvas.toDataURL('image/webp', 0.9);
-
                         document.body.removeChild(iframe);
-
-
-
                         fetch("{{ url_for('component_bp.save_components_image', item_id=item.ITEMID) }}", {
-
                             method: 'POST',
-
                             headers: {
-
                                 'Content-Type': 'application/json'
-
                             },
-
                             body: JSON.stringify({ image_data: dataUrl })
-
                         })
-
                         .then(res => res.json())
-
                         .then(result => resolve(result))
-
                         .catch(err => reject(err));
-
                     } else {
-
                         document.body.removeChild(iframe);
-
                         reject(new Error('Canvas element could not be found inside the export iframe.'));
-
                     }
-
                 } catch (e) {
-
                     if (iframe.parentNode) document.body.removeChild(iframe);
-
                     reject(new Error('Cross-origin or canvas extraction error: ' + e.message));
-
                 }
-
             }, 4000);
-
         };
-
-
-
         iframe.onerror = function() {
-
             if (iframe.parentNode) document.body.removeChild(iframe);
-
             reject(new Error('Failed to load export frame for canvas rendering.'));
-
         };
-
-
-
         document.body.appendChild(iframe);
-
     });
-
 }
-
-
-
 function handleGlassChange() {
-
     const regionId = document.getElementById('active_region_id').value;
-
     if (!regionId) return;
-
-
-
     let comp = Object.values(localComponentsData).find(c => String(c.SVGREG) === String(regionId));
-
     if (!comp) return;
-
-
-
     const glassIdVal = document.getElementById('glass_id').value;
-
     const glassObj = allGlassOptions.find(g => String(g.id) === String(glassIdVal));
-
-
-
     comp.GLASSID = glassIdVal ? parseInt(glassIdVal, 10) : null;
-
     if (glassObj) {
-
         comp.CHEX = glassObj.hex || 'cccccc';
-
         comp.GLSTEX = glassObj.tex || '';
-
-        
-
         let cleanImg = glassObj.image || '';
-
         if (cleanImg) {
-
             cleanImg = cleanImg.replace(/^.*\/static\//, 'static/');
-
             cleanImg = cleanImg.replace(/^static\//, '');
-
             cleanImg = cleanImg.replace(/^\/+/, '');
-
         }
-
         comp.GLSIMG = cleanImg;
-
-
-
         comp.GTRNSV = glassObj.trns !== undefined ? glassObj.trns : 75;
-
     } else {
-
         comp.CHEX = 'cccccc';
-
         comp.GLSTEX = '';
-
         comp.GLSIMG = '';
-
         comp.GTRNSV = 75;
-
     }
-
-
-
     componentsData = localComponentsData;
-
-
-
     if (typeof stageComponentChanges === 'function') {
-
         stageComponentChanges();
-
     }
-
 }
-
 </script>
-
-
-
 {% endblock %}

@@ -2,32 +2,21 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash
 from datetime import date
 from utils import hex_to_hsv, process_and_save_image
 from datetime import datetime, date, timedelta
-
 import sqlite3
-
 glass_bp = Blueprint('glass_bp', __name__)
-
 def get_db_from_app():
     # Import get_db from your main app context or pass connection handling appropriately
     conn = sqlite3.connect("inventory.db")
-
     conn.row_factory = sqlite3.Row
-
     conn.execute("PRAGMA foreign_keys = ON;")
-
     return conn
-
-
-
 @glass_bp.route('/glass')
 def list_glass():
     db = get_db_from_app()
-
     sort_by = request.args.get('sort_by', 'GLSNAME')
     order = request.args.get('order', 'asc').lower()
     if order not in ['asc', 'desc']:
         order = 'asc'
-
     q = request.args.get('q', '').strip()
     manf = request.args.get('manf', '').strip()
     tex = request.args.get('tex', '').strip()
@@ -38,10 +27,8 @@ def list_glass():
     glsiri = request.args.get('glsiri')
     glsopal = request.args.get('glsopal')
     is_active = request.args.get('is_active', '1').strip()
-
     item_id = request.args.get('item_id', '').strip()
     active_only = request.args.get('active_only', '')
-
     sql_sort_column = 'g.GLSNAME' if sort_by == 'COLOR_HSV' else {
         'GLSNAME': 'g.GLSNAME',
         'GLSMANF': 'g.GLSMANF',
@@ -51,14 +38,11 @@ def list_glass():
         'GLSLEN': 'g.GLSLEN',
         'GLSPRICE': 'p.GLSPRICE'
     }.get(sort_by, 'g.GLSNAME')
-
     where_clauses = []
     params = []
-
     if is_active != 'all':
         where_clauses.append("g.ISACTIVE = ?")
         params.append(1 if is_active == '1' else 0)
-
     iri_op_clauses = []
     if glsiri == '1':
         iri_op_clauses.append("g.GLSIRI = 1")
@@ -66,7 +50,6 @@ def list_glass():
         iri_op_clauses.append("g.GLSOPAL = 1")
     if iri_op_clauses:
         where_clauses.append(f"({' OR '.join(iri_op_clauses)})")
-
     if q:
         where_clauses.append("(g.GLSNAME LIKE ? OR g.GLSMANF LIKE ? OR g.GLSNOTE LIKE ?)")
         params.extend([f"%{q}%", f"%{q}%", f"%{q}%"])
@@ -88,15 +71,12 @@ def list_glass():
     if max_price:
         where_clauses.append("p.GLSPRICE <= ?")
         params.append(max_price)
-
     join_igc = ""
     if item_id:
         join_igc = "INNER JOIN IGC c ON g.GLASSID = c.GLASSID"
         where_clauses.append("c.ITEMID = ?")
         params.append(item_id)
-        
     where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
-
     query = f"""
         SELECT DISTINCT g.*, p.GLSPRICE, c.CHEX
         FROM GSI g
@@ -111,7 +91,6 @@ def list_glass():
         ORDER BY {sql_sort_column} {order.upper()}
     """
     raw_glasses = db.execute(query, params).fetchall()
-
     glasses = []
     for row in raw_glasses:
         item_dict = dict(row)
@@ -119,47 +98,26 @@ def list_glass():
         combined_val = hex_to_hsv(hex_val) if hex_val else 999999.0
         item_dict['COLOR_HSV'] = combined_val
         glasses.append(item_dict)
-
     if sort_by == 'COLOR_HSV':
-
         def color_sort_key(x):
-
             val = x.get('COLOR_HSV')
-
             if val is None:
-
                 return (1, 1.0, 0, 0)
-
             if isinstance(val, tuple):
-
                 h, s, v = val[:3] if len(val) >= 3 else (0, 0, 0)
-
                 is_greyscale = 1 if s < 0.05 else 0
-
                 return (is_greyscale, -v if is_greyscale else h, s, v)
-
             if val >= 999999.0:
-
                 return (1, 1.0, 0, val)
-
             h = val // 1000
-
             rem = val % 1000
-
             s = rem // 100
-
             v = rem % 100
-
             is_greyscale = 1 if s < 0.05 else 0
-
             return (is_greyscale, -v if is_greyscale else h, s, v)
-
-
-
         glasses.sort(key=color_sort_key, reverse=(order == 'desc'))
     textures = db.execute("SELECT DISTINCT GLSTEX FROM GSI WHERE ISACTIVE = 1 AND GLSTEX IS NOT NULL AND GLSTEX != '' ORDER BY GLSTEX").fetchall()
     raw_colors = db.execute("SELECT * FROM COLOR").fetchall()
-    
     colors = []
     for col in raw_colors:
         c_dict = dict(col)
@@ -173,10 +131,8 @@ def list_glass():
         c_dict['_sort_key'] = (1 if s < 0.05 else 0, -v if s < 0.05 else h, s, v)
         colors.append(c_dict)
     colors.sort(key=lambda x: x['_sort_key'])
-
     sources = db.execute("SELECT DISTINCT GLSOURCE FROM GSI WHERE ISACTIVE = 1 AND GLSOURCE IS NOT NULL AND GLSOURCE != '' ORDER BY GLSOURCE").fetchall()
     manufacturers = db.execute("SELECT DISTINCT GLSMANF FROM GSI WHERE ISACTIVE = 1 AND GLSMANF IS NOT NULL AND GLSMANF != '' ORDER BY GLSMANF").fetchall()
-
     item_where = "WHERE i.ISACTIVE = 1" if active_only == '1' else ""
     items_query = f"""
         SELECT i.ITEMID, i.ITMNAME, i.ISACTIVE, i.CURRENT, g.ITMGRP,
@@ -187,14 +143,12 @@ def list_glass():
         ORDER BY group_or_name ASC, i.ITMNAME ASC
     """
     items = db.execute(items_query).fetchall()
-
     item_name = ""
     if item_id:
         for item in items:
             if str(item['ITEMID']) == str(item_id):
                 item_name = item['ITMNAME']
                 break
-
     return render_template(
         'glass_list.html',
         glasses=glasses,
@@ -212,7 +166,6 @@ def list_glass():
             'glsiri': glsiri, 'glsopal': glsopal
         }
     )
-
 @glass_bp.route("/glass/new", methods=["GET", "POST"])
 def create_glass():
     db = get_db_from_app()
@@ -234,29 +187,16 @@ def create_glass():
         price = request.form.get('GLSPRICE')
         lowstock = request.form.get('LOWSTOCK') or None
         isactive = 1
-
-
-
         cursor = db.execute(
-
             """
-
             INSERT INTO GSI (GLSNAME, GLSMANF, GLSTEX, GTRNSN, COLOR, GLSOURCE, 
-
                 GLSLEN, GLSWID, GLSTHK, GLSIRI, GLSOPAL, GLLINK, 
-
                 GLSIMG, GLSNOTE, LOWSTOCK, ISACTIVE)
-
             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-
             """,
-
             (glsname, glsmanf, glstex, gtrnsn, color, glsource, glslen,
-
              glswid, glsthk, glsiri, glsopal, gllink, glsimg, glsnote, lowstock, isactive),
-
         )
-
         glass_id = cursor.lastrowid
         file = request.files.get("GLSIMG_FILE")
         if file and file.filename != '':
@@ -268,17 +208,14 @@ def create_glass():
                 target_size=(512, 512)
             )
             db.execute("UPDATE GSI SET GLSIMG = ? WHERE GLASSID = ?", (glsimg_path, glass_id))
-
         if price:
             db.execute(
                 "INSERT INTO GPC (GLASSID, GLSPRICE, STDATE) VALUES (?, ?, DATE('now'))",
                 (glass_id, price),
             )
-
         db.commit()
         flash("Glass sheet recorded successfully!", "success")
         return redirect(url_for("glass_bp.list_glass"))
-
     textures = db.execute("SELECT * FROM GTL").fetchall()
     colors = db.execute("SELECT * FROM COLOR").fetchall()
     sources = db.execute("SELECT * FROM GSL").fetchall()
@@ -286,17 +223,13 @@ def create_glass():
     return render_template(
         "glass_form.html", textures=textures, transparency=transparency, colors=colors, sources=sources
     )
-
 @glass_bp.route('/glass/<int:glass_id>', methods=['GET', 'POST'])
-
 def glass_detail(glass_id):
     db = get_db_from_app()
-    
     # Handle stock adjustment submission on the same page
     if request.method == 'POST':
         glsstock = request.form.get('GLSSTOCK')
         ts = request.form.get('TS', date.today().isoformat())
-        
         if glsstock is not None:
             try:
                 db.execute('''
@@ -308,9 +241,7 @@ def glass_detail(glass_id):
             except Exception as e:
                 db.rollback()
                 flash(f'Error updating stock: {e}', 'danger')
-                
         return redirect(url_for('glass_bp.glass_detail', glass_id=glass_id))
-
     glass = db.execute('''
         SELECT g.*, p.GLSPRICE, s.SRCWEB, s.GLSLOGO, c.CHEX,
                COALESCE((
@@ -324,11 +255,9 @@ def glass_detail(glass_id):
         LEFT JOIN COLOR c ON g.COLOR = c.COLOR
         WHERE g.GLASSID = ?
     ''', (glass_id,)).fetchone()
-
     if not glass:
         flash('Glass sheet record not found.', 'danger')
         return redirect(url_for('glass_bp.list_glass'))
-
     components = db.execute('''
         SELECT c.*, i.ITMNAME 
         FROM IGC c
@@ -336,8 +265,6 @@ def glass_detail(glass_id):
         WHERE c.GLASSID = ?
     ''', (glass_id,)).fetchall()
     return render_template('glass_detail.html', glass=glass, components=components, today_date=date.today().isoformat())
-
-
 @glass_bp.route('/glass/edit/<int:glass_id>', methods=['GET', 'POST'])
 def edit_glass(glass_id):
     db = get_db_from_app()
@@ -349,11 +276,9 @@ def edit_glass(glass_id):
         LEFT JOIN GTRNS t ON g.GTRNSN = t.GTRNSN
         WHERE g.GLASSID = ?
     ''', (glass_id,)).fetchone()
-
     if not glass:
         flash('Glass sheet record not found.', 'danger')
         return redirect(url_for('glass_bp.list_glass'))
-
     if request.method == 'POST':
         glsname = request.form.get('GLSNAME')
         glsmanf = request.form.get('GLSMANF')
@@ -369,7 +294,6 @@ def edit_glass(glass_id):
         gllink = request.form.get('GLLINK') or None
         glsnote = request.form.get('GLSNOTE')
         price = request.form.get('GLSPRICE')
-
         file = request.files.get('GLSIMG_FILE')
         if file and file.filename != '':
             pattern_name = f"{glass_id}_{glsname}"
@@ -381,31 +305,17 @@ def edit_glass(glass_id):
             )
         else:
             glsimg = request.form.get('GLSIMG') or glass['GLSIMG']
-
         lowstock = request.form.get('LOWSTOCK') or None
-
-
-
         db.execute(
-
             '''
-
             UPDATE GSI 
-
             SET GLSNAME = ?, GLSMANF = ?, GLSTEX = ?, GTRNSN = ?, COLOR = ?, GLSOURCE = ?, 
-
                 GLSLEN = ?, GLSWID = ?, GLSTHK = ?, GLSIRI = ?, 
-
                 GLSOPAL = ?, GLLINK = ?, GLSIMG = ?, GLSNOTE = ?, LOWSTOCK = ?
-
             WHERE GLASSID = ?
-
             ''',
-
             (glsname, glsmanf, glstex, gtrnsn, color, glsource, glslen, glswid,
-
              glsthk, glsiri, glsopal, gllink, glsimg, glsnote, lowstock, glass_id),
-
         )
         if price:
             existing_price = db.execute('SELECT * FROM GPC WHERE GLASSID = ?', (glass_id,)).fetchone()
@@ -413,21 +323,17 @@ def edit_glass(glass_id):
                 db.execute('UPDATE GPC SET GLSPRICE = ?, STDATE = DATE(\'now\') WHERE GLASSID = ?', (price, glass_id))
             else:
                 db.execute('INSERT INTO GPC (GLASSID, GLSPRICE, STDATE) VALUES (?, ?, DATE(\'now\'))', (glass_id, price))
-
         db.commit()
         flash('Glass details updated successfully!', 'success')
         return redirect(url_for('glass_bp.glass_detail', glass_id=glass_id))
-
     textures = db.execute('SELECT * FROM GTL').fetchall()
     transparency = db.execute('SELECT * FROM GTRNS').fetchall()
     colors = db.execute('SELECT * FROM COLOR').fetchall()
     sources = db.execute('SELECT * FROM GSL').fetchall()
-
     return render_template(
         'glass_form.html', glass=glass, textures=textures,
         transparency=transparency, colors=colors, sources=sources, action='Edit'
     )
-
 @glass_bp.route('/glass/delete/<int:glass_id>', methods=['POST'])
 def delete_glass(glass_id):
     db = get_db_from_app()
@@ -435,16 +341,13 @@ def delete_glass(glass_id):
     db.commit()
     flash(f"Glass sheet #{glass_id} deactivated successfully.", "warning")
     return redirect(url_for('glass_bp.list_glass'))
-
 @glass_bp.route('/glass/inventory', methods=['GET', 'POST'])
 def glass_inventory():
     db = get_db_from_app()
-
     if request.method == 'POST':
         glass_id = request.form.get('GLASSID')
         adjustment = request.form.get('GLSSTOCK')
         trans_date = request.form.get('TS') or date.today().isoformat()
-
         if glass_id and adjustment:
             db.execute(
                 "INSERT INTO GLSINV (GLASSID, GLSSTOCK, TS) VALUES (?, ?, ?)",
@@ -454,14 +357,11 @@ def glass_inventory():
             flash("Inventory level adjusted successfully!", "success")
         else:
             flash("Invalid input parameters for stock adjustment.", "danger")
-            
         return redirect(url_for('glass_bp.glass_inventory'))
-
     sort_by = request.args.get('sort_by', 'GLSNAME')
     order = request.args.get('order', 'asc').lower()
     if order not in ['asc', 'desc']:
         order = 'asc'
-
     q = request.args.get('q', '').strip()
     manf = request.args.get('manf', '').strip()
     tex = request.args.get('tex', '').strip()
@@ -475,23 +375,18 @@ def glass_inventory():
     stock_display_mode = request.args.get('stock_display', 'all')
     is_active = request.args.get('is_active', '1').strip()
     online_only = 1 if request.args.get('online_only') == '1' else 0
-
     item_id = request.args.get('item_id', '').strip()
     active_only = request.args.get('active_only', '')
-
     sql_sort_column = 'GLSNAME' if sort_by == 'COLOR_HSV' else {
         'GLASSID': 'GLASSID', 'GLSNAME': 'GLSNAME', 'GLSMANF': 'GLSMANF',
         'GLSTEX': 'GLSTEX', 'COLOR': 'COLOR', 'GLSIRI': 'GLSIRI',
         'GLSOPAL': 'GLSOPAL', 'GLSLEN': 'GLSLEN', 'CURRENT_STOCK': 'CURRENT_STOCK',
         'LAST_UPDATED': 'LAST_UPDATED'
     }.get(sort_by, 'GLSNAME')
-
     where_clauses = []
     params = [1 if is_active == '1' else 0] if is_active != 'all' else []
-    
     if is_active != 'all':
         where_clauses.append("g.ISACTIVE = ?")
-
     if q:
         where_clauses.append("(g.GLSNAME LIKE ? OR g.GLSMANF LIKE ? OR g.GLSNOTE LIKE ?)")
         params.extend([f"%{q}%", f"%{q}%", f"%{q}%"])
@@ -521,15 +416,12 @@ def glass_inventory():
         params.append(max_price)
     if online_only:
         where_clauses.append("(l.SRCWEB = 1 AND (g.GLLINK IS NOT NULL AND g.GLLINK != ''))")
-
     join_igc = ""
     if item_id:
         join_igc = "INNER JOIN IGC c_item ON g.GLASSID = c_item.GLASSID"
         where_clauses.append("c_item.ITEMID = ?")
         params.append(item_id)
-
     where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
-
     having_conditions = []
     if stock_filter == 'out':
         having_conditions.append("CURRENT_STOCK = 0")
@@ -537,30 +429,19 @@ def glass_inventory():
         having_conditions.append("CURRENT_STOCK > 0 AND CURRENT_STOCK <= COALESCE(LOWSTOCK, 1)")
     elif stock_filter == 'in':
         having_conditions.append("CURRENT_STOCK > COALESCE(LOWSTOCK, 1)")
-
     if stock_display_mode == 'out':
         having_conditions.append("CURRENT_STOCK <= 0")
     elif stock_display_mode == 'hide':
         having_conditions.append("CURRENT_STOCK > 0")
-
     stock_having_sql = f"GROUP BY GLASSID HAVING {' AND '.join(having_conditions)}" if having_conditions else ""
-
     query = f"""
-
         SELECT DISTINCT GLASSID, GLSNAME, GLSMANF, GLSLEN, GLSWID, GLSTHK, GLSTEX, 
-
                GLSIRI, GLSOPAL, GLSOURCE, GLLINK, GLSIMG, GLSNOTE, COLOR, 
-
                ISACTIVE, CHEX, GLSPRICE, SRCWEB, LOWSTOCK, CURRENT_STOCK, LAST_UPDATED
-
         FROM (
-
             SELECT g.GLASSID, g.GLSNAME, g.GLSMANF, g.GLSLEN, g.GLSWID, g.GLSTHK, 
-
                    g.GLSTEX, g.GLSIRI, g.GLSOPAL, g.GLSOURCE, g.GLLINK, g.GLSIMG, 
-
                    g.GLSNOTE, g.COLOR, g.ISACTIVE, c.CHEX, p.GLSPRICE, l.SRCWEB, g.LOWSTOCK,
-
                    COALESCE((
                        SELECT i.GLSSTOCK FROM GLSINV i 
                        WHERE i.GLASSID = g.GLASSID 
@@ -586,54 +467,31 @@ def glass_inventory():
         ORDER BY {sql_sort_column} {order.upper()}
     """
     raw_items = db.execute(query, params).fetchall()
-
     inventory_items = []
     for row in raw_items:
         item = dict(row)
         item['COLOR_HSV'] = hex_to_hsv(item.get('CHEX'))
         inventory_items.append(item)
-
     if sort_by == 'COLOR_HSV':
-
         def color_sort_key(x):
-
             val = x.get('COLOR_HSV')
-
             if val is None:
-
                 return (1, 1.0, 0, 0)
-
             if isinstance(val, tuple):
-
                 h, s, v = val[:3] if len(val) >= 3 else (0, 0, 0)
-
                 is_greyscale = 1 if s < 0.05 else 0
-
                 return (is_greyscale, -v if is_greyscale else h, s, v)
-
             if val >= 999999.0:
-
                 return (1, 1.0, 0, val)
-
             h = val // 1000
-
             rem = val % 1000
-
             s = rem // 100
-
             v = rem % 100
-
             is_greyscale = 1 if s < 0.05 else 0
-
             return (is_greyscale, -v if is_greyscale else h, s, v)
-
-
-
         inventory_items.sort(key=color_sort_key, reverse=(order == 'desc'))
-
     textures = db.execute("SELECT DISTINCT GLSTEX FROM GSI WHERE ISACTIVE = 1 AND GLSTEX IS NOT NULL AND GLSTEX != '' ORDER BY GLSTEX").fetchall()
     raw_colors = db.execute("SELECT * FROM COLOR").fetchall()
-    
     colors = []
     for col in raw_colors:
         c_dict = dict(col)
@@ -647,12 +505,10 @@ def glass_inventory():
         c_dict['_sort_key'] = (1 if s < 0.05 else 0, -v if s < 0.05 else h, s, v)
         colors.append(c_dict)
     colors.sort(key=lambda x: x['_sort_key'])
-
     sources = db.execute("SELECT DISTINCT GLSOURCE FROM GSI WHERE ISACTIVE = 1 AND GLSOURCE IS NOT NULL AND GLSOURCE != '' ORDER BY GLSOURCE").fetchall()
     manufacturers = db.execute("SELECT DISTINCT GLSMANF FROM GSI WHERE ISACTIVE = 1 AND GLSMANF IS NOT NULL AND GLSMANF != '' ORDER BY GLSMANF").fetchall()
     iridescent_options = db.execute("SELECT DISTINCT GLSIRI FROM GSI WHERE ISACTIVE = 1 AND GLSIRI = 1").fetchall()
     opalescent_options = db.execute("SELECT DISTINCT GLSOPAL FROM GSI WHERE ISACTIVE = 1 AND GLSOPAL = 1").fetchall()
-
     item_where = "WHERE i.ISACTIVE = 1" if active_only == '1' else ""
     items_query = f"""
         SELECT i.ITEMID, i.ITMNAME, i.ISACTIVE, i.CURRENT, g.ITMGRP,
@@ -663,14 +519,12 @@ def glass_inventory():
         ORDER BY group_or_name ASC, i.ITMNAME ASC
     """
     items = db.execute(items_query).fetchall()
-
     item_name = ""
     if item_id:
         for itm in items:
             if str(itm['ITEMID']) == str(item_id):
                 item_name = itm['ITMNAME']
                 break
-
     return render_template(
         'glass_inventory.html',
         inventory_items=inventory_items, textures=textures, colors=colors,
@@ -687,21 +541,16 @@ def glass_inventory():
             'item_name': item_name, 'active_only': active_only
         }
     )
-
 @glass_bp.route('/glass/<int:glass_id>/history')
-
 def glass_price_history(glass_id):
-
     """Display historical price list for glass in descending order with calculated price changes and durations."""
     db = get_db_from_app()
     glass = db.execute(
         'SELECT * FROM GSI WHERE GLASSID = ?', (glass_id,)
     ).fetchone()
-
     if not glass:
         flash('Glass sheet record not found.', 'danger')
         return redirect(url_for('glass_bp.list_glass'))
-
     # Fetch all prices ordered chronologically ascending to compute deltas and durations easily
     rows = db.execute(
         """
@@ -711,15 +560,12 @@ def glass_price_history(glass_id):
         """,
         (glass_id,),
     ).fetchall()
-
     history_processed = []
     prev_price = None
-
     for row in rows:
         price = row['GLSPRICE']
         change = price - prev_price if prev_price is not None else None
         prev_price = price
-
         # Calculate duration
         start_dt = (
             datetime.strptime(row['STDATE'], '%Y-%m-%d').date()
@@ -731,7 +577,6 @@ def glass_price_history(glass_id):
             if row['ENDDATE']
             else date.today()
         )
-
         duration_str = 'N/A'
         if start_dt:
             delta = end_dt - start_dt
@@ -742,7 +587,6 @@ def glass_price_history(glass_id):
                 duration_str = f'{years} yr{"" if years == 1 else "s"} {rem_days} day{"" if rem_days == 1 else "s"}'
             else:
                 duration_str = f'{days} day{"" if days == 1 else ""}'
-
         history_processed.append({
             'GLSPRICE': price,
             'change': change,
@@ -750,15 +594,11 @@ def glass_price_history(glass_id):
             'ENDDATE': row['ENDDATE'],
             'duration_str': duration_str,
         })
-
     # Reverse to have descending order starting from present
     history_processed.reverse()
-
     return render_template(
         'glass_price_history.html', glass=glass, history=history_processed
     )
-
-
 @glass_bp.route('/prices/glass/<int:glass_id>/edit', methods=['GET', 'POST'])
 def edit_glass_prices(glass_id):
     """Manage and insert glass prices with automated date shuffling and interval overlap adjustments."""
@@ -766,35 +606,28 @@ def edit_glass_prices(glass_id):
     glass = db.execute(
         'SELECT * FROM GSI WHERE GLASSID = ?', (glass_id,)
     ).fetchone()
-
     if not glass:
         flash('Glass sheet record not found.', 'danger')
         return redirect(url_for('glass_bp.list_glass'))
-
     if request.method == 'POST':
         try:
             new_price = float(request.form.get('GLSPRICE'))
         except (TypeError, ValueError):
             flash('Invalid price value provided.', 'danger')
             return redirect(url_for('glass_bp.edit_glass_prices', glass_id=glass_id))
-
         new_st_str = request.form.get('STDATE')
         is_current = 1 if request.form.get('is_current') else 0
         new_end_str = None if is_current else request.form.get('ENDDATE')
-
         new_st = datetime.strptime(new_st_str, '%Y-%m-%d').date()
         new_end = (
             datetime.strptime(new_end_str, '%Y-%m-%d').date()
             if new_end_str
             else None
         )
-
         if new_end and new_st > new_end:
             flash('Start date cannot be after the end date.', 'danger')
             return redirect(url_for('glass_bp.edit_glass_prices', glass_id=glass_id))
-
         cursor = db.cursor()
-
         # Fetch existing price intervals for this glass item
         existing_prices = cursor.execute(
             """
@@ -803,21 +636,17 @@ def edit_glass_prices(glass_id):
             """,
             (glass_id,),
         ).fetchall()
-
         # Process and adjust overlapping intervals
         for row in existing_prices:
             row_id = row['rowid']
             ex_st_str = row['STDATE']
             ex_end_str = row['ENDDATE']
-
             ex_st = datetime.strptime(ex_st_str, '%Y-%m-%d').date() if ex_st_str else None
             ex_end = datetime.strptime(ex_end_str, '%Y-%m-%d').date() if ex_end_str else None
-
             # Case A: Existing range is completely inside the new range -> Delete it
             if ex_st and new_st <= ex_st and (new_end is None or (ex_end and new_end >= ex_end)):
                 cursor.execute('DELETE FROM GPC WHERE rowid = ?', (row_id,))
                 continue
-
             # Case B: New range is completely inside an existing range -> Split the existing range into two
             if ex_st and ex_end and new_st > ex_st and new_end and new_end < ex_end:
                 split_end_date = (new_st - timedelta(days=1)).strftime('%Y-%m-%d')
@@ -831,7 +660,6 @@ def edit_glass_prices(glass_id):
                     (glass_id, row['GLSPRICE'], tail_start_date, ex_end_str)
                 )
                 continue
-
             # Case C: Overlap on the tail end of existing range
             if ex_st and new_st > ex_st and (ex_end is None or new_st <= ex_end):
                 new_ex_end = (new_st - timedelta(days=1)).strftime('%Y-%m-%d')
@@ -839,7 +667,6 @@ def edit_glass_prices(glass_id):
                     'UPDATE GPC SET ENDDATE = ? WHERE rowid = ?',
                     (new_ex_end, row_id)
                 )
-
             # Case D: Overlap on the front end of existing range
             if new_end and ex_end and new_end >= ex_st and new_end < ex_end:
                 new_ex_st = (new_end + timedelta(days=1)).strftime('%Y-%m-%d')
@@ -847,11 +674,9 @@ def edit_glass_prices(glass_id):
                     'UPDATE GPC SET STDATE = ? WHERE rowid = ?',
                     (new_ex_st, row_id)
                 )
-
             # Case E: If new range is ongoing (current), truncate any old ranges that overlap forward
             if is_current and ex_st and ex_st >= new_st:
                 cursor.execute('DELETE FROM GPC WHERE rowid = ?', (row_id,))
-
         # Insert the new price record cleanly
         cursor.execute(
             """
@@ -860,11 +685,9 @@ def edit_glass_prices(glass_id):
             """,
             (glass_id, new_price, new_st_str, new_end_str),
         )
-
         db.commit()
         flash('Glass price range successfully saved and overlapping intervals adjusted.', 'success')
         return redirect(url_for('glass_bp.edit_glass_prices', glass_id=glass_id))
-
     # GET Request: fetch all price rows ordered by start date descending
     prices = db.execute(
         """
@@ -874,13 +697,10 @@ def edit_glass_prices(glass_id):
         """,
         (glass_id,),
     ).fetchall()
-
     return render_template(
         'glass_edit_prices.html', glass=glass, prices=prices
     )
-
 @glass_bp.route('/prices/glass/<int:glass_id>/delete/<int:price_id>', methods=['POST'])
-
 def delete_glass_price(glass_id, price_id):
     """Delete a specific glass price entry row."""
     db = get_db_from_app()
@@ -888,553 +708,242 @@ def delete_glass_price(glass_id, price_id):
     db.commit()
     flash('Glass price tier removed.', 'success')
     return redirect(url_for('glass_bp.edit_glass_prices', glass_id=glass_id))
-
 @glass_bp.route('/glass/bulk-adjustment', methods=['GET', 'POST'])
-
 def bulk_inventory_adjustment():
-
     db = get_db_from_app()
-
-    
-
     if request.is_json or request.method == 'POST' and request.headers.get('Content-Type') == 'application/json':
-
         data = request.get_json()
-
         adjust_date = data.get('date', date.today().isoformat())
-
         items = data.get('items', [])
-
-        
-
         try:
-
             from datetime import datetime, timedelta
-
             adjust_dt = datetime.strptime(adjust_date, '%Y-%m-%d')
-
             prev_day = (adjust_dt - timedelta(days=1)).strftime('%Y-%m-%d')
-
-
-
             for item in items:
-
                 glass_id = item.get('GLASSID')
-
                 stock = item.get('stock')
-
                 price = item.get('price')
-
-                
-
                 if glass_id is not None:
-
                     # 1. Update stock if provided
-
                     if stock is not None:
-
                         db.execute(
-
                             "INSERT INTO GLSINV (GLASSID, GLSSTOCK, TS) VALUES (?, ?, ?)",
-
                             (glass_id, int(stock), adjust_date)
-
                         )
-
-                    
-
                     # 2. Update price using date-shuffling logic
-
                     if price is not None and price != '':
-
                         new_price = float(price)
-
-                        
-
                         # Check if a price already exists starting exactly on this date
-
                         exact_match = db.execute(
-
                             "SELECT rowid FROM GPC WHERE GLASSID = ? AND STDATE = ?", 
-
                             (glass_id, adjust_date)
-
                         ).fetchone()
-
-                        
-
                         if exact_match:
-
                             # Just update the price for this exact date to avoid duplicates
-
                             db.execute(
-
                                 "UPDATE GPC SET GLSPRICE = ? WHERE rowid = ?",
-
                                 (new_price, exact_match['rowid'])
-
                             )
-
                         else:
-
                             # Find the chronologically NEXT interval to determine our new end date
-
                             next_price = db.execute(
-
                                 "SELECT STDATE FROM GPC WHERE GLASSID = ? AND STDATE > ? ORDER BY STDATE ASC LIMIT 1",
-
                                 (glass_id, adjust_date)
-
                             ).fetchone()
-
-                            
-
                             new_end_date = None
-
                             if next_price and next_price['STDATE']:
-
                                 next_st_dt = datetime.strptime(next_price['STDATE'], '%Y-%m-%d')
-
                                 new_end_date = (next_st_dt - timedelta(days=1)).strftime('%Y-%m-%d')
-
-                            
-
                             # Find the chronologically PREVIOUS interval to cap its end date
-
                             prev_price = db.execute(
-
                                 "SELECT rowid, ENDDATE FROM GPC WHERE GLASSID = ? AND STDATE < ? ORDER BY STDATE DESC LIMIT 1",
-
                                 (glass_id, adjust_date)
-
                             ).fetchone()
-
-                            
-
                             if prev_price:
-
                                 prev_end_date = prev_price['ENDDATE']
-
                                 # If the previous price is ongoing or overlaps our new date, cap it to the day before
-
                                 if not prev_end_date or prev_end_date >= adjust_date:
-
                                     db.execute(
-
                                         "UPDATE GPC SET ENDDATE = ? WHERE rowid = ?",
-
                                         (prev_day, prev_price['rowid'])
-
                                     )
-
-                            
-
                             # Insert the new price interval
-
                             db.execute(
-
                                 "INSERT INTO GPC (GLASSID, GLSPRICE, STDATE, ENDDATE) VALUES (?, ?, ?, ?)",
-
                                 (glass_id, new_price, adjust_date, new_end_date)
-
                             )
-
-                        
-
             db.commit()
-
             return {"status": "success", "message": "Bulk adjustments and price tiers saved successfully!"}, 200
-
         except Exception as e:
-
             db.rollback()
-
             return {"status": "error", "message": str(e)}, 400
-
-
-
     sources = db.execute("SELECT DISTINCT GLSOURCE FROM GSI WHERE ISACTIVE = 1 AND GLSOURCE IS NOT NULL AND GLSOURCE != '' ORDER BY GLSOURCE").fetchall()
-
-    
-
     return render_template(
-
         'glass_bulk_adjustment.html',
-
         sources=sources,
-
         today_date=date.today().isoformat()
-
     )
-
 @glass_bp.route('/glass/api/by-source', methods=['GET'])
-
 def api_glass_by_source():
-
     db = get_db_from_app()
-
     source = request.args.get('source', '').strip()
-
-    
-
     if not source:
-
         return {"items": []}, 200
-
-        
-
     query = """
-
         SELECT g.GLASSID, g.GLSNAME, g.GLSMANF, g.GLSLEN, g.GLSWID, g.GLSTEX, 
-
                g.GLSOURCE, g.GLSIMG, g.COLOR, c.CHEX, p.GLSPRICE,
-
                COALESCE((
-
                    SELECT i.GLSSTOCK FROM GLSINV i 
-
                    WHERE i.GLASSID = g.GLASSID 
-
                    ORDER BY i.TS DESC, i.GLSTRNID DESC LIMIT 1
-
                ), 0) AS CURRENT_STOCK
-
         FROM GSI g
-
         LEFT JOIN COLOR c ON g.COLOR = c.COLOR
-
         LEFT JOIN (
-
             SELECT GLASSID, GLSPRICE 
-
             FROM GPC 
-
             WHERE ENDDATE IS NULL OR ENDDATE >= DATE('now')
-
         ) p ON g.GLASSID = p.GLASSID
-
         WHERE g.ISACTIVE = 1 AND g.GLSOURCE = ?
-
         ORDER BY g.GLSNAME ASC
-
     """
-
     raw_items = db.execute(query, (source,)).fetchall()
-
-    
-
     items = []
-
     for row in raw_items:
-
         item = dict(row)
-
         hex_val = item.get('CHEX')
-
         combined_val = hex_to_hsv(hex_val) if hex_val else 999999.0
-
         item['COLOR_HSV'] = combined_val
-
         items.append(item)
-
-        
-
     return {"items": items}, 200
-
 @glass_bp.route('/glass/<int:glass_id>/visuals')
-
 def glass_visuals(glass_id):
-
     db = get_db_from_app()
-
-    
-
     # Fetch glass quick reference info
-
     glass = db.execute('''
-
         SELECT g.*, p.GLSPRICE, c.CHEX,
-
                COALESCE((
-
                    SELECT i.GLSSTOCK FROM GLSINV i 
-
                    WHERE i.GLASSID = g.GLASSID 
-
                    ORDER BY i.TS DESC, i.GLSTRNID DESC LIMIT 1
-
                ), 0) AS CURRENT_STOCK
-
         FROM GSI g
-
         LEFT JOIN GPC p ON g.GLASSID = p.GLASSID
-
         LEFT JOIN COLOR c ON g.COLOR = c.COLOR
-
         WHERE g.GLASSID = ?
-
     ''', (glass_id,)).fetchone()
-
-
-
     if not glass:
-
         flash('Glass sheet record not found.', 'danger')
-
         return redirect(url_for('glass_bp.list_glass'))
-
-
-
     # Fetch price history
-
     price_history = db.execute('''
-
         SELECT GLSPRICE, STDATE, ENDDATE FROM GPC 
-
         WHERE GLASSID = ? 
-
         ORDER BY STDATE ASC
-
     ''', (glass_id,)).fetchall()
-
-
-
     # Fetch inventory history
-
     inventory_history = db.execute('''
-
         SELECT GLSSTOCK, TS FROM GLSINV 
-
         WHERE GLASSID = ? 
-
         ORDER BY TS ASC, GLSTRNID ASC
-
     ''', (glass_id,)).fetchall()
-
-
-
     # Fetch items and their component dimensions (length * width) that use this glass
-
     item_components = db.execute('''
-
         SELECT c.ITEMID, c.COMPLEN, c.COMPWID, i.ITMNAME, i.ITMIMG, i.ITMGRP
-
         FROM IGC c
-
         JOIN ITM i ON c.ITEMID = i.ITEMID
-
         WHERE c.GLASSID = ?
-
     ''', (glass_id,)).fetchall()
-
-
-
     # Map item_id to total component sqinches per unit and item metadata
-
     item_areas = {}
-
     item_metadata = {}
-
     for comp in item_components:
-
         iid = comp['ITEMID']
-
         l = comp['COMPLEN'] or 0.0
-
         w = comp['COMPWID'] or 0.0
-
         item_areas[iid] = item_areas.get(iid, 0.0) + (l * w)
-
         if iid not in item_metadata:
-
             item_metadata[iid] = {
-
                 'ITMNAME': comp['ITMNAME'],
-
                 'ITMIMG': comp['ITMIMG'],
-
                 'ITMGRP': comp['ITMGRP']
-
             }
-
-
-
     item_ids = list(item_areas.keys())
-
     item_inv_history = []
-
     if item_ids:
-
         placeholders = ','.join(['?'] * len(item_ids))
-
         item_inv_history = db.execute(f'''
-
             SELECT ITMTRNID, ITEMID, ITMSTOCK, TS
-
             FROM ITMINV
-
             WHERE ITEMID IN ({placeholders})
-
             ORDER BY ITEMID, TS ASC, ITMTRNID ASC
-
         ''', item_ids).fetchall()
-
-
-
     # --- Metric & Production Calculations ---
-
     total_sheets = 0
-
     total_money_spent = 0.0
-
     prev_stock = 0
-
-    
-
     def get_price_on_date(date_str):
-
         if not price_history:
-
             return glass['GLSPRICE'] or 0.0
-
         active_price = price_history[0]['GLSPRICE']
-
         for p in price_history:
-
             st = p['STDATE'] or ''
-
             en = p['ENDDATE'] or '9999-12-31'
-
             if st <= date_str <= en:
-
                 active_price = p['GLSPRICE']
-
         return active_price or 0.0
-
-
-
     for idx, inv in enumerate(inventory_history):
-
         current_stock_val = inv['GLSSTOCK'] or 0
-
         if idx == 0:
-
             added = current_stock_val
-
         else:
-
             added = current_stock_val - prev_stock
-
-        
-
         if added > 0:
-
             total_sheets += added
-
             inv_date = (inv['TS'] or '').split(' ')[0]
-
             unit_price = get_price_on_date(inv_date)
-
             total_money_spent += added * unit_price
-
         prev_stock = current_stock_val
-
-
-
     # Process Item Inventory history by item to get additions, running totals, and sqft
-
     item_histories = {}
-
     for row in item_inv_history:
-
         iid = row['ITEMID']
-
         if iid not in item_histories:
-
             item_histories[iid] = []
-
         item_histories[iid].append(dict(row))
-
-
-
     total_items_made = 0
-
     total_sqinches = 0.0
-
     distinct_items_set = set()
-
-
-
     for iid, rows in item_histories.items():
-
         p_stock = 0
-
         area_per_unit = item_areas.get(iid, 0.0)
-
         for idx, r in enumerate(rows):
-
             stock = r['ITMSTOCK'] or 0
-
             if idx == 0:
-
                 added = stock
-
             else:
-
                 added = stock - p_stock
-
-            
-
             if added > 0:
-
                 total_items_made += added
-
                 total_sqinches += (added * area_per_unit)
-
                 distinct_items_set.add(iid)
-
             p_stock = stock
-
-
-
     total_sqft_used = total_sqinches / 144.0
-
     total_distinct_items = len(distinct_items_set)
-
-
-
     metrics = {
-
         'total_sheets': total_sheets,
-
         'total_money_spent': total_money_spent,
-
         'total_sqft_used': total_sqft_used,
-
         'total_items_made': total_items_made,
-
         'total_distinct_items': total_distinct_items
-
     }
-
-
-
     return render_template(
-
         'glass_visuals.html',
-
         glass=glass,
-
         price_history=[dict(row) for row in price_history],
-
         inventory_history=[dict(row) for row in inventory_history],
-
         item_inv_history=[dict(row) for row in item_inv_history],
-
         item_areas=item_areas,
-
         metrics=metrics,
-
         today_date=date.today().isoformat()
-
     )

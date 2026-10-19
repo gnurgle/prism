@@ -1,3243 +1,1394 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from datetime import datetime, timedelta, date
-
 import os
 import sqlite3
-
 import xml.etree.ElementTree as ET
-
-
-
 # Define the Blueprint for items
-
 item_bp = Blueprint('item_bp', __name__)
-
-
-
 # Helper function to access the database (assuming it's imported or available from the main app context)
-
 def get_db():
-
     # Connect directly to the SQLite database instead of importing from __main__
-
     conn = sqlite3.connect("inventory.db")
-
     conn.row_factory = sqlite3.Row
-
     conn.execute("PRAGMA foreign_keys = ON;")
-
     return conn
-
-
 # Conversion Constants
-
 SOLDER_CONVERSION = 0.3776
-
 CAME_CONVERSION = 0.1652
-
-
-
 @item_bp.route('/item/<int:item_id>', methods=['GET'])
-
 def item_detail(item_id):
-
     """Display full details, pricing metrics, components, and group siblings using IMI mapping table."""
-
     db = get_db()
-
-
-
     raw_item = db.execute(
-
         'SELECT * FROM ITM WHERE ITEMID = ?', (item_id,)
-
     ).fetchone()
-
-
-
     if not raw_item:
-
         flash('Item record not found.', 'danger')
-
         return redirect(url_for('index'))
-
-    
-
     item = dict(raw_item)
-
-
-
     components = db.execute(
-
         """
-
             SELECT c.*, g.GLSNAME 
-
             FROM IGC c
-
             LEFT JOIN GSI g ON c.GLASSID = g.GLASSID
-
             WHERE c.ITEMID = ?
-
             ORDER BY c.COMPNUM ASC
-
         """,
-
         (item_id,),
-
     ).fetchall()
-
-
-
     current_price = db.execute(
-
         """
-
             SELECT ITMPRICE AS PRICE FROM IPC 
-
             WHERE ITEMID = ? AND (ENDDATE IS NULL OR ENDDATE >= DATE('now'))
-
             ORDER BY STDATE DESC LIMIT 1
-
         """,
-
         (item_id,),
-
     ).fetchone()
-
-
-
     lowest_price = db.execute(
-
         """
-
             SELECT ITMPRICE AS PRICE, STDATE AS START_DATE, ENDDATE AS END_DATE FROM IPC 
-
             WHERE ITEMID = ? 
-
             ORDER BY ITMPRICE ASC LIMIT 1
-
         """,
-
         (item_id,),
-
     ).fetchone()
-
-
-
     highest_price = db.execute(
-
         """
-
             SELECT ITMPRICE AS PRICE, STDATE AS START_DATE, ENDDATE AS END_DATE FROM IPC 
-
             WHERE ITEMID = ? 
-
             ORDER BY ITMPRICE DESC LIMIT 1
-
         """,
-
         (item_id,),
-
     ).fetchone()
-
-
-
     group_siblings = []
-
     if not item['ONEOFF'] and item['ITMGRP']:
-
         group_siblings = db.execute(
-
             """
-
                 SELECT ITEMID, ITMNAME FROM ITM 
-
                 WHERE ITMGRP = ? AND ONEOFF = 0
-
                 ORDER BY ITMNAME ASC
-
             """,
-
             (item['ITMGRP'],),
-
         ).fetchall()
-
-
-
     components_with_cost = db.execute(
-
         """
-
             SELECT c.COMPLEN, c.COMPWID, g.GLSLEN, g.GLSWID, 
-
                    (SELECT gp.GLSPRICE FROM GPC gp 
-
                     WHERE gp.GLASSID = g.GLASSID AND (gp.ENDDATE IS NULL OR gp.ENDDATE >= DATE('now'))
-
                     ORDER BY gp.STDATE DESC LIMIT 1) AS LATEST_GLSPRICE
-
             FROM IGC c
-
             JOIN GSI g ON c.GLASSID = g.GLASSID
-
             WHERE c.ITEMID = ? AND c.COMPLEN IS NOT NULL AND c.COMPWID IS NOT NULL
-
                   AND g.GLSLEN IS NOT NULL AND g.GLSWID IS NOT NULL AND g.GLSLEN > 0 AND g.GLSWID > 0
-
         """,
-
         (item_id,),
-
     ).fetchall()
-
-
-
     materials_cost = 0.0
-
     for comp in components_with_cost:
-
         comp_sqin = (comp['COMPLEN'] or 0) * (comp['COMPWID'] or 0)
-
         glass_sheet_area = (comp['GLSLEN'] or 1) * (comp['GLSWID'] or 1)
-
         glass_sheet_price = comp['LATEST_GLSPRICE'] or 0.0
-
-        
-
         if glass_sheet_area > 0:
-
             cost_per_sqin = glass_sheet_price / glass_sheet_area
-
             materials_cost += comp_sqin * cost_per_sqin
-
-
-
     associated_supplies_rows = db.execute(
-
         """
-
         SELECT msi.MSIID, msi.MSINAME, msi.MSITYPE, imi.IMIAMT, msi.MSIUNIT, u.CFACTOR
-
         FROM IMI imi
-
         JOIN MSI msi ON imi.MSIID = msi.MSIID
-
         LEFT JOIN UNTS u ON msi.UNTTYPE = u.UNTTYPE
-
         WHERE imi.ITEMID = ?
-
         """,
-
         (item_id,),
-
     ).fetchall()
-
-
-
     supplies_map = {row['MSITYPE']: row for row in associated_supplies_rows}
-
-
-
     associated_decorations = db.execute(
-
         """
-
         SELECT m.MSIID, m.MSINAME, i.IMIAMT, m.MSIUNIT, u.CFACTOR
-
         FROM IMI i
-
         JOIN MSI m ON i.MSIID = m.MSIID
-
         LEFT JOIN UNTS u ON m.UNTTYPE = u.UNTTYPE
-
         WHERE i.ITEMID = ? AND m.MSITYPE = 'Decoration'
-
         ORDER BY m.MSINAME ASC
-
         """,
-
         (item_id,),
-
     ).fetchall()
-
-
-
     item['MSLDR_NAME'] = supplies_map['Solder']['MSINAME'] if 'Solder' in supplies_map else ''
-
     item['MFOIL_NAME'] = supplies_map['Foil']['MSINAME'] if 'Foil' in supplies_map else ''
-
     item['MCAME_NAME'] = supplies_map['Came']['MSINAME'] if 'Came' in supplies_map else ''
-
     item['MCHAIN_NAME'] = supplies_map['Chain']['MSINAME'] if 'Chain' in supplies_map else ''
-
     item['MRING_NAME']  = supplies_map['Rings']['MSINAME'] if 'Rings' in supplies_map else ''
-
     item['MWIRE_NAME']  = supplies_map['Wire']['MSINAME'] if 'Wire' in supplies_map else ''
-
-
-
     raw_sldr = float(supplies_map['Solder']['IMIAMT']) if 'Solder' in supplies_map and supplies_map['Solder']['IMIAMT'] is not None else 0.0
-
     raw_came = float(supplies_map['Came']['IMIAMT']) if 'Came' in supplies_map and supplies_map['Came']['IMIAMT'] is not None else 0.0
-
-
-
     itm_supplies = {
-
         'ITMSLDR': (raw_sldr * SOLDER_CONVERSION * 2) + (raw_came * CAME_CONVERSION * 2),
-
         'ITMCAME': raw_came,
-
         'ITMFOIL': float(supplies_map['Foil']['IMIAMT']) if 'Foil' in supplies_map and supplies_map['Foil']['IMIAMT'] is not None else 0.0,
-
         'ITMCHAIN': float(supplies_map['Chain']['IMIAMT']) if 'Chain' in supplies_map and supplies_map['Chain']['IMIAMT'] is not None else 0.0,
-
         'ITMRING': float(supplies_map['Rings']['IMIAMT']) if 'Rings' in supplies_map and supplies_map['Rings']['IMIAMT'] is not None else 0,
-
         'ITMWIRE': float(supplies_map['Wire']['IMIAMT']) if 'Wire' in supplies_map and supplies_map['Wire']['IMIAMT'] is not None else 0.0
-
     }
-
-
-
     estimated_supplies_core_cost = 0.0
-
-
-
     for msi_type, qty in itm_supplies.items():
-
         type_lookup_map = {
-
             'ITMSLDR': 'Solder',
-
             'ITMFOIL': 'Foil',
-
             'ITMCAME': 'Came',
-
             'ITMCHAIN': 'Chain',
-
             'ITMRING': 'Rings',
-
             'ITMWIRE': 'Wire'
-
         }
-
         actual_type = type_lookup_map.get(msi_type)
-
         supply_data = supplies_map.get(actual_type)
-
-
-
         if qty and qty > 0 and supply_data and supply_data['MSIID']:
-
             misc_id = supply_data['MSIID']
-
             cfactor = supply_data['CFACTOR']
-
             msiunit = supply_data['MSIUNIT']
-
-
-
             price_row = db.execute(
-
                 """
-
                     SELECT MSIPRICE AS PRICE FROM MSP 
-
                     WHERE MSIID = ? AND (ENDDATE IS NULL OR ENDDATE >= DATE('now'))
-
                     ORDER BY STDATE DESC LIMIT 1
-
                 """,
-
                 (misc_id,),
-
             ).fetchone()
-
-
-
             if price_row and price_row['PRICE']:
-
                 unit_price = float(price_row['PRICE'])
-
                 valid_cfactor = float(cfactor) if cfactor and float(cfactor) > 0 else 1.0
-
                 valid_msiunit = float(msiunit) if msiunit is not None and float(msiunit) > 0 else 1.0
-
-                
-
                 divisor = valid_cfactor * valid_msiunit
-
                 if divisor > 0 and unit_price > 0:
-
                     estimated_supplies_core_cost += qty * (unit_price / divisor)
-
-
-
     decorations_cost = 0.0
-
     for deco in associated_decorations:
-
         qty = float(deco['IMIAMT']) if deco['IMIAMT'] is not None else 0.0
-
         if qty > 0 and deco['MSIID']:
-
             misc_id = deco['MSIID']
-
             cfactor = deco['CFACTOR']
-
             msiunit = deco['MSIUNIT']
-
-
-
             price_row = db.execute(
-
                 """
-
                     SELECT MSIPRICE AS PRICE FROM MSP 
-
                     WHERE MSIID = ? AND (ENDDATE IS NULL OR ENDDATE >= DATE('now'))
-
                     ORDER BY STDATE DESC LIMIT 1
-
                 """,
-
                 (misc_id,),
-
             ).fetchone()
-
-
-
             if price_row and price_row['PRICE']:
-
                 unit_price = float(price_row['PRICE'])
-
                 valid_cfactor = float(cfactor) if cfactor and float(cfactor) > 0 else 1.0
-
                 valid_msiunit = float(msiunit) if msiunit is not None and float(msiunit) > 0 else 1.0
-
-                
-
                 divisor = valid_cfactor * valid_msiunit
-
                 if divisor > 0 and unit_price > 0:
-
                     decorations_cost += qty * (unit_price / divisor)
-
-
-
     estimated_supplies_cost = estimated_supplies_core_cost + decorations_cost
-
     total_cost = materials_cost + estimated_supplies_cost
-
-
-
     return render_template(
-
         'item_detail.html',
-
         item=item,
-
         components=components,
-
         current_price=current_price,
-
         lowest_price=lowest_price,
-
         highest_price=highest_price,
-
         materials_cost=materials_cost,
-
         estimated_supplies_cost=estimated_supplies_cost,
-
         total_cost=total_cost,
-
         group_siblings=group_siblings,
-
         itm_supplies=itm_supplies,
-
         associated_supplies=associated_supplies_rows,
-
         associated_decorations=associated_decorations
-
     )
-
-
-
 @item_bp.route('/item/new', methods=['GET', 'POST'])
-
 def create_item():
-
     db = get_db()
-
-    
-
     if request.method == 'POST':
-
         itmname = request.form.get('ITMNAME')
-
         itmgrp = request.form.get('ITMGRP') or None
-
         new_itmgrp = request.form.get('NEW_ITMGRP')
-
-        
-
         if new_itmgrp and new_itmgrp.strip():
-
             itmgrp = new_itmgrp.strip()
-
             db.execute("INSERT OR IGNORE INTO IGP (ITMGRP, ISACTIVE) VALUES (?, 1)", (itmgrp,))
-
-
-
         itmlen = request.form.get('ITMLEN')
-
         itmwid = request.form.get('ITMWID')
-
         oneoff = 1 if request.form.get('ONEOFF') else 0
-
         current = 1 if request.form.get('CURRENT') else 0
-
         itmnote = request.form.get('ITMNOTE')
-
-        
-
         cursor = db.execute(
-
             """
-
             INSERT INTO ITM (ITMNAME, ITMGRP, ITMLEN, ITMWID, ONEOFF, CURRENT, ITMNOTE, ISACTIVE)
-
             VALUES (?, ?, ?, ?, ?, ?, ?, 1)
-
             """,
-
             (itmname, itmgrp, itmlen or None, itmwid or None, oneoff, current, itmnote)
-
         )
-
         new_item_id = cursor.lastrowid
-
-
-
         from flask import current_app
-
         config_path = os.path.join(current_app.root_path, 'settings.config')
-
         if os.path.exists(config_path):
-
             try:
-
                 tree = ET.parse(config_path)
-
                 root = tree.getroot()
-
                 defaults_elem = root.find('NewItemDefaults')
-
                 if defaults_elem is not None:
-
                     config_field_map = {
-
                         'Solder': 'Solder',
-
                         'Foil': 'Foil',
-
                         'Came': 'Came',
-
                         'Chain': 'Chain',
-
                         'Rings': 'Rings'
-
                     }
-
                     for xml_tag, msi_type in config_field_map.items():
-
                         child = defaults_elem.find(xml_tag)
-
                         if child is not None and child.text and child.text.strip():
-
                             try:
-
                                 default_msiid = int(child.text.strip())
-
                                 exists = db.execute("SELECT 1 FROM MSI WHERE MSIID = ?", (default_msiid,)).fetchone()
-
                                 if exists:
-
                                     db.execute(
-
                                         'INSERT INTO IMI (ITEMID, MSIID, IMIAMT) VALUES (?, ?, 0)',
-
                                         (new_item_id, default_msiid)
-
                                     )
-
                             except ValueError:
-
                                 continue
-
             except ET.ParseError:
-
                 pass
-
-
-
         db.commit()
-
         flash('Item created successfully!', 'success')
-
         return redirect(url_for('templates_bp.upload_template', item_id=new_item_id))
-
-
-
-
     all_groups = db.execute('SELECT DISTINCT ITMGRP FROM ITM WHERE ITMGRP IS NOT NULL ORDER BY ITMGRP ASC').fetchall()
-
     all_msi = db.execute('SELECT MSIID, MSINAME, MSITYPE FROM MSI WHERE ISACTIVE = 1 ORDER BY MSINAME ASC').fetchall()
-
     return render_template('item_form.html', action='Create', item={}, groups=all_groups, 
-
                            msi_solder=[m for m in all_msi if m['MSITYPE'] == 'Solder'],
-
                            msi_foil=[m for m in all_msi if m['MSITYPE'] == 'Foil'],
-
                            msi_came=[m for m in all_msi if m['MSITYPE'] == 'Came'],
-
                            msi_chain=[m for m in all_msi if m['MSITYPE'] == 'Chain'],
-
                            msi_rings=[m for m in all_msi if m['MSITYPE'] == 'Rings'],
-
                            msi_wire=[m for m in all_msi if m['MSITYPE'] == 'Wire'])
-
-
-
 @item_bp.route('/item/<int:item_id>/edit', methods=['GET', 'POST'])
-
 def edit_item(item_id):
-
     db = get_db()
-
-    
-
     item = db.execute('SELECT * FROM ITM WHERE ITEMID = ?', (item_id,)).fetchone()
-
     if not item:
-
         flash('Item not found.', 'danger')
-
         return redirect(url_for('index'))
-
-
-
     if request.method == 'POST':
-
         itmname = request.form.get('ITMNAME')
-
         itmgrp = request.form.get('ITMGRP') or None
-
         new_itmgrp = request.form.get('NEW_ITMGRP')
-
-        
-
         if new_itmgrp and new_itmgrp.strip():
-
             itmgrp = new_itmgrp.strip()
-
             db.execute(
-
                 "INSERT OR IGNORE INTO IGP (ITMGRP, ISACTIVE) VALUES (?, 1)",
-
                 (itmgrp,)
-
             )
-
-
-
         itmlen = request.form.get('ITMLEN')
-
         itmwid = request.form.get('ITMWID')
-
         oneoff = 1 if request.form.get('ONEOFF') else 0
-
         current = 1 if request.form.get('CURRENT') else 0
-
         itmnote = request.form.get('ITMNOTE')
-
-        
-
         db.execute(
-
             """
-
             UPDATE ITM 
-
             SET ITMNAME = ?, ITMGRP = ?, ITMLEN = ?, ITMWID = ?, ONEOFF = ?, CURRENT = ?, ITMNOTE = ?
-
             WHERE ITEMID = ?
-
             """,
-
             (itmname, itmgrp, itmlen or None, itmwid or None, oneoff, current, itmnote, item_id)
-
         )
-
-
-
         db.execute('DELETE FROM IMI WHERE ITEMID = ? AND MSIID NOT IN (SELECT MSIID FROM MSI WHERE MSITYPE = \'Decoration\')', (item_id,))
-
-
-
         supply_inputs = [
-
             ('Solder', request.form.get('ITMSLDR'), request.form.get('IMISLDR')),
-
             ('Foil', request.form.get('ITMFOIL'), request.form.get('IMIFOIL')),
-
             ('Came', request.form.get('ITMCAME'), request.form.get('IMICAME')),
-
             ('Chain', request.form.get('ITMCHAIN'), request.form.get('IMICHAIN')),
-
             ('Rings', request.form.get('ITMRING'), request.form.get('IMIRING')),
-
             ('Wire', request.form.get('ITMWIRE'), request.form.get('IMIWIRE'))
-
         ]
-
-
-
         for msi_type, qty_val, msi_id_val in supply_inputs:
-
             if qty_val and float(qty_val) > 0 and msi_id_val:
-
                 try:
-
                     msiid_int = int(msi_id_val)
-
                     exists = db.execute("SELECT 1 FROM MSI WHERE MSIID = ?", (msiid_int,)).fetchone()
-
                     if exists:
-
                         db.execute(
-
                             'INSERT INTO IMI (ITEMID, MSIID, IMIAMT) VALUES (?, ?, ?)',
-
                             (item_id, msiid_int, float(qty_val))
-
                         )
-
                 except ValueError:
-
                     continue
-
-
-
         deco_msiids = request.form.getlist('deco_msiid[]')
-
         deco_amts = request.form.getlist('deco_amt[]')
-
-
-
         db.execute("DELETE FROM IMI WHERE ITEMID = ? AND MSIID IN (SELECT MSIID FROM MSI WHERE MSITYPE = 'Decoration')", (item_id,))
-
-
-
         for msiid_val, amt_val in zip(deco_msiids, deco_amts):
-
             if msiid_val and msiid_val.strip() and amt_val and amt_val.strip():
-
                 try:
-
                     msiid_int = int(msiid_val)
-
                     amt_float = float(amt_val)
-
-                    
-
                     if amt_float > 0:
-
                         exists = db.execute("SELECT 1 FROM MSI WHERE MSIID = ?", (msiid_int,)).fetchone()
-
                         if exists:
-
                             db.execute(
-
                                 "INSERT INTO IMI (ITEMID, MSIID, IMIAMT) VALUES (?, ?, ?)",
-
                                 (item_id, msiid_int, amt_float)
-
                             )
-
                 except ValueError:
-
                     continue
-
-
-
         db.commit()
-
         flash('Item updated successfully!', 'success')
-
         return redirect(url_for('item_bp.item_detail', item_id=item_id))
-
-
-
     associated_supplies = db.execute(
-
         """
-
         SELECT msi.MSITYPE, msi.MSIID, imi.IMIAMT 
-
         FROM IMI imi
-
         JOIN MSI msi ON imi.MSIID = msi.MSIID
-
         WHERE imi.ITEMID = ?
-
         """,
-
         (item_id,)
-
     ).fetchall()
-
-
-
     supplies_dict = {row['MSITYPE']: {'amt': row['IMIAMT'], 'id': row['MSIID']} for row in associated_supplies}
-
-    
-
     item_form_data = dict(item)
-
     item_form_data['ITMSLDR'] = supplies_dict.get('Solder', {}).get('amt', '')
-
     item_form_data['IMISLDR'] = supplies_dict.get('Solder', {}).get('id', '')
-
-    
-
     item_form_data['ITMFOIL'] = supplies_dict.get('Foil', {}).get('amt', '')
-
     item_form_data['IMIFOIL'] = supplies_dict.get('Foil', {}).get('id', '')
-
-    
-
     item_form_data['ITMCAME'] = supplies_dict.get('Came', {}).get('amt', '')
-
     item_form_data['IMICAME'] = supplies_dict.get('Came', {}).get('id', '')
-
-    
-
     item_form_data['ITMCHAIN'] = supplies_dict.get('Chain', {}).get('amt', '')
-
     item_form_data['IMICHAIN'] = supplies_dict.get('Chain', {}).get('id', '')
-
-    
-
     item_form_data['ITMRING']  = supplies_dict.get('Rings', {}).get('amt', '')
-
     item_form_data['IMIRING']  = supplies_dict.get('Rings', {}).get('id', '')
-
-    
-
     item_form_data['ITMWIRE']  = supplies_dict.get('Wire', {}).get('amt', '')
-
     item_form_data['IMIWIRE']  = supplies_dict.get('Wire', {}).get('id', '')
-
-
-
     all_msi = db.execute('SELECT MSIID, MSINAME, MSITYPE FROM MSI ORDER BY MSINAME ASC').fetchall()
-
-    
-
     msi_solder = [m for m in all_msi if m['MSITYPE'] == 'Solder']
-
     msi_foil = [m for m in all_msi if m['MSITYPE'] == 'Foil']
-
     msi_came = [m for m in all_msi if m['MSITYPE'] == 'Came']
-
     msi_chain = [m for m in all_msi if m['MSITYPE'] == 'Chain']
-
     msi_rings = [m for m in all_msi if m['MSITYPE'] == 'Rings']
-
     msi_wire = [m for m in all_msi if m['MSITYPE'] == 'Wire']
-
-
-
     all_groups = db.execute('SELECT DISTINCT ITMGRP FROM ITM WHERE ITMGRP IS NOT NULL ORDER BY ITMGRP ASC').fetchall()
-
-
-
     msi_decorations = db.execute(
-
         """
-
         SELECT m.MSIID, m.MSINAME 
-
         FROM MSI m 
-
         JOIN MST t ON m.MSITYPE = t.MSITYPE
-
         WHERE m.MSITYPE = 'Decoration' AND m.ISACTIVE = 1
-
         ORDER BY m.MSINAME ASC
-
         """
-
     ).fetchall()
-
-
-
     associated_decorations = db.execute(
-
         """
-
         SELECT i.MSIID, i.IMIAMT, m.MSINAME
-
         FROM IMI i
-
         JOIN MSI m ON i.MSIID = m.MSIID
-
         WHERE i.ITEMID = ? AND m.MSITYPE = 'Decoration'
-
         """,
-
         (item_id,)
-
     ).fetchall()
-
-
-
     return render_template(
-
         'item_form.html',
-
         action='Edit',
-
         item=item_form_data,
-
         groups=all_groups,
-
         msi_solder=msi_solder,
-
         msi_foil=msi_foil,
-
         msi_came=msi_came,
-
         msi_chain=msi_chain,
-
         msi_rings=msi_rings,
-
         msi_wire=msi_wire,
-
         msi_decorations=msi_decorations,
-
         associated_decorations=associated_decorations
-
     )
-
-
-
 @item_bp.route('/item/<int:item_id>/history')
-
 def price_history(item_id):
-
     db = get_db()
-
     item = db.execute(
-
         'SELECT * FROM ITM WHERE ITEMID = ?', (item_id,)
-
     ).fetchone()
-
-
-
     if not item:
-
         flash('Item record not found.', 'danger')
-
         return redirect(url_for('index'))
-
-
-
     rows = db.execute(
-
         """
-
             SELECT rowid, ITMPRICE, STDATE, ENDDATE FROM IPC 
-
             WHERE ITEMID = ? 
-
             ORDER BY STDATE ASC
-
         """,
-
         (item_id,),
-
     ).fetchall()
-
-
-
     history_processed = []
-
     prev_price = None
-
-
-
     for row in rows:
-
         price = row['ITMPRICE']
-
         change = price - prev_price if prev_price is not None else None
-
         prev_price = price
-
-
-
         start_dt = (
-
             datetime.strptime(row['STDATE'], '%Y-%m-%d')
-
             if row['STDATE']
-
             else None
-
         )
-
         end_dt = (
-
             datetime.strptime(row['ENDDATE'], '%Y-%m-%d')
-
             if row['ENDDATE']
-
             else datetime.today()
-
         )
-
-
-
         duration_str = 'N/A'
-
         if start_dt:
-
             delta = end_dt - start_dt
-
             days = delta.days
-
             years = days // 365
-
             rem_days = days % 365
-
             if years > 0:
-
                 duration_str = f'{years} yr{"" if years == 1 else "s"} {rem_days} day{"" if rem_days == 1 else "s"}'
-
             else:
-
                 duration_str = f'{days} day{"" if days == 1 else ""}'
-
-
-
         history_processed.append({
-
             'ITMPRICE': price,
-
             'change': change,
-
             'STDATE': row['STDATE'],
-
             'ENDDATE': row['ENDDATE'],
-
             'duration_str': duration_str,
-
         })
-
-
-
     history_processed.reverse()
-
-
-
     return render_template(
-
         'item_price_history.html', item=item, history=history_processed
-
     )
-
-
-
 @item_bp.route('/prices/<int:item_id>/edit', methods=['GET', 'POST'])
-
 def edit_prices(item_id):
-
     db = get_db()
-
     item = db.execute(
-
         'SELECT * FROM ITM WHERE ITEMID = ?', (item_id,)
-
     ).fetchone()
-
-
-
     if not item:
-
         flash('Item record not found.', 'danger')
-
         return redirect(url_for('index'))
-
-
-
     if request.method == 'POST':
-
         try:
-
             new_price = float(request.form.get('ITMPRICE'))
-
         except (TypeError, ValueError):
-
             flash('Invalid price value provided.', 'danger')
-
             return redirect(url_for('item_bp.edit_prices', item_id=item_id))
-
-
-
         new_st_str = request.form.get('STDATE')
-
         is_current = 1 if request.form.get('is_current') else 0
-
         new_end_str = None if is_current else request.form.get('ENDDATE')
-
-
-
         new_st = datetime.strptime(new_st_str, '%Y-%m-%d').date()
-
         new_end = (
-
             datetime.strptime(new_end_str, '%Y-%m-%d').date()
-
             if new_end_str
-
             else None
-
         )
-
-
-
         if new_end and new_st > new_end:
-
             flash('Start date cannot be after the end date.', 'danger')
-
             return redirect(url_for('item_bp.edit_prices', item_id=item_id))
-
-
-
         cursor = db.cursor()
-
-
-
         existing_prices = cursor.execute(
-
             """
-
             SELECT rowid, ITMPRICE, STDATE, ENDDATE FROM IPC 
-
             WHERE ITEMID = ?
-
         """,
-
             (item_id,),
-
         ).fetchall()
-
-
-
         for row in existing_prices:
-
             row_id = row['rowid']
-
             ex_st_str = row['STDATE']
-
             ex_end_str = row['ENDDATE']
-
-
-
             ex_st = datetime.strptime(ex_st_str, '%Y-%m-%d').date() if ex_st_str else None
-
             ex_end = datetime.strptime(ex_end_str, '%Y-%m-%d').date() if ex_end_str else None
-
-
-
             if ex_st and new_st <= ex_st and (new_end is None or (ex_end and new_end >= ex_end)):
-
                 cursor.execute('DELETE FROM IPC WHERE rowid = ?', (row_id,))
-
                 continue
-
-
-
             if ex_st and ex_end and new_st > ex_st and new_end and new_end < ex_end:
-
                 split_end_date = (new_st - timedelta(days=1)).strftime('%Y-%m-%d')
-
                 cursor.execute(
-
                     'UPDATE IPC SET ENDDATE = ? WHERE rowid = ?',
-
                     (split_end_date, row_id)
-
                 )
-
                 tail_start_date = (new_end + timedelta(days=1)).strftime('%Y-%m-%d')
-
                 cursor.execute(
-
                     'INSERT INTO IPC (ITEMID, ITMPRICE, STDATE, ENDDATE) VALUES (?, ?, ?, ?)',
-
                     (item_id, row['ITMPRICE'], tail_start_date, ex_end_str)
-
                 )
-
                 continue
-
-
-
             if ex_st and new_st > ex_st and (ex_end is None or new_st <= ex_end):
-
                 new_ex_end = (new_st - timedelta(days=1)).strftime('%Y-%m-%d')
-
                 cursor.execute(
-
                     'UPDATE IPC SET ENDDATE = ? WHERE rowid = ?',
-
                     (new_ex_end, row_id)
-
                 )
-
-
-
             if new_end and ex_end and new_end >= ex_st and new_end < ex_end:
-
                 new_ex_st = (new_end + timedelta(days=1)).strftime('%Y-%m-%d')
-
                 cursor.execute(
-
                     'UPDATE IPC SET STDATE = ? WHERE rowid = ?',
-
                     (new_ex_st, row_id)
-
                 )
-
-
-
             if is_current and ex_st and ex_st >= new_st:
-
                 cursor.execute('DELETE FROM IPC WHERE rowid = ?', (row_id,))
-
-
-
         cursor.execute(
-
             """
-
             INSERT INTO IPC (ITEMID, ITMPRICE, STDATE, ENDDATE)
-
             VALUES (?, ?, ?, ?)
-
         """,
-
             (item_id, new_price, new_st_str, new_end_str),
-
         )
-
-
-
         db.commit()
-
         flash('Price range successfully saved and overlapping intervals adjusted.', 'success')
-
         return redirect(url_for('item_bp.edit_prices', item_id=item_id))
-
-
-
     prices = db.execute(
-
         """
-
             SELECT rowid, ITMPRICE, STDATE, ENDDATE FROM IPC 
-
             WHERE ITEMID = ? 
-
             ORDER BY STDATE DESC
-
         """,
-
         (item_id,),
-
     ).fetchall()
-
-
-
     return render_template(
-
         'item_edit_prices.html', item=item, prices=prices
-
     )
-
-
-
 @item_bp.route('/prices/<int:item_id>/delete/<int:price_id>', methods=['POST'])
-
 def delete_price(item_id, price_id):
-
     db = get_db()
-
     db.execute('DELETE FROM IPC WHERE rowid = ? AND ITEMID = ?', (price_id, item_id))
-
     db.commit()
-
     flash('Price tier removed.', 'success')
-
     return redirect(url_for('item_bp.edit_prices', item_id=item_id))
-
-
-
 @item_bp.route("/inventory")
-
 def inventory_status():
-
     db = get_db()
-
     counts = db.execute("""
-
         SELECT i.ITMNAME, c.* 
-
         FROM ICC c
-
         JOIN ITM i ON c.ITEMID = i.ITEMID
-
     """).fetchall()
-
     return render_template("inventory_status.html", counts=counts)
-
-
-
 @item_bp.route("/inventory/update/<int:item_id>", methods=["POST"])
-
 def update_inventory(item_id):
-
     db = get_db()
-
     ipcut = int(request.form.get("IPCUT", 0))
-
     ipgrnd = int(request.form.get("IPGRND", 0))
-
     ipfoil = int(request.form.get("IPFOIL", 0))
-
     ipsldr = int(request.form.get("IPSLDR", 0))
-
     ipdone = int(request.form.get("IPDONE", 0))
-
-
-
     db.execute(
-
         """
-
         INSERT INTO ICC (ITEMID, IPCUT, IPGRND, IPFOIL, IPSLDR, IPDONE, IPTS)
-
         VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-
         ON CONFLICT(ITEMID) DO UPDATE SET
-
             IPCUT=excluded.IPCUT, IPGRND=excluded.IPGRND, 
-
             IPFOIL=excluded.IPFOIL, IPSLDR=excluded.IPSLDR, 
-
             IPDONE=excluded.IPDONE, IPTS=CURRENT_TIMESTAMP
-
     """,
-
         (item_id, ipcut, ipgrnd, ipfoil, ipsldr, ipdone),
-
     )
-
-
-
     db.execute(
-
         """
-
         INSERT INTO ITR (ITEMID, IPCUT, IPGRND, IPFOIL, IPSLDR, IPDONE)
-
         VALUES (?, ?, ?, ?, ?, ?)
-
     """,
-
         (item_id, ipcut, ipgrnd, ipfoil, ipsldr, ipdone),
-
     )
-
-
-
     db.commit()
-
     flash("Inventory metrics updated and logged to ITR.", "info")
-
     return redirect(url_for("item_bp.inventory_status"))
-
-
 @item_bp.route("/sales/new", methods=["GET", "POST"])
-
 def record_sale():
-
     db = get_db()
-
     if request.method == "POST":
-
         itemid = request.form.get("ITEMID")
-
         sunits = request.form.get("SUNITS")
-
         venueid = request.form.get("VENUEID") or None
-
-        
-
         # Fix: Capture the sale date from the form request instead of forcing DATE('now')
-
         sdate = request.form.get("SDATE") or date.today().strftime('%Y-%m-%d')
-
-
-
         db.execute(
-
             """
-
             INSERT INTO ITMSALE (ITEMID, SUNITS, SDATE, VENUEID)
-
             VALUES (?, ?, ?, ?)
-
         """,
-
             (itemid, sunits, sdate, venueid),
-
         )
-
-
-
         db.commit()
-
         flash("Sale logged successfully!", "success")
-
         return redirect(url_for("item_bp.list_sales"))
-
-
-
     items = db.execute("SELECT ITEMID, ITMNAME FROM ITM").fetchall()
-
     venues = db.execute("SELECT VENUEID, VENUELOC FROM VENUE").fetchall()
-
     return render_template("sale_form.html", items=items, venues=venues)
-
-
 @item_bp.route('/item/bulk-sales', methods=['GET'])
-
 def item_bulk_sales():
-
     db = get_db()
-
     venues = db.execute("SELECT VENUEID, VENNAME FROM VENUE WHERE ISACTIVE = 1 ORDER BY VENNAME ASC").fetchall()
-
     today_date = datetime.today().strftime('%Y-%m-%d')
-
     return render_template('item_bulk_sales.html', venues=venues, today_date=today_date)
-
-
-
 @item_bp.route('/item/api/bulk-sales-data', methods=['GET'])
-
 def api_item_bulk_sales_data():
-
     db = get_db()
-
     items = db.execute(
-
         """
-
         SELECT i.ITEMID, i.ITMNAME, i.ITMGRP, i.ONEOFF, i.ITMIMG, i.ISACTIVE, i.CURRENT,
-
                (SELECT ii.ITMSTOCK FROM ITMINV ii WHERE ii.ITEMID = i.ITEMID ORDER BY ii.TS DESC LIMIT 1) AS CURRENT_STOCK,
-
                (SELECT ipc.ITMPRICE FROM IPC ipc WHERE ipc.ITEMID = i.ITEMID ORDER BY ipc.STDATE DESC LIMIT 1) AS ITMPRICE
-
         FROM ITM i
-
         ORDER BY i.ITMGRP ASC, i.ITMNAME ASC
-
         """
-
     ).fetchall()
-
-    
-
     item_list = [dict(row) for row in items]
-
     return {'items': item_list}
-
-
 @item_bp.route('/item/api/bulk-sales-adjustment', methods=['POST'])
-
 def bulk_sales_adjustment():
-
     db = get_db()
-
     data = request.get_json()
-
     sale_date = data.get('date')
-
     venue_id = data.get('venue_id') or None
-
     items = data.get('items', [])
-
-    
-
     if not sale_date:
-
         return {'status': 'error', 'message': 'Adjustment date is required.'}, 400
-
-
-
     try:
-
         for entry in items:
-
             item_id = entry.get('ITEMID')
-
             amt_sold = entry.get('amt_sold', 0)
-
             new_price = entry.get('price')
-
-            
-
             if amt_sold > 0:
-
                 # 1. Record the sale in ITMSALE
-
                 db.execute(
-
                     """
-
                     INSERT INTO ITMSALE (ITEMID, SUNITS, SDATE, VENUEID)
-
                     VALUES (?, ?, ?, ?)
-
                     """,
-
                     (item_id, amt_sold, sale_date, venue_id)
-
                 )
-
-                
-
                 # 2. Fetch all inventory records chronologically for timeline propagation
-
                 inv_rows = db.execute(
-
                     "SELECT ITMTRNID, ITMSTOCK, TS FROM ITMINV WHERE ITEMID = ? ORDER BY TS ASC, ITMTRNID ASC",
-
                     (item_id,)
-
                 ).fetchall()
-
-                
-
                 exact_match = None
-
                 latest_before = None
-
                 future_rows = []
-
-                
-
                 for row in inv_rows:
-
                     if row['TS'] == sale_date:
-
                         exact_match = row
-
                     elif row['TS'] < sale_date:
-
                         latest_before = row
-
                     elif row['TS'] > sale_date:
-
                         future_rows.append(row)
-
-                
-
                 # 3. Adjust stock on the sale_date (update exact match or insert new baseline)
-
                 if exact_match:
-
                     new_stock = max(0, exact_match['ITMSTOCK'] - amt_sold)
-
                     db.execute(
-
                         "UPDATE ITMINV SET ITMSTOCK = ? WHERE ITMTRNID = ?",
-
                         (new_stock, exact_match['ITMTRNID'])
-
                     )
-
                 else:
-
                     baseline_stock = latest_before['ITMSTOCK'] if latest_before else 0
-
                     new_stock = max(0, baseline_stock - amt_sold)
-
                     db.execute(
-
                         "INSERT INTO ITMINV (ITEMID, ITMSTOCK, TS) VALUES (?, ?, ?)",
-
                         (item_id, new_stock, sale_date)
-
                     )
-
-                
-
                 # 4. Extrapolate forward: decrease all future inventory records by amt_sold
-
                 for f_row in future_rows:
-
                     f_new_stock = max(0, f_row['ITMSTOCK'] - amt_sold)
-
                     db.execute(
-
                         "UPDATE ITMINV SET ITMSTOCK = ? WHERE ITMTRNID = ?",
-
                         (f_new_stock, f_row['ITMTRNID'])
-
                     )
-
-            
-
             # 5. Update price if changed
-
             if new_price is not None:
-
                 current_price_row = db.execute(
-
                     """
-
                     SELECT ITMPRICE FROM IPC 
-
                     WHERE ITEMID = ? AND (ENDDATE IS NULL OR ENDDATE >= DATE('now'))
-
                     ORDER BY STDATE DESC LIMIT 1
-
                     """,
-
                     (item_id,)
-
                 ).fetchone()
-
-                
-
                 if not current_price_row or float(current_price_row['ITMPRICE']) != float(new_price):
-
                     db.execute(
-
                         """
-
                         UPDATE IPC SET ENDDATE = DATE(?, '-1 day')
-
                         WHERE ITEMID = ? AND (ENDDATE IS NULL OR ENDDATE >= DATE('now'))
-
                         """,
-
                         (sale_date, item_id)
-
                     )
-
                     db.execute(
-
                         """
-
                         INSERT INTO IPC (ITEMID, ITMPRICE, STDATE, ENDDATE)
-
                         VALUES (?, ?, ?, NULL)
-
                         """,
-
                         (item_id, new_price, sale_date)
-
                     )
-
-
-
         db.commit()
-
         return {'status': 'success', 'message': 'Sales recorded and inventory updated successfully!'}
-
     except Exception as e:
-
         db.rollback()
-
         return {'status': 'error', 'message': str(e)}, 500
-
-
-
 @item_bp.route("/item/<int:item_id>/process_workflow", methods=["GET", "POST"])
-
 def process_workflow(item_id):
-
     db = get_db()
-
     item = db.execute("SELECT * FROM ITM WHERE ITEMID = ?", (item_id,)).fetchone()
-
-    
-
     if not item:
-
         flash("Item not found.", "danger")
-
         return redirect(url_for("index"))
-
-
-
     if request.method == "POST":
-
         try:
-
             # 1. Run build_components logic
-
             # Assuming build_components parses SVG and inserts component parts into the DB for this item_id
-
             from routes.component_routes import process_build_components as build_components_for_item
             build_components_for_item(item_id)
-
-            
-
             # 2. Run trace_outline logic (reusing your core trace function)
-
             from routes.template_routes import process_trace_outline
-
             trace_result = process_trace_outline(item_id)
-
-            
-
             if not trace_result['success']:
-
                 return jsonify({'success': False, 'message': trace_result['message']}), 500
-
-
-
             return jsonify({
-
                 'success': True, 
-
                 'redirect_url': url_for('component_bp.edit_components', item_id=item_id)
-
             })
-
         except Exception as e:
-
             return jsonify({'success': False, 'message': str(e)}), 500
-
-
-
     return render_template("process_workflow.html", item=item)
-
 @item_bp.route('/item/color-variation', methods=['GET', 'POST'])
-
 def color_variation_select():
-
     db = get_db()
-
-    
-
     if request.method == 'POST':
-
         source_item_id = request.form.get('source_item_id')
-
         new_item_name = request.form.get('new_item_name')
-
-        
-
         if not source_item_id or not new_item_name or not new_item_name.strip():
-
             flash('Please select an item and provide a valid new item name.', 'warning')
-
             return redirect(url_for('item_bp.color_variation_select'))
-
-        
-
         # Fetch source item record[cite: 2]
-
         source_item = db.execute('SELECT * FROM ITM WHERE ITEMID = ?', (source_item_id,)).fetchone()
-
         if not source_item:
-
             flash('Source item record not found.', 'danger')
-
             return redirect(url_for('item_bp.color_variation_select'))
-
-        
-
         source_dict = dict(source_item)
-
-        
-
         # Normalize status and variation fields
-
         raw_is_active = source_dict.get('ISACTIVE')
-
         inherited_is_active = 1 if raw_is_active == 1 or raw_is_active is True or raw_is_active == '1' else 0
-
-
-
         raw_current = source_dict.get('CURRENT')
-
         inherited_current = 1 if raw_current == 1 or raw_current is True or raw_current == '1' else 0
-
-        
-
         # Preserve or mirror source VARIAT tracking structure if needed, or flag as variation
-
         # (Using source's VARIAT if present, or defaulting appropriately for processes relying on it)
-
         source_variat = source_dict.get('VARIAT')
-
         inherited_variat = 1 if source_variat is None or source_variat == 1 or source_variat == '1' else source_variat
-
-
-
         # If the source item already had a parent, you can choose to chain it 
-
         # or keep the direct source item ID as the parent link. 
-
         # Using source_item_id ensures it links back to its direct source model.
-
         inherited_parent = source_item_id 
-
-        
-
         # 1. Insert new ITM record matching source VARIAT, PARENT, and status fields
-
         cursor = db.execute(
-
             """
-
             INSERT INTO ITM (
-
                 ITMNAME, ONEOFF, VARIAT, ITMGRP, CURRENT, ITMPTRN, ITMSVG, 
-
                 ITMNOTE, ITMLEN, ITMWID, PARENT, PATINA, ISACTIVE
-
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-
             """,
-
             (
-
                 new_item_name.strip(),
-
                 source_dict['ONEOFF'],
-
                 inherited_variat,
-
                 source_dict['ITMGRP'],
-
                 inherited_current,
-
                 source_dict['ITMPTRN'],
-
                 source_dict['ITMSVG'],
-
                 source_dict['ITMNOTE'],
-
                 source_dict['ITMLEN'],
-
                 source_dict['ITMWID'],
-
                 inherited_parent,
-
                 source_dict['PATINA'],
-
                 inherited_is_active
-
             )
-
         )
-
         new_item_id = cursor.lastrowid
-
-        
-
         # 2. Duplicate associated glass components (IGC table)[cite: 3]
-
         components = db.execute('SELECT * FROM IGC WHERE ITEMID = ?', (source_item_id,)).fetchall()
-
         for comp in components:
-
             c = dict(comp)
-
             db.execute(
-
                 """
-
                 INSERT INTO IGC (COMPNAME, ITEMID, COMPNUM, SVGREG, GLASSID, COMPLEN, COMPWID, COMPNOTE, ISSCRAP, ISGRAIN, ISACTIVE)
-
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-
                 """,
-
                 (c['COMPNAME'], new_item_id, c['COMPNUM'], c['SVGREG'], c['GLASSID'], c['COMPLEN'], c['COMPWID'], c['COMPNOTE'], c['ISSCRAP'], c['ISGRAIN'], c['ISACTIVE'])
-
             )
-
-            
-
         # 3. Duplicate associated misc item links (IMI table) & track mapping[cite: 3]
-
         imi_rows = db.execute('SELECT * FROM IMI WHERE ITEMID = ?', (source_item_id,)).fetchall()
-
         imi_mapping = {} # Maps old IMIID to new IMIID
-
         for imi in imi_rows:
-
             i = dict(imi)
-
             cur_imi = db.execute(
-
                 "INSERT INTO IMI (ITEMID, MSIID, IMIAMT) VALUES (?, ?, ?)",
-
                 (new_item_id, i['MSIID'], i['IMIAMT'])
-
             )
-
             imi_mapping[i['IMIID']] = cur_imi.lastrowid
-
-            
-
         # Remap item-level supply foreign keys (IMISLDR, IMICAME, IMIFOIL, IMICHAIN, IMIRING, IMIWIRE)
-
         supply_fk_fields = ['IMISLDR', 'IMICAME', 'IMIFOIL', 'IMICHAIN', 'IMIRING', 'IMIWIRE']
-
         update_fields = {}
-
         for fk in supply_fk_fields:
-
             old_imiid = source_dict.get(fk)
-
             if old_imiid and old_imiid in imi_mapping:
-
                 update_fields[fk] = imi_mapping[old_imiid]
-
             else:
-
                 update_fields[fk] = None
-
-                
-
         db.execute(
-
             """
-
             UPDATE ITM 
-
             SET IMISLDR = ?, IMICAME = ?, IMIFOIL = ?, IMICHAIN = ?, IMIRING = ?, IMIWIRE = ?
-
             WHERE ITEMID = ?
-
             """,
-
             (
-
                 update_fields.get('IMISLDR'),
-
                 update_fields.get('IMICAME'),
-
                 update_fields.get('IMIFOIL'),
-
                 update_fields.get('IMICHAIN'),
-
                 update_fields.get('IMIRING'),
-
                 update_fields.get('IMIWIRE'),
-
                 new_item_id
-
             )
-
         )
-
-        
-
         db.commit()
-
         flash('Color variation created successfully!', 'success')
-
         return redirect(url_for('component_bp.edit_components', item_id=new_item_id))
-
-
-
     # GET: Retrieve groups and items organized by group first, then alphabetically by name
-
     groups = db.execute('SELECT DISTINCT ITMGRP FROM ITM WHERE ITMGRP IS NOT NULL ORDER BY ITMGRP ASC').fetchall()
-
     items = db.execute(
-
         """
-
         SELECT ITEMID, ITMNAME, ITMGRP, ITMIMG 
-
         FROM ITM 
-
         ORDER BY ITMGRP ASC, ITMNAME ASC
-
         """
-
     ).fetchall()
-
-    
-
     return render_template('item_color_variation_select.html', groups=groups, items=items)
-
 @item_bp.route('/item/inventory', methods=['GET'])
-
 def item_inventory():
-
     db = get_db()
-
-
-
     sort_by = request.args.get('sort_by', 'ITMNAME')
-
     order = request.args.get('order', 'asc').lower()
-
     if order not in ['asc', 'desc']:
-
         order = 'asc'
-
-
-
     q = request.args.get('q', '').strip()
-
     itmgrp = request.args.get('itmgrp', '').strip()
-
     stock_filter = request.args.get('stock_filter', '').strip()
-
     stock_display_mode = request.args.get('stock_display', 'selling')  # Default to currently selling items
-
     is_active = request.args.get('is_active', '1').strip()
-
     oneoff = request.args.get('oneoff', '').strip()
-
-
-
     # Column mapping for sorting
-
     sql_sort_column = {
-
         'ITEMID': 'ITEMID', 
-
         'ITMNAME': 'ITMNAME', 
-
         'ITMGRP': 'ITMGRP',
-
         'CURRENT_STOCK': 'CURRENT_STOCK',
-
         'CURRENT': 'CURRENT',
-
         'LAST_UPDATED': 'LAST_UPDATED'
-
     }.get(sort_by, 'ITMNAME')
-
-
-
     where_clauses = []
-
     params = []
-
-
-
     if is_active != 'all':
-
         where_clauses.append("i.ISACTIVE = ?")
-
         params.append(1 if is_active == '1' else 0)
-
-
-
     if stock_display_mode == 'selling':
-
         where_clauses.append("i.CURRENT = 1")
-
     elif stock_display_mode == 'inactive_selling':
-
         where_clauses.append("i.CURRENT = 0")
-
-
-
     if q:
-
         where_clauses.append("(i.ITMNAME LIKE ? OR i.ITMNOTE LIKE ?)")
-
         params.extend([f"%{q}%", f"%{q}%"])
-
     if itmgrp:
-
         where_clauses.append("i.ITMGRP = ?")
-
         params.append(itmgrp)
-
     if oneoff:
-
         where_clauses.append("i.ONEOFF = ?")
-
         params.append(1 if oneoff == '1' else 0)
-
-
-
     where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
-
-
-
     stock_where_clauses = []
-
     if stock_filter == 'out':
-
         stock_where_clauses.append("CURRENT_STOCK = 0")
-
     elif stock_filter == 'in':
-
         stock_where_clauses.append("CURRENT_STOCK > 0")
-
-
-
     stock_where_sql = f"WHERE {' AND '.join(stock_where_clauses)}" if stock_where_clauses else ""
-
-
-
     query = f"""
-
         SELECT ITEMID, ITMNAME, ITMGRP, ITMLEN, ITMWID, ONEOFF, CURRENT, 
-
                ITMIMG, ITMNOTE, ISACTIVE, ITMPRICE, CURRENT_STOCK, LAST_UPDATED
-
         FROM (
-
             SELECT ITEMID, ITMNAME, ITMGRP, ITMLEN, ITMWID, ONEOFF, CURRENT, 
-
                    ITMIMG, ITMNOTE, ISACTIVE, ITMPRICE, CURRENT_STOCK, LAST_UPDATED
-
             FROM (
-
                 SELECT i.ITEMID, i.ITMNAME, i.ITMGRP, i.ITMLEN, i.ITMWID, i.ONEOFF, i.CURRENT, 
-
                        i.ITMIMG, i.ITMNOTE, i.ISACTIVE, p.ITMPRICE,
-
                        COALESCE((
-
                            SELECT ii.ITMSTOCK FROM ITMINV ii 
-
                            WHERE ii.ITEMID = i.ITEMID 
-
                            ORDER BY ii.TS DESC, ii.ITMTRNID DESC LIMIT 1
-
                        ), 0) AS CURRENT_STOCK,
-
                        (
-
                            SELECT ii.TS FROM ITMINV ii 
-
                            WHERE ii.ITEMID = i.ITEMID 
-
                            ORDER BY ii.TS DESC, ii.ITMTRNID DESC LIMIT 1
-
                        ) AS LAST_UPDATED
-
                 FROM ITM i
-
                 LEFT JOIN (
-
                     SELECT ITEMID, ITMPRICE 
-
                     FROM IPC 
-
                     WHERE ENDDATE IS NULL OR ENDDATE >= DATE('now')
-
                 ) p ON i.ITEMID = p.ITEMID
-
                 {where_sql}
-
             ) inner_sub
-
         ) sub
-
         {stock_where_sql}
-
         ORDER BY {sql_sort_column} {order.upper()}
-
     """
-
     inventory_items = db.execute(query, params).fetchall()
-
-
-
     groups = db.execute("SELECT DISTINCT ITMGRP FROM ITM WHERE ITMGRP IS NOT NULL AND ITMGRP != '' ORDER BY ITMGRP ASC").fetchall()
-
-
-
     return render_template(
-
         'item_inventory.html',
-
         inventory_items=inventory_items, 
-
         groups=groups,
-
         current_sort=sort_by,
-
         current_order=order,
-
         today_date=date.today().isoformat(),
-
         filters={
-
             'q': q, 
-
             'itmgrp': itmgrp, 
-
             'stock_filter': stock_filter, 
-
             'stock_display': stock_display_mode,
-
             'is_active': is_active, 
-
             'oneoff': oneoff
-
         }
-
     )
-
-
-
 @item_bp.route('/item/list', methods=['GET'])
-
 def item_list():
-
     db = get_db()
-
-
-
     sort_by = request.args.get('sort_by', 'ITMNAME')
-
     order = request.args.get('order', 'asc').lower()
-
     if order not in ['asc', 'desc']:
-
         order = 'asc'
-
-
-
     q = request.args.get('q', '').strip()
-
     itmgrp = request.args.get('itmgrp', '').strip()
-
     oneoff = request.args.get('oneoff', '').strip()
-
     is_active = request.args.get('is_active', '1').strip()
-
     actively_selling = request.args.get('actively_selling', '').strip()
-
-
-
     # Explicitly enforce case-insensitive alphabetical collation for text fields
-
     sql_sort_column = {
-
         'ITMNAME': 'i.ITMNAME COLLATE NOCASE',
-
         'ITMGRP': 'i.ITMGRP COLLATE NOCASE',
-
         'ONEOFF': 'i.ONEOFF',
-
         'ITMPRICE': 'p.ITMPRICE',
-
         'ISACTIVE': 'i.ISACTIVE'
-
     }.get(sort_by, 'i.ITMNAME COLLATE NOCASE')
-
-
-
     where_clauses = []
-
     params = []
-
-
-
     if is_active != 'all':
-
         where_clauses.append("i.ISACTIVE = ?")
-
         params.append(1 if is_active == '1' else 0)
-
-
-
     if q:
-
         where_clauses.append("(i.ITMNAME LIKE ? OR i.ITMNOTE LIKE ?)")
-
         params.extend([f"%{q}%", f"%{q}%"])
-
     if itmgrp:
-
         where_clauses.append("i.ITMGRP = ?")
-
         params.append(itmgrp)
-
     if oneoff:
-
         where_clauses.append("i.ONEOFF = ?")
-
         params.append(oneoff)
-
-    
-
     if actively_selling == '1':
-
         where_clauses.append("i.CURRENT = 1")
-
     elif actively_selling == '0':
-
         where_clauses.append("i.CURRENT = 0")
-
-
-
     where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
-
-
-
     query = f"""
-
         SELECT DISTINCT i.*, p.ITMPRICE
-
         FROM ITM i
-
         LEFT JOIN (
-
             SELECT ITEMID, ITMPRICE 
-
             FROM IPC 
-
             WHERE ENDDATE IS NULL OR ENDDATE >= DATE('now')
-
         ) p ON i.ITEMID = p.ITEMID
-
         {where_sql}
-
         ORDER BY {sql_sort_column} {order.upper()}
-
     """
-
     raw_items = db.execute(query, params).fetchall()
-
     items = [dict(row) for row in raw_items]
-
-
-
     groups = db.execute("SELECT DISTINCT ITMGRP FROM ITM WHERE ITMGRP IS NOT NULL AND ITMGRP != '' ORDER BY ITMGRP COLLATE NOCASE").fetchall()
-
-
-
     return render_template(
-
         'item_list.html',
-
         items=items,
-
         groups=groups,
-
         current_sort=sort_by,
-
         current_order=order,
-
         filters={
-
             'q': q, 'itmgrp': itmgrp, 'oneoff': oneoff, 'is_active': is_active, 'actively_selling': actively_selling
-
         }
-
     )
-
-
 @item_bp.route('/item/<int:item_id>/visuals', methods=['GET'])
-
 def item_visuals(item_id):
-
     db = get_db()
-
-
-
     # 1. Fetch item along with calculated current stock from ITMINV
-
     raw_item = db.execute(
-
         """
-
         SELECT i.*, 
-
                (SELECT inv.ITMSTOCK FROM ITMINV inv WHERE inv.ITEMID = i.ITEMID ORDER BY inv.TS DESC, inv.ITMTRNID DESC LIMIT 1) AS CURRENT_STOCK
-
         FROM ITM i
-
         WHERE i.ITEMID = ?
-
         """, 
-
         (item_id,)
-
     ).fetchone()
-
-
-
     if not raw_item:
-
         flash('Item record not found.', 'danger')
-
         return redirect(url_for('index'))
-
-    
-
     item = dict(raw_item)
-
     if item.get('CURRENT_STOCK') is None:
-
         item['CURRENT_STOCK'] = 0
-
-
-
     current_price = db.execute(
-
         """
-
             SELECT ITMPRICE AS PRICE FROM IPC 
-
             WHERE ITEMID = ? AND (ENDDATE IS NULL OR ENDDATE >= DATE('now'))
-
             ORDER BY STDATE DESC LIMIT 1
-
         """,
-
         (item_id,),
-
     ).fetchone()
-
-
-
     if current_price and current_price['PRICE']:
-
         item['ITMPRICE'] = current_price['PRICE']
-
     else:
-
         item.setdefault('ITMPRICE', 0.0)
-
-
-
     price_history = [dict(row) for row in db.execute(
-
         """
-
             SELECT STDATE, ENDDATE, ITMPRICE AS PRICE FROM IPC 
-
             WHERE ITEMID = ? 
-
             ORDER BY STDATE ASC
-
         """,
-
         (item_id,),
-
     ).fetchall()]
-
-
-
     inventory_history = [dict(row) for row in db.execute(
-
         """
-
             SELECT ITMSTOCK, TS FROM ITMINV 
-
             WHERE ITEMID = ? 
-
             ORDER BY TS ASC, ITMTRNID ASC
-
         """,
-
         (item_id,),
-
     ).fetchall()]
-
-
-
     # Fetch sales transactions directly from ITMSALE
-
     sales_records = db.execute(
-
         """
-
         SELECT SUNITS, SDATE FROM ITMSALE WHERE ITEMID = ?
-
         """,
-
         (item_id,),
-
     ).fetchall()
-
-
-
     sales_over_time = [dict(row) for row in db.execute(
-
         """
-
             SELECT SDATE as date, SUNITS as quantity_sold 
-
             FROM ITMSALE 
-
             WHERE ITEMID = ? 
-
             ORDER BY SDATE ASC
-
         """,
-
         (item_id,),
-
     ).fetchall()]
-
-
-
     components_with_cost = db.execute(
-
         """
-
             SELECT c.COMPLEN, c.COMPWID, g.GLSLEN, g.GLSWID, 
-
                    (SELECT gp.GLSPRICE FROM GPC gp 
-
                     WHERE gp.GLASSID = g.GLASSID AND (gp.ENDDATE IS NULL OR gp.ENDDATE >= DATE('now'))
-
                     ORDER BY gp.STDATE DESC LIMIT 1) AS LATEST_GLSPRICE
-
             FROM IGC c
-
             JOIN GSI g ON c.GLASSID = g.GLASSID
-
             WHERE c.ITEMID = ? AND c.COMPLEN IS NOT NULL AND c.COMPWID IS NOT NULL
-
                   AND g.GLSLEN IS NOT NULL AND g.GLSWID IS NOT NULL AND g.GLSLEN > 0 AND g.GLSWID > 0
-
         """,
-
         (item_id,),
-
     ).fetchall()
-
-
-
     materials_cost = 0.0
-
     for comp in components_with_cost:
-
         comp_sqin = (comp['COMPLEN'] or 0) * (comp['COMPWID'] or 0)
-
         glass_sheet_area = (comp['GLSLEN'] or 1) * (comp['GLSWID'] or 1)
-
         glass_sheet_price = comp['LATEST_GLSPRICE'] or 0.0
-
-        
-
         if glass_sheet_area > 0:
-
             cost_per_sqin = glass_sheet_price / glass_sheet_area
-
             materials_cost += comp_sqin * cost_per_sqin
-
-
-
     associated_supplies_rows = db.execute(
-
         """
-
         SELECT msi.MSIID, msi.MSINAME, msi.MSITYPE, imi.IMIAMT, msi.MSIUNIT, u.CFACTOR
-
         FROM IMI imi
-
         JOIN MSI msi ON imi.MSIID = msi.MSIID
-
         LEFT JOIN UNTS u ON msi.UNTTYPE = u.UNTTYPE
-
         WHERE imi.ITEMID = ?
-
         """,
-
         (item_id,),
-
     ).fetchall()
-
-
-
     supplies_map = {row['MSITYPE']: row for row in associated_supplies_rows}
-
-
-
     associated_decorations = db.execute(
-
         """
-
         SELECT m.MSIID, m.MSINAME, i.IMIAMT, m.MSIUNIT, u.CFACTOR
-
         FROM IMI i
-
         JOIN MSI m ON i.MSIID = m.MSIID
-
         LEFT JOIN UNTS u ON m.UNTTYPE = u.UNTTYPE
-
         WHERE i.ITEMID = ? AND m.MSITYPE = 'Decoration'
-
         ORDER BY m.MSINAME ASC
-
         """,
-
         (item_id,),
-
     ).fetchall()
-
-
-
     raw_sldr = float(supplies_map['Solder']['IMIAMT']) if 'Solder' in supplies_map and supplies_map['Solder']['IMIAMT'] is not None else 0.0
-
     raw_came = float(supplies_map['Came']['IMIAMT']) if 'Came' in supplies_map and supplies_map['Came']['IMIAMT'] is not None else 0.0
-
-
-
     itm_supplies = {
-
         'ITMSLDR': (raw_sldr * SOLDER_CONVERSION * 2) + (raw_came * CAME_CONVERSION * 2),
-
         'ITMCAME': raw_came,
-
         'ITMFOIL': float(supplies_map['Foil']['IMIAMT']) if 'Foil' in supplies_map and supplies_map['Foil']['IMIAMT'] is not None else 0.0,
-
         'ITMCHAIN': float(supplies_map['Chain']['IMIAMT']) if 'Chain' in supplies_map and supplies_map['Chain']['IMIAMT'] is not None else 0.0,
-
         'ITMRING': float(supplies_map['Rings']['IMIAMT']) if 'Rings' in supplies_map and supplies_map['Rings']['IMIAMT'] is not None else 0,
-
         'ITMWIRE': float(supplies_map['Wire']['IMIAMT']) if 'Wire' in supplies_map and supplies_map['Wire']['IMIAMT'] is not None else 0.0
-
     }
-
-
-
     estimated_supplies_core_cost = 0.0
-
     for msi_type, qty in itm_supplies.items():
-
         type_lookup_map = {
-
             'ITMSLDR': 'Solder', 'ITMFOIL': 'Foil', 'ITMCAME': 'Came',
-
             'ITMCHAIN': 'Chain', 'ITMRING': 'Rings', 'ITMWIRE': 'Wire'
-
         }
-
         actual_type = type_lookup_map.get(msi_type)
-
         supply_data = supplies_map.get(actual_type)
-
-
-
         if qty and qty > 0 and supply_data and supply_data['MSIID']:
-
             misc_id = supply_data['MSIID']
-
             cfactor = supply_data['CFACTOR']
-
             msiunit = supply_data['MSIUNIT']
-
-
-
             price_row = db.execute(
-
                 """
-
                     SELECT MSIPRICE AS PRICE FROM MSP 
-
                     WHERE MSIID = ? AND (ENDDATE IS NULL OR ENDDATE >= DATE('now'))
-
                     ORDER BY STDATE DESC LIMIT 1
-
                 """,
-
                 (misc_id,),
-
             ).fetchone()
-
-
-
             if price_row and price_row['PRICE']:
-
                 unit_price = float(price_row['PRICE'])
-
                 valid_cfactor = float(cfactor) if cfactor and float(cfactor) > 0 else 1.0
-
                 valid_msiunit = float(msiunit) if msiunit is not None and float(msiunit) > 0 else 1.0
-
-                
-
                 divisor = valid_cfactor * valid_msiunit
-
                 if divisor > 0 and unit_price > 0:
-
                     estimated_supplies_core_cost += qty * (unit_price / divisor)
-
-
-
     decorations_cost = 0.0
-
     for deco in associated_decorations:
-
         qty = float(deco['IMIAMT']) if deco['IMIAMT'] is not None else 0.0
-
         if qty > 0 and deco['MSIID']:
-
             misc_id = deco['MSIID']
-
             cfactor = deco['CFACTOR']
-
             msiunit = deco['MSIUNIT']
-
-
-
             price_row = db.execute(
-
                 """
-
                     SELECT MSIPRICE AS PRICE FROM MSP 
-
                     WHERE MSIID = ? AND (ENDDATE IS NULL OR ENDDATE >= DATE('now'))
-
                     ORDER BY STDATE DESC LIMIT 1
-
                 """,
-
                 (misc_id,),
-
             ).fetchone()
-
-
-
             if price_row and price_row['PRICE']:
-
                 unit_price = float(price_row['PRICE'])
-
                 valid_cfactor = float(cfactor) if cfactor and float(cfactor) > 0 else 1.0
-
                 valid_msiunit = float(msiunit) if msiunit is not None and float(msiunit) > 0 else 1.0
-
-                
-
                 divisor = valid_cfactor * valid_msiunit
-
                 if divisor > 0 and unit_price > 0:
-
                     decorations_cost += qty * (unit_price / divisor)
-
-
-
     estimated_supplies_cost = estimated_supplies_core_cost + decorations_cost
-
     unit_cost = materials_cost + estimated_supplies_cost
-
-
-
     # Calculate Total Made from ITMINV inventory history
-
     total_made = 0
-
     prev_calc_stock = 0
-
     sorted_inv = sorted(inventory_history, key=lambda x: x['TS'] or '')
-
     for idx, inv in enumerate(sorted_inv):
-
         stock = inv['ITMSTOCK'] or 0
-
         added = stock - prev_calc_stock if idx > 0 else stock
-
         if added > 0:
-
             total_made += added
-
         prev_calc_stock = stock
-
-
-
     # Calculate Total Sold and Total Earned using ITMSALE and historical IPC prices
-
     total_sold = 0
-
     total_earned = 0.0
-
     default_price = current_price['PRICE'] if current_price and current_price['PRICE'] else 0.0
-
-
-
     def get_historical_price(sale_date, history):
-
         if not history:
-
             return default_price
-
         active = history[0]['PRICE'] or 0.5
-
         for p in history:
-
             st = p['STDATE'] or ''
-
             en = p['ENDDATE'] or '9999-12-31'
-
             if st <= sale_date <= en:
-
                 active = p['PRICE'] or 0.0
-
         return active
-
-
-
     for sale in sales_records:
-
         units = sale['SUNITS'] or 0
-
         sdate = sale['SDATE'] or ''
-
         total_sold += units
-
         sale_unit_price = get_historical_price(sdate, price_history)
-
         total_earned += units * sale_unit_price
-
-
-
     total_cost = unit_cost * total_made
-
-
-
     total_solder_lbs = (itm_supplies.get('ITMSLDR', 0.0) / 453.592) * total_made
-
     total_foil_ft = (itm_supplies.get('ITMFOIL', 0.0) / 12.0) * total_made
-
-
-
     metrics = {
-
         'unit_cost': unit_cost,
-
         'materials_cost': materials_cost,
-
         'estimated_supplies_cost': estimated_supplies_cost,
-
         'total_earned': total_earned,
-
         'total_cost': total_cost,
-
         'total_made': total_made,
-
         'total_sold': total_sold,
-
         'total_solder_lbs': total_solder_lbs,
-
         'total_foil_ft': total_foil_ft
-
     }
-
-
-
     return render_template(
-
         'item_visuals.html',
-
         item=item,
-
         current_price=current_price,
-
         price_history=price_history,
-
         inventory_history=inventory_history,
-
         sales_over_time=sales_over_time,
-
         metrics=metrics,
-
         start_date=request.args.get('start_date', ''),
-
         end_date=request.args.get('end_date', '')
-
     )
-
-
 @item_bp.route("/sales")
-
 def list_sales():
-
     db = get_db()
-
     sales = db.execute("""
-
         SELECT s.SALEID, s.ITEMID, i.ITMNAME, i.ITMGRP, s.SUNITS, s.SDATE, v.VENNAME 
-
         FROM ITMSALE s
-
         JOIN ITM i ON s.ITEMID = i.ITEMID
-
         LEFT JOIN VENUE v ON s.VENUEID = v.VENUEID
-
         ORDER BY s.SDATE DESC
-
     """).fetchall()
-
-
-
     # Added ITMGRP here so the frontend can read the data-group attribute correctly
-
     items = db.execute("SELECT DISTINCT ITEMID, ITMNAME, ITMGRP FROM ITM ORDER BY ITMNAME ASC").fetchall()
-
     item_groups = db.execute("SELECT DISTINCT ITMGRP FROM ITM WHERE ITMGRP IS NOT NULL AND ITMGRP != '' ORDER BY ITMGRP ASC").fetchall()
-
     venues = db.execute("SELECT VENUEID, VENNAME FROM VENUE WHERE ISACTIVE = 1 ORDER BY VENNAME ASC").fetchall()
-
-
-
     return render_template("sales_list.html", sales=sales, items=items, item_groups=item_groups, venues=venues)
-
 @item_bp.route('/sales/hourly', methods=['GET'])
-
 def hourly_sales():
-
     db = get_db()
-
     venues = db.execute("SELECT VENUEID, VENNAME FROM VENUE WHERE ISACTIVE = 1 ORDER BY VENNAME ASC").fetchall()
-
     return render_template('hourly_sales.html', venues=venues)
-
-
-
 @item_bp.route('/sales/api/venue-config/<int:venue_id>', methods=['GET'])
-
 def api_venue_config(venue_id):
-
     db = get_db()
-
     venue = db.execute("SELECT * FROM VENUE WHERE VENUEID = ?", (venue_id,)).fetchone()
-
     if not venue:
-
         return {'status': 'error', 'message': 'Venue not found'}, 404
-
     return dict(venue)
-
-
-
 @item_bp.route('/sales/api/hourly-sales', methods=['GET'])
-
 def api_get_hourly_sales():
-
     venue_id = request.args.get('venue_id')
-
     date_str = request.args.get('date')
-
     db = get_db()
-
     sales = db.execute(
-
         "SELECT TSTIME, TSUNITS FROM TIMESALE WHERE VENUEID = ? AND TSDATE = ?",
-
         (venue_id, date_str)
-
     ).fetchall()
-
     return {'sales': {row['TSTIME']: row['TSUNITS'] for row in sales}}
-
-
-
 @item_bp.route('/sales/hourly/save', methods=['POST'])
-
 def save_hourly_sales():
-
     db = get_db()
-
     data = request.get_json()
-
     venue_id = data.get('venue_id')
-
     date_str = data.get('date')
-
     hourly_data = data.get('hourly_data', {})
-
-
-
     if not venue_id or not date_str:
-
         return {'status': 'error', 'message': 'Venue and Date are required.'}, 400
-
-
-
     try:
-
         for tstime, units in hourly_data.items():
-
             try:
-
                 units_int = int(units)
-
             except (TypeError, ValueError):
-
                 units_int = 0
-
-
-
             existing = db.execute(
-
                 "SELECT TSALEID FROM TIMESALE WHERE VENUEID = ? AND TSDATE = ? AND TSTIME = ?",
-
                 (venue_id, date_str, tstime)
-
             ).fetchone()
-
-
-
             if existing:
-
                 db.execute(
-
                     "UPDATE TIMESALE SET TSUNITS = ? WHERE TSALEID = ?",
-
                     (units_int, existing['TSALEID'])
-
                 )
-
             else:
-
                 if units_int > 0:
-
                     db.execute(
-
                         "INSERT INTO TIMESALE (VENUEID, TSDATE, TSTIME, TSUNITS) VALUES (?, ?, ?, ?)",
-
                         (venue_id, date_str, tstime, units_int)
-
                     )
-
         db.commit()
-
         return {'status': 'success', 'message': 'Hourly sales saved successfully!'}
-
     except Exception as e:
-
         db.rollback()
-
         return {'status': 'error', 'message': str(e)}, 500
-
-
-
-
-
-
-
 @item_bp.route('/visuals/hourly')
-
 def hourly_visuals():
-
   """Renders the hourly sales visualization dashboard page."""
-
   db = get_db()
-
   venues = db.execute(
-
       'SELECT VENUEID, VENNAME FROM VENUE ORDER BY VENNAME'
-
   ).fetchall()
-
   today_date = date.today().strftime('%Y-%m-%d')
-
   return render_template(
-
       'hourly_visuals.html', venues=venues, today_date=today_date
-
   )
-
-
-
-
-
 @item_bp.route('/visuals/hourly/api/date-bounds', methods=['POST'])
-
 def api_venue_date_bounds():
-
   """Returns min and max date bounds for selected venues."""
-
   db = get_db()
-
   req_data = request.get_json() or {}
-
   venue_ids = req_data.get('venue_ids', [])
-
-
-
   if venue_ids:
-
     placeholders = ','.join(['?'] * len(venue_ids))
-
     query = f"""
-
             SELECT MIN(TSDATE) as min_date, MAX(TSDATE) as max_date 
-
             FROM TIMESALE WHERE VENUEID IN ({placeholders})
-
         """
-
     res = db.execute(query, venue_ids).fetchone()
-
   else:
-
     res = db.execute(
-
         'SELECT MIN(TSDATE) as min_date, MAX(TSDATE) as max_date FROM TIMESALE'
-
     ).fetchone()
-
-
-
   if res and res['min_date']:
-
     return jsonify(
-
         {
-
             'status': 'success',
-
             'min_date': res['min_date'],
-
             'max_date': res['max_date'],
-
         }
-
     )
-
   return jsonify(
-
       {
-
           'status': 'success',
-
           'min_date': date.today().strftime('%Y-%m-%d'),
-
           'max_date': date.today().strftime('%Y-%m-%d'),
-
       }
-
   )
-
-
-
-
-
 @item_bp.route('/visuals/hourly/api/data', methods=['POST'])
-
 def api_hourly_sales_data():
-
   """API endpoint providing hourly sales data filtered by date, venue, and hours."""
-
   db = get_db()
-
   req_data = request.get_json() or {}
-
   start_date = req_data.get('start_date')
-
   end_date = req_data.get('end_date')
-
   venue_ids = req_data.get('venue_ids', [])
-
-
-
   query = """
-
         SELECT TS.VENUEID, V.VENNAME, TS.TSDATE as SDATE, TS.TSTIME as STIME, TS.TSUNITS as SUNITS
-
         FROM TIMESALE TS
-
         LEFT JOIN VENUE V ON TS.VENUEID = V.VENUEID
-
         WHERE 1=1
-
     """
-
   params = []
-
-
-
   if start_date:
-
     query += ' AND TS.TSDATE >= ?'
-
     params.append(start_date)
-
   if end_date:
-
     query += ' AND TS.TSDATE <= ?'
-
     params.append(end_date)
-
   if venue_ids:
-
     placeholders = ','.join(['?'] * len(venue_ids))
-
     query += f' AND TS.VENUEID IN ({placeholders})'
-
     params.extend(venue_ids)
-
-
-
   sales_records = db.execute(
-
       f'{query} ORDER BY TS.TSDATE ASC, TS.TSTIME ASC', params
-
   ).fetchall()
-
-
-
   formatted_sales = []
-
   for row in sales_records:
-
     formatted_sales.append(
-
         {
-
             'VENUEID': row['VENUEID'],
-
             'VENNAME': row['VENNAME'] or 'Unknown Venue',
-
             'SDATE': row['SDATE'],
-
             'STIME': row['STIME'],
-
             'SUNITS': row['SUNITS'],
-
         }
-
     )
-
-
-
   return jsonify({'status': 'success', 'sales': formatted_sales})

@@ -1,11 +1,9 @@
 {% extends 'base.html' %}
-
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h2>Items Directory (`ITM` Table)</h2>
     <a href="{{ url_for('create_item') }}" class="btn btn-primary">Create Item</a>
 </div>
-
 <div class="card shadow-sm">
     <div class="card-body p-0">
         <table class="table table-striped table-hover mb-0 align-middle">

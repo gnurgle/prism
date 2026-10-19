@@ -18,6 +18,7 @@ opencv-python==5.0.0.93
 pillow==12.3.0
 pyautotrace==0.0.7
 pycparser==3.0
+python-dotenv
 pyparsing==3.3.2
 reportlab==5.0.1
 requests==2.34.2
@@ -25,6 +26,7 @@ requests-toolbelt==1.0.0
 scipy==1.15.3
 shapely==2.1.2
 soupsieve==2.9.2
+squareup
 svg.path==7.1
 svgpathtools==1.7.2
 svgwrite==1.4.3

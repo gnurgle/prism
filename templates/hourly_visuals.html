@@ -1,1013 +1,457 @@
 {% extends 'base.html' %}
-
-
-
 {% block content %}
-
 <style>
-
     .clickable-row {
-
         cursor: pointer;
-
         transition: background-color 0.15s ease-in-out;
-
         user-select: none;
-
     }
-
     .clickable-row:hover {
-
         background-color: #e9ecef !important;
-
     }
-
     .clickable-row.selected-row {
-
         background-color: #cfe2ff !important;
-
         font-weight: 500;
-
     }
-
     .master-row.selected-row {
-
         background-color: #d1e7dd !important;
-
     }
-
 </style>
-
-
-
 <div class="d-flex justify-content-between align-items-center mb-4">
-
     <div>
-
         <a href="{{ url_for('item_bp.hourly_sales') }}" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Hourly Sales Entry</a>
-
         <h2>Hourly Sales Visualizations</h2>
-
     </div>
-
     <div>
-
         <button class="btn btn-outline-primary btn-sm" onclick="resetFilters()">🔄 Reset All Filters</button>
-
     </div>
-
 </div>
-
-
-
 <!-- Progressive Filter Panel -->
-
 <div class="card shadow-sm mb-4 border-0">
-
     <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between align-items-center">
-
         <span>Filter Hourly Sales Data</span>
-
         <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse">
-
             Toggle Filters
-
         </button>
-
     </div>
-
     <div class="collapse show" id="filterCollapse">
-
         <div class="card-body bg-light">
-
             <div class="row g-3">
-
                 <div class="col-md-4">
-
                     <label class="form-label fw-bold small">Date Options & Limits</label>
-
                     <div class="d-flex align-items-center gap-2 mt-1">
-
                         <button type="button" class="btn btn-outline-secondary btn-sm text-nowrap" onclick="applyVenueDates()">Venue Dates</button>
-
                         <div class="form-check ms-1">
-
                             <input class="form-check-input" type="checkbox" id="allTimeCheck" onchange="toggleAllTime()">
-
                             <label class="form-check-label small fw-bold text-secondary" for="allTimeCheck">All-Time</label>
-
                         </div>
-
                     </div>
-
                 </div>
-
                 <div class="col-md-4">
-
                     <label class="form-label fw-bold small">Start Date</label>
-
                     <input type="date" id="startDate" class="form-control form-control-sm" value="2020-01-01" onchange="triggerFilterRefresh()">
-
                 </div>
-
                 <div class="col-md-4">
-
                     <label class="form-label fw-bold small">End Date</label>
-
                     <input type="date" id="endDate" class="form-control form-control-sm" value="{{ today_date }}" onchange="triggerFilterRefresh()">
-
                 </div>
-
-
-
                 <div class="col-md-12">
-
                     <label class="form-label fw-bold small">Venue Selector</label>
-
                     <div class="border bg-white rounded p-0 shadow-sm" style="height: 140px; overflow-y: auto;" id="venueContainer">
-
                         <div class="px-3 py-2 border-bottom bg-light sticky-top clickable-row master-row selected-row m-0" onclick="selectVenueMaster(event)">
-
                             <span class="small fw-bold text-primary w-100">-- All Venues --</span>
-
                         </div>
-
                         <div id="venueOptionsList">
-
                             {% for v in venues %}
-
                                 <div class="px-3 py-2 border-bottom clickable-row m-0" data-value="{{ v.VENUEID }}" onclick="selectVenueItem(this, event)">
-
                                     <span class="small w-100">{{ v.VENNAME }}</span>
-
                                 </div>
-
                             {% endfor %}
-
                         </div>
-
                     </div>
-
                 </div>
-
             </div>
-
         </div>
-
     </div>
-
 </div>
-
-
-
 <!-- Summary KPI Metrics Cards -->
-
 <div class="row g-3 mb-4 text-center">
-
     <div class="col-md-6">
-
         <div class="card shadow-sm border-0 bg-white py-3">
-
             <h6 class="text-muted text-uppercase small mb-1">Total Units Sold (Filtered)</h6>
-
             <h3 id="kpiUnits" class="fw-bold text-primary mb-0">0</h3>
-
         </div>
-
     </div>
-
     <div class="col-md-6">
-
         <div class="card shadow-sm border-0 bg-white py-3">
-
             <h6 class="text-muted text-uppercase small mb-1">Active Sales Days Tracked</h6>
-
             <h3 id="kpiDays" class="fw-bold text-success mb-0">0</h3>
-
         </div>
-
     </div>
-
 </div>
-
-
-
 <!-- Visualization Layout -->
-
 <div class="row g-4 mb-5">
-
     <!-- Chart 1: Sales Volume by Hour of Day -->
-
     <div class="col-lg-12">
-
         <div class="card shadow-sm border-0 h-100">
-
             <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between align-items-center">
-
                 <span>Sales Volume by Hour of Day</span>
-
                 <select id="hourlyVolumeMetric" class="form-select form-select-sm bg-light text-dark fw-bold" style="width: 240px;" onchange="updateHourlyChart()">
-
                     <option value="total">Total Sales (Stacked Bar)</option>
-
                     <option value="average">Average Sales (Bar Chart)</option>
-
                 </select>
-
             </div>
-
             <div class="card-body">
-
                 <div style="position: relative; height: 380px;">
-
                     <canvas id="hourlyBarChart"></canvas>
-
                 </div>
-
             </div>
-
         </div>
-
     </div>
-
-
-
     <!-- Chart 2: Daily Sales Timeline Trends -->
-
     <div class="col-lg-12">
-
         <div class="card shadow-sm border-0 h-100">
-
             <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between align-items-center">
-
                 <span>Daily Sales Timeline Trends</span>
-
                 <select id="timelineMetric" class="form-select form-select-sm bg-light text-dark fw-bold" style="width: 240px;" onchange="updateTimelineChart()">
-
                     <option value="daily_total">Total Sales</option>
-
                     <option value="hourly_line">Hourly Total (Multi-Line)</option>
-
                 </select>
-
             </div>
-
             <div class="card-body">
-
                 <div style="position: relative; height: 380px;">
-
                     <canvas id="timelineSalesChart"></canvas>
-
                 </div>
-
             </div>
-
         </div>
-
     </div>
-
 </div>
-
-
-
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
-
-
-
 <script>
-
 Chart.register(ChartDataLabels);
-
-
-
 let currentSalesData = [];
-
 let hourlyBarChart = null;
-
 let timelineChart = null;
-
 let selectedVenueId = null;
-
-
-
 const GLOBAL_PALETTE = ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#858796', '#5a5c69', '#fd7e14', '#6f42c1', '#20c9a6'];
-
 let globalColorMap = {};
-
-
-
 function assignConsistentColors(keys) {
-
     keys.forEach((key, idx) => {
-
         if (!globalColorMap[key]) {
-
             globalColorMap[key] = GLOBAL_PALETTE[idx % GLOBAL_PALETTE.length];
-
         }
-
     });
-
 }
-
-
-
 const SHARED_DATALABELS_CONFIG = {
-
     color: '#000000',
-
     font: { weight: 'bold', size: 12 },
-
     textStrokeColor: '#ffffff',
-
     textStrokeWidth: 3
-
 };
-
-
-
 document.addEventListener("DOMContentLoaded", function() {
-
     fetchSalesData();
-
 });
-
-
-
 function selectVenueMaster(event) {
-
     selectedVenueId = null;
-
     const container = document.getElementById('venueContainer');
-
     container.querySelector('.master-row').classList.add('selected-row');
-
     container.querySelectorAll('.clickable-row:not(.master-row)').forEach(r => r.classList.remove('selected-row'));
-
     triggerFilterRefresh();
-
 }
-
-
-
 function selectVenueItem(rowElement, event) {
-
     selectedVenueId = rowElement.getAttribute('data-value');
-
     const container = document.getElementById('venueContainer');
-
     container.querySelector('.master-row').classList.remove('selected-row');
-
     container.querySelectorAll('.clickable-row:not(.master-row)').forEach(r => r.classList.remove('selected-row'));
-
     rowElement.classList.add('selected-row');
-
     triggerFilterRefresh();
-
 }
-
-
-
 function getVenueFilterArray() {
-
     return selectedVenueId ? [selectedVenueId] : [];
-
 }
-
-
-
 function toggleAllTime() {
-
     const isAllTime = document.getElementById('allTimeCheck').checked;
-
     document.getElementById('startDate').disabled = isAllTime;
-
     document.getElementById('endDate').disabled = isAllTime;
-
     triggerFilterRefresh();
-
 }
-
-
-
 function applyVenueDates() {
-
     fetch("{{ url_for('item_bp.api_venue_date_bounds') }}", {
-
         method: 'POST',
-
         headers: { 'Content-Type': 'application/json' },
-
         body: JSON.stringify({ venue_ids: getVenueFilterArray() })
-
     })
-
     .then(res => res.json())
-
     .then(data => {
-
         if (data.status === 'success') {
-
             if (data.min_date) document.getElementById('startDate').value = data.min_date;
-
             if (data.max_date) document.getElementById('endDate').value = data.max_date;
-
             document.getElementById('allTimeCheck').checked = false;
-
             document.getElementById('startDate').disabled = false;
-
             document.getElementById('endDate').disabled = false;
-
             triggerFilterRefresh();
-
         }
-
     })
-
     .catch(err => console.error('Error fetching date bounds:', err));
-
 }
-
-
-
 function resetFilters() {
-
     document.getElementById('startDate').value = '2020-01-01';
-
     document.getElementById('endDate').value = '{{ today_date }}';
-
     document.getElementById('allTimeCheck').checked = false;
-
     document.getElementById('startDate').disabled = false;
-
     document.getElementById('endDate').disabled = false;
-
-    
-
     selectedVenueId = null;
-
     const vContainer = document.getElementById('venueContainer');
-
     vContainer.querySelector('.master-row').classList.add('selected-row');
-
     vContainer.querySelectorAll('.clickable-row:not(.master-row)').forEach(r => r.classList.remove('selected-row'));
-
-
-
     document.getElementById('hourlyVolumeMetric').value = 'total';
-
     document.getElementById('timelineMetric').value = 'daily_total';
-
     fetchSalesData();
-
 }
-
-
-
 function triggerFilterRefresh() {
-
     fetchSalesData();
-
 }
-
-
-
 function fetchSalesData() {
-
     const isAllTime = document.getElementById('allTimeCheck').checked;
-
     const payload = {
-
         start_date: isAllTime ? null : document.getElementById('startDate').value,
-
         end_date: isAllTime ? null : document.getElementById('endDate').value,
-
         venue_ids: getVenueFilterArray()
-
     };
-
-
-
     fetch("{{ url_for('item_bp.api_hourly_sales_data') }}", {
-
         method: 'POST',
-
         headers: { 'Content-Type': 'application/json' },
-
         body: JSON.stringify(payload)
-
     })
-
     .then(res => res.json())
-
     .then(data => {
-
         if (data.status === 'success') {
-
             currentSalesData = data.sales;
-
             let datesSet = new Set();
-
             currentSalesData.forEach(s => { if (s.SDATE) datesSet.add(s.SDATE); });
-
             assignConsistentColors(Array.from(datesSet));
-
-
-
             updateKPIs();
-
             updateHourlyChart();
-
             updateTimelineChart();
-
         }
-
     })
-
     .catch(err => console.error('Error loading sales visualization data:', err));
-
 }
-
-
-
 function updateKPIs() {
-
     let totalUnits = 0;
-
     let uniqueDays = new Set();
-
-
-
     currentSalesData.forEach(sale => {
-
         totalUnits += parseInt(sale.SUNITS) || 0;
-
         if (sale.SDATE) uniqueDays.add(sale.SDATE);
-
     });
-
-
-
     document.getElementById('kpiUnits').textContent = totalUnits;
-
     document.getElementById('kpiDays').textContent = uniqueDays.size;
-
 }
-
-
-
 // Helper to get active hours present in the dataset, sorted chronologically
-
 function getActiveHours(data) {
-
     let hoursSet = new Set();
-
     data.forEach(s => {
-
         if (s.STIME) hoursSet.add(s.STIME);
-
     });
-
     return Array.from(hoursSet).sort();
-
 }
-
-
-
 function updateHourlyChart() {
-
     const metric = document.getElementById('hourlyVolumeMetric').value;
-
     const ctx = document.getElementById('hourlyBarChart').getContext('2d');
-
     if (hourlyBarChart) hourlyBarChart.destroy();
-
-
-
     const activeHours = getActiveHours(currentSalesData);
-
-
-
     if (metric === 'total') {
-
         // Stacked bar chart of all days broken down per date
-
         const dates = [...new Set(currentSalesData.map(item => item.SDATE))].sort();
-
         const datasets = dates.map((dateVal, index) => {
-
             const dataPoints = activeHours.map(hour => {
-
                 const match = currentSalesData.find(d => d.SDATE === dateVal && d.STIME === hour);
-
                 return match ? parseInt(match.SUNITS) || 0 : 0;
-
             });
-
             return {
-
                 label: dateVal,
-
                 data: dataPoints,
-
                 backgroundColor: globalColorMap[dateVal] || GLOBAL_PALETTE[index % GLOBAL_PALETTE.length],
-
                 borderWidth: 1
-
             };
-
         });
-
-
-
         // Custom plugin to draw total text above the topmost stacked bar segment
-
         const stackedTotalPlugin = {
-
             id: 'stackedTotalPlugin',
-
             afterDatasetsDraw(chart) {
-
                 const { ctx, scales: { x, y } } = chart;
-
                 ctx.save();
-
-                
-
                 activeHours.forEach((hour, index) => {
-
                     let sum = 0;
-
                     chart.data.datasets.forEach(dataset => {
-
                         sum += dataset.data[index] || 0;
-
                     });
-
-
-
                     if (sum > 0) {
-
                         // Find the highest point of the stack on the canvas
-
                         let topmostY = null;
-
                         for (let i = chart.data.datasets.length - 1; i >= 0; i--) {
-
                             const meta = chart.getDatasetMeta(i);
-
                             if (meta && meta.data[index] && !meta.hidden) {
-
                                 topmostY = meta.data[index].y;
-
                                 break;
-
                             }
-
                         }
-
-
-
                         if (topmostY !== null) {
-
                             const xCoord = chart.getDatasetMeta(0).data[index].x;
-
                             const yCoord = topmostY - 12; // Floating just above the bar segment
-
-
-
                             ctx.font = 'bold 12px sans-serif';
-
                             ctx.fillStyle = '#000000';
-
                             ctx.textAlign = 'center';
-
                             ctx.textBaseline = 'bottom';
-
-                            
-
                             // Text stroke for readability
-
                             ctx.strokeStyle = '#ffffff';
-
                             ctx.lineWidth = 3;
-
                             ctx.strokeText(sum, xCoord, yCoord);
-
                             ctx.fillText(sum, xCoord, yCoord);
-
                         }
-
                     }
-
                 });
-
                 ctx.restore();
-
             }
-
         };
-
-
-
         hourlyBarChart = new Chart(ctx, {
-
             type: 'bar',
-
             data: { labels: activeHours, datasets: datasets },
-
             options: {
-
                 responsive: true,
-
                 maintainAspectRatio: false,
-
                 scales: {
-
                     x: { stacked: true },
-
                     y: { stacked: true, beginAtZero: true, grace: '20%', ticks: { precision: 0 } }
-
                 },
-
                 plugins: {
-
                     legend: { position: 'bottom' },
-
                     datalabels: {
-
                         ...SHARED_DATALABELS_CONFIG,
-
                         anchor: 'center',
-
                         align: 'center',
-
                         formatter: (v) => v > 0 ? v : '' // Show segment values inside each stack block
-
                     }
-
                 }
-
             },
-
             plugins: [stackedTotalPlugin]
-
         });
-
     } else {
-
         // Average Sales: Bar chart showing average of days per hour
-
         const hourTotals = {};
-
         const hourCounts = {};
-
         activeHours.forEach(h => { hourTotals[h] = 0; hourCounts[h] = new Set(); });
-
-
-
         currentSalesData.forEach(sale => {
-
             if (hourTotals[sale.STIME] !== undefined) {
-
                 hourTotals[sale.STIME] += parseInt(sale.SUNITS) || 0;
-
                 hourCounts[sale.STIME].add(sale.SDATE);
-
             }
-
         });
-
-
-
         const avgData = activeHours.map(h => {
-
             const uniqueDaysCount = hourCounts[h].size;
-
             return uniqueDaysCount > 0 ? Number((hourTotals[h] / uniqueDaysCount).toFixed(2)) : 0;
-
         });
-
-
-
         hourlyBarChart = new Chart(ctx, {
-
             type: 'bar',
-
             data: {
-
                 labels: activeHours,
-
                 datasets: [{
-
                     label: 'Average Units Sold',
-
                     data: avgData,
-
                     backgroundColor: '#4e73df',
-
                     borderWidth: 1
-
                 }]
-
             },
-
             options: {
-
                 responsive: true,
-
                 maintainAspectRatio: false,
-
                 scales: {
-
                     y: { beginAtZero: true, grace: '20%', ticks: { precision: 0 } }
-
                 },
-
                 plugins: {
-
                     legend: { display: false },
-
                     datalabels: { ...SHARED_DATALABELS_CONFIG, anchor: 'end', align: 'top', formatter: (v) => v > 0 ? v : '' }
-
                 }
-
             }
-
         });
-
     }
-
 }
-
-
-
 function updateTimelineChart() {
-
     const metric = document.getElementById('timelineMetric').value;
-
     const ctx = document.getElementById('timelineSalesChart').getContext('2d');
-
     if (timelineChart) timelineChart.destroy();
-
-
-
     if (metric === 'daily_total') {
-
         let dateMap = {};
-
         let datesSet = new Set();
-
-
-
         currentSalesData.forEach(sale => {
-
             let dt = sale.SDATE;
-
             if (dt) {
-
                 datesSet.add(dt);
-
                 dateMap[dt] = (dateMap[dt] || 0) + (parseInt(sale.SUNITS) || 0);
-
             }
-
         });
-
-
-
         let sortedDates = Array.from(datesSet).sort();
-
         let values = sortedDates.map(dt => dateMap[dt]);
-
-
-
         timelineChart = new Chart(ctx, {
-
             type: 'line',
-
             data: {
-
                 labels: sortedDates,
-
                 datasets: [{
-
                     label: 'Total Units Sold',
-
                     data: values,
-
                     borderColor: '#1cc88a',
-
                     backgroundColor: '#1cc88a',
-
                     fill: false,
-
                     tension: 0.1
-
                 }]
-
             },
-
             options: {
-
                 responsive: true,
-
                 maintainAspectRatio: false,
-
                 scales: {
-
                     y: { beginAtZero: true, grace: '20%', ticks: { precision: 0 } }
-
                 },
-
                 plugins: {
-
                     legend: { position: 'bottom' },
-
                     datalabels: { ...SHARED_DATALABELS_CONFIG, align: 'top', formatter: (v) => v > 0 ? v : '' }
-
                 }
-
             }
-
         });
-
     } else {
-
         // Hourly Total: Multi-line chart showing a different line for each day over the active hours
-
         const activeHours = getActiveHours(currentSalesData);
-
         const dates = [...new Set(currentSalesData.map(item => item.SDATE))].sort();
-
-
-
         const datasets = dates.map((dateVal, index) => {
-
             const dataPoints = activeHours.map(hour => {
-
                 const match = currentSalesData.find(d => d.SDATE === dateVal && d.STIME === hour);
-
                 return match ? parseInt(match.SUNITS) || 0 : 0;
-
             });
-
             return {
-
                 label: dateVal,
-
                 data: dataPoints,
-
                 borderColor: globalColorMap[dateVal] || GLOBAL_PALETTE[index % GLOBAL_PALETTE.length],
-
                 backgroundColor: globalColorMap[dateVal] || GLOBAL_PALETTE[index % GLOBAL_PALETTE.length],
-
                 fill: false,
-
                 tension: 0.1
-
             };
-
         });
-
-
-
         timelineChart = new Chart(ctx, {
-
             type: 'line',
-
             data: { labels: activeHours, datasets: datasets },
-
             options: {
-
                 responsive: true,
-
                 maintainAspectRatio: false,
-
                 scales: {
-
                     y: { beginAtZero: true, grace: '20%', ticks: { precision: 0 } }
-
                 },
-
                 plugins: {
-
                     legend: { position: 'bottom' },
-
                     datalabels: { ...SHARED_DATALABELS_CONFIG, align: 'top', formatter: (v) => v > 0 ? v : '' }
-
                 }
-
             }
-
         });
-
     }
-
 }
-
 </script>
-
 {% endblock %}

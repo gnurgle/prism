@@ -1,7 +1,5 @@
 {% extends 'base.html' %}
-
 {% block content %}
-
 <div class="d-flex justify-content-between align-items-center mb-3">
     <div>
         <a href="{{ url_for('glass_bp.list_glass') }}" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Glass List</a>
@@ -13,7 +11,6 @@
         <a href="{{ url_for('glass_bp.edit_glass', glass_id=glass.GLASSID) }}" class="btn btn-primary">✏️ Edit Glass Details</a>
     </div>
 </div>
-
 <div class="row">
     <!-- Main Attributes Summary -->
     <div class="col-md-8">
@@ -69,23 +66,14 @@
                             <th>Visual Properties:</th>
                             <td>
 				{% if glass.GLSIRI %}
-
                                 <span class="badge px-2 py-1" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 20%, #0f3460 40%, #e94560 60%, #00b4d8 80%, #90e0ef 100%); color: #fff !important; text-shadow: 0px 0px 3px rgba(0,0,0,0.9); font-weight: 600; border: 1px solid #00b4d8;">
-
                                     Iridescent
-
                                 </span>
-
                             {% endif %}
-
                             {% if glass.GLSOPAL %}
-
                                 <span class="badge px-2 py-1" style="background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 20%, #a1c4fd 40%, #c2e9fb 60%, #d4fc79 80%, #96e6a1 100%); color: #111 !important; text-shadow: 0px 0px 3px rgba(255,255,255,0.9); font-weight: 600; border: 1px solid #ff9a9e;">
-
                                     Opalescent
-
                                 </span>
-
                             {% endif %}
                                 {% if not glass.GLSIRI and not glass.GLSOPAL %}<span class="text-muted">Standard Finish</span>{% endif %}
                             </td>
@@ -109,190 +97,93 @@
             </div>
         </div>
 <!-- Pattern Dependencies -->
-
         <div class="card shadow-sm">
-
             <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-
                 <span>Items Using This Glass</span>
-
             </div>
-
             <div class="card-body p-0">
-
                 <table class="table table-sm table-striped mb-0 align-middle">
-
                     <thead>
-
                         <tr>
-
                             <th style="width: 40%;">Item</th>
-
                             <th style="width: 25%;">Amount</th>
-
                             <th style="width: 25%;">Price</th>
-
                             <th style="width: 10%; text-align: center;">Expand</th>
-
                         </tr>
-
                     </thead>
-
                     <tbody>
-
                         {% set total_glass_sqin = (glass.GLSLEN * glass.GLSWID) if (glass.GLSLEN and glass.GLSWID and glass.GLSLEN > 0 and glass.GLSWID > 0) else 0 %}
-
                         {% set price_per_sqin = (glass.GLSPRICE / total_glass_sqin) if (glass.GLSPRICE and total_glass_sqin > 0) else 0 %}
-
-                        
-
                         {# Group components by ITEMID to aggregate values per item #}
-
                         {% set item_groups = {} %}
-
                         {% for comp in components %}
-
                             {% if comp.ITEMID not in item_groups %}
-
                                 {% set _ = item_groups.update({comp.ITEMID: {'ITMNAME': comp.ITMNAME, 'ITEMID': comp.ITEMID, 'comps': [], 'total_sqin': 0.0}}) %}
-
                             {% endif %}
-
                             {% set comp_sqin = (comp.COMPLEN or 0) * (comp.COMPWID or 0) %}
-
                             {% set _ = item_groups[comp.ITEMID]['comps'].append(comp) %}
-
                             {% set _ = item_groups[comp.ITEMID].update({'total_sqin': item_groups[comp.ITEMID]['total_sqin'] + comp_sqin}) %}
-
                         {% endfor %}
-
-
-
                         {% for item_id, data in item_groups.items() %}
-
                             {% set item_sqin = data.total_sqin %}
-
                             {% set item_pct = ((item_sqin / total_glass_sqin) * 100) if total_glass_sqin > 0 else 0 %}
-
                             {% set item_price = item_sqin * price_per_sqin %}
-
-                            
-
                             <!-- Main Item Row -->
-
                             <tr>
-
                                 <td>
-
                                     <a href="{{ url_for('item_bp.item_detail', item_id=data.ITEMID) }}" class="fw-bold text-decoration-none">
-
                                         {{ data.ITMNAME }}
-
                                     </a>
-
                                 </td>
-
                                 <td>
-
                                     {{ "%.0f"|format(item_sqin) }} sqin <span class="text-muted small">({{ "%.0f"|format(item_pct) }}%)</span>
-
                                 </td>
-
                                 <td>
-
                                     ${{ "%.2f"|format(item_price) }}
-
                                 </td>
-
                                 <td class="text-center">
-
                                     <button class="btn btn-sm btn-outline-secondary toggle-expand-btn" type="button" data-bs-toggle="collapse" data-bs-target="#collapseItem{{ item_id }}" aria-expanded="false" aria-controls="collapseItem{{ item_id }}">
-
                                         <span class="expand-icon">➕</span>
-
                                     </button>
-
                                 </td>
-
                             </tr>
-
-                            
-
                             <!-- Collapsible Component Sub-Rows -->
-
                             <tr>
-
                                 <td colspan="4" class="p-0 border-0">
-
                                     <div class="collapse bg-light" id="collapseItem{{ item_id }}">
-
                                         <div class="p-2 border-top border-bottom">
-
                                             <table class="table table-sm mb-0 bg-white border">
-
                                                 <thead class="table-light">
-
                                                     <tr>
-
                                                         <th>Component #</th>
-
                                                         <th>Bounding Box (L×W)</th>
-
                                                         <th>Component Notes</th>
-
                                                     </tr>
-
                                                 </thead>
-
                                                 <tbody>
-
                                                     {% for comp in data.comps %}
-
                                                     <tr>
-
                                                         <td>#{{ comp.COMPNUM }}</td>
-
                                                         <td>{{ comp.COMPLEN or '—' }}" × {{ comp.COMPWID or '—' }}"</td>
-
                                                         <td>{{ comp.COMPNOTE or '' }}</td>
-
                                                     </tr>
-
                                                     {% endfor %}
-
                                                 </tbody>
-
                                             </table>
-
                                         </div>
-
                                     </div>
-
                                 </td>
-
                             </tr>
-
                         {% else %}
-
                         <tr>
-
                             <td colspan="4" class="text-center py-3 text-muted">No item patterns currently reference this glass type.</td>
-
                         </tr>
-
                         {% endfor %}
-
                     </tbody>
-
                 </table>
-
             </div>
-
         </div>
-
-
     </div>
-
     <!-- Pricing & Visual Sidebar -->
 <div class="col-md-4">
         <div class="card shadow-sm mb-4">
@@ -301,12 +192,10 @@
                 {% if glass.GLSPRICE %}
                     <h1 class="display-5 text-success fw-bold">${{ "%.2f"|format(glass.GLSPRICE) }}</h1>
                     <p class="text-muted small mb-0">Active Sheet Rate</p>
-
                     {% if glass.GLSLEN and glass.GLSWID and glass.GLSLEN > 0 and glass.GLSWID > 0 %}
                         {% set total_sqin = glass.GLSLEN * glass.GLSWID %}
                         {% set price_per_sqin = glass.GLSPRICE / total_sqin %}
                         {% set price_per_sqft = price_per_sqin * 144 %}
-
                         <!-- Connected unit price row -->
                         <div class="border-top mt-3 pt-3">
                             <div class="row g-0 rounded bg-light border text-center overflow-hidden">
@@ -330,7 +219,6 @@
                 {% endif %}
 <br>
                             <div class="row g-0 rounded bg-light border text-center overflow-hidden"></div>
-
 		<div class="mt-4 mb-3 d-flex justify-content-center">
 		    <a href="{{ url_for('glass_bp.glass_price_history', glass_id=glass.GLASSID) }}" class="btn btn-primary d-flex align-items-center gap-1">
 		        📈 Historical Pricing
@@ -338,62 +226,32 @@
 		</div>
             </div>
         </div>
-
         <!-- Current Stock Card -->
-
         <div class="card shadow-sm mb-4">
-
             <div class="card-header bg-dark text-light d-flex justify-content-between align-items-center">
-
                 <span>Current Stock</span>
-
             </div>
-
             <div class="card-body text-center">
-
                 {% set stock = glass.CURRENT_STOCK if glass.CURRENT_STOCK is not none else 0 %}
-
                 <div class="mb-3">
-
                     {% if stock <= 0 %}
-
                         <span class="badge bg-danger px-3 py-2 fs-6">Out of Stock (0)</span>
-
                     {% elif stock == 1 %}
-
                         <span class="badge bg-warning text-dark px-3 py-2 fs-6">Low Stock (1)</span>
-
                     {% else %}
-
                         <span class="badge bg-success px-3 py-2 fs-6">In Stock ({{ stock }})</span>
-
                     {% endif %}
-
                 </div>
-
                 <button type="button" class="btn btn-sm btn-primary adjust-btn w-100"
-
                         data-bs-toggle="modal" 
-
                         data-bs-target="#adjustModal"
-
                         data-glassid="{{ glass.GLASSID }}"
-
                         data-glassname="{{ glass.GLSNAME }}"
-
                         data-currentstock="{{ stock }}">
-
                     ± Adjust Stock
-
                 </button>
-
             </div>
-
         </div>
-
-
-
-
 {% if glass.GLSIMG %}
         <div class="card shadow-sm">
             <div class="card-header bg-dark text-white">Glass Image Sample</div>
@@ -408,277 +266,129 @@
         {% endif %}
     </div>
 </div>
-
-
 <div class="modal fade" id="adjustModal" tabindex="-1" aria-labelledby="adjustModalLabel" aria-hidden="true">
-
     <div class="modal-dialog modal-dialog-centered">
-
         <div class="modal-content">
-
             <div class="modal-header bg-dark text-white">
-
                 <h5 class="modal-title" id="adjustModalLabel">Adjust Inventory Level</h5>
-
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-
             </div>
-
             <form id="adjustStockForm" method="POST">
-
                 <input type="hidden" name="GLASSID" id="modalGlassId">
-
                 <div class="modal-body">
-
                     <div class="mb-3">
-
                         <label class="form-label text-muted">Glass Sheet:</label>
-
                         <h4 id="modalGlassName" class="text-primary fw-bold"></h4>
-
                     </div>
-
                     <div class="mb-3">
-
                         <label class="form-label fw-bold">New Total Stock Level</label>
-
                         <!-- Fixed Bug 1: Name attribute matches form handling so amount shows/saves correctly -->
-
                         <input type="number" name="GLSSTOCK" id="modalStockInput" class="form-control" required min="0">
-
                         <small class="text-muted">Enter the absolute physical count available.</small>
-
                     </div>
-
                     <div class="mb-3">
-
                         <label class="form-label fw-bold">Adjustment Date</label>
-
                         <input type="date" name="TS" class="form-control" value="{{ today_date }}" required>
-
                         <small class="text-muted">Defaults to today's date automatically.</small>
-
                     </div>
-
                 </div>
-
                 <div class="modal-footer">
-
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-
                     <button type="submit" class="btn btn-primary">Save Adjustment</button>
-
                 </div>
-
             </form>
-
         </div>
-
     </div>
-
 </div>
-
-
 <script src="{{ url_for('static', filename='js/color_dropdown.js') }}"\></script>
-
 <script>
-
 document.addEventListener('DOMContentLoaded', function() {
-
     // 1. Dynamic Font Color Contrast Calculation for Badges
-
     function getContrastColor(hexColor) {
-
         if (!hexColor) return '#ffffff';
-
         const hex = hexColor.replace('#', '');
-
         if (hex.length !== 6) return '#000000';
-
-        
-
         const r = parseInt(hex.substring(0, 2), 16);
-
         const g = parseInt(hex.substring(2, 4), 16);
-
         const b = parseInt(hex.substring(4, 6), 16);
-
-        
-
         const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-
         return luminance > 0.6 ? '#000000' : '#ffffff';
-
     }
-
-
-
     document.querySelectorAll('.color-badge').forEach(badge => {
-
         const bgColor = badge.style.backgroundColor;
-
         const rgbVals = bgColor.match(/\d+/g);
-
         if (rgbVals && rgbVals.length >= 3) {
-
             const hex = "#" + ((1 << 24) + (parseInt(rgbVals[0]) << 16) + (parseInt(rgbVals[1]) << 8) + parseInt(rgbVals[2])).toString(16).slice(1);
-
             badge.style.color = getContrastColor(hex);
-
         }
-
     });
-
-
-
     // 2. Active Filter Button Toggle logic
-
     const toggleBtn = document.getElementById('toggleActiveBtn');
-
     const activeInput = document.getElementById('activeOnlyInput');
-
     const itemSelect = document.getElementById('itemSelect');
-
-
-
     if (toggleBtn) {
-
         toggleBtn.addEventListener('click', function() {
-
             const isCurrentlyActive = activeInput.value === '1';
-
-            
-
             if (isCurrentlyActive) {
-
                 activeInput.value = '0';
-
                 toggleBtn.className = 'btn btn-sm btn-outline-secondary';
-
                 toggleBtn.textContent = 'Show Currently Selling Only';
-
                 Array.from(itemSelect.options).forEach(opt => opt.style.display = '');
-
             } else {
-
                 activeInput.value = '1';
-
                 toggleBtn.className = 'btn btn-sm btn-success';
-
                 toggleBtn.textContent = '✓ Currently Selling Only';
-
                 Array.from(itemSelect.options).forEach(opt => {
-
                     if (opt.value && opt.getAttribute('data-active') === '0') {
-
                         opt.style.display = 'none';
-
                         if (opt.selected) {
-
                             itemSelect.value = '';
-
                         }
-
                     }
-
                 });
-
             }
-
         });
-
     }
-
 });
-
 document.addEventListener('DOMContentLoaded', function() {
-
     const adjustModal = document.getElementById('adjustModal');
-
     if (adjustModal) {
-
         adjustModal.addEventListener('show.bs.modal', function (event) {
-
             const button = event.relatedTarget;
-
             const glassId = button.getAttribute('data-glassid');
-
             const currentStock = button.getAttribute('data-currentstock');
-
             const glassName = button.getAttribute('data-glassname');
-
-            
-
             // Fixed Bug 3: Explicitly point action to this item's detail URL to prevent redirecting to glass_inventory
-
             const form = document.getElementById('adjustStockForm');
-
             form.action = "{{ url_for('glass_bp.glass_detail', glass_id=0) }}".replace('/0', '/' + glassId);
-
-
-
             // Fixed Bug 1: Properly pass values into modal fields so current amount shows up
-
             document.getElementById('modalGlassId').value = glassId;
-
             document.getElementById('modalGlassName').textContent = glassName;
-
             document.getElementById('modalStockInput').value = currentStock;
-
         });
-
     }
-
 });
-
 document.addEventListener('DOMContentLoaded', function() {
-
     const collapseElements = document.querySelectorAll('.collapse');
-
-    
-
     collapseElements.forEach(collapseEl => {
-
         collapseEl.addEventListener('show.bs.collapse', function(event) {
-
             // Prevent event bubbling issues and close all other open collapses
-
             collapseElements.forEach(otherEl => {
-
                 if (otherEl !== collapseEl && otherEl.classList.contains('show')) {
-
                     const otherCollapse = bootstrap.Collapse.getInstance(otherEl) || new bootstrap.Collapse(otherEl, { toggle: false });
-
                     otherCollapse.hide();
-
                 }
-
             });
-
         });
-
-
-
         collapseEl.addEventListener('show.bs.collapse', function() {
-
             const btn = document.querySelector(`[data-bs-target="#${this.id}"]`);
-
             if (btn) btn.innerHTML = '<span class="expand-icon">➖</span>';
-
         });
-
-
-
         collapseEl.addEventListener('hide.bs.collapse', function() {
-
             const btn = document.querySelector(`[data-bs-target="#${this.id}"]`);
-
             if (btn) btn.innerHTML = '<span class="expand-icon">➕</span>';
-
         });
-
     });
-
 });
 </script>
 {% endblock %}

@@ -1,1507 +1,676 @@
 {% extends "base.html" %}
-
-
-
 {% block content %}
-
-
-
 <div class="row mb-2 align-items-center">
-
     <div class="col">
-
         <h2 class="mb-0">Production Workflow</h2>
-
         <p class="text-muted mb-0"></p>
-
     </div>
-
     <div class="col-auto d-flex gap-2 align-items-center">
-
         <!-- Manual Card Size Toggle Group -->
-
         <div class="btn-group" role="group" aria-label="Card Size Switcher" id="cardSizeButtonGroup">
-
             <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" id="sizeBtnTiny" title="Tiny Cards">Tny</button>
-
             <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" id="sizeBtnSmall" title="Small Cards">Sml</button>
-
             <button type="button" class="btn btn-outline-secondary btn-sm active py-0 px-2" id="sizeBtnMedium" title="Medium Cards">Med</button>
-
             <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" id="sizeBtnLarge" title="Large Cards">Lrg</button>
-
         </div>
-
-
-
         <!-- Layout Switcher Toggle Group -->
-
         <div class="btn-group" role="group" aria-label="Board Layout Switcher">
-
             <button type="button" class="btn btn-outline-secondary btn-sm active py-0 px-2" id="layoutBtnHorizontal" title="Horizontal Layout">
-
                 <i class="fas fa-columns"></i> Rows
-
             </button>
-
             <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" id="layoutBtnVertical" title="Vertical Layout">
-
                 <i class="fas fa-stream"></i> Stack
-
             </button>
-
             <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" id="layoutBtnGrid" title="Grid Layout">
-
                 <i class="fas fa-th"></i> Grid
-
             </button>
-
         </div>
-
-
-
         <button class="btn btn-primary btn-sm py-0 px-2" data-bs-toggle="modal" data-bs-target="#addItemModal" style="font-size: 0.8rem;">
-
             <i class="fas fa-plus me-1"></i> Add Item
-
         </button>
-
     </div>
-
 </div>
-
-
-
 <!-- Summary Quick-Glance Cards -->
-
 <div class="row text-center mb-2 g-1" id="summary-cards">
-
     <div class="col"><div class="card shadow-sm border-primary"><div class="card-body p-1"><span class="text-muted small" style="font-size: 0.65rem;">Cut</span><h6 class="mb-0 text-primary" style="font-size: 0.9rem;" id="sum-cut">{{ summary.total_cut or 0 }}</h6></div></div></div>
-
     <div class="col"><div class="card shadow-sm border-secondary"><div class="card-body p-1"><span class="text-muted small" style="font-size: 0.65rem;">Grind</span><h6 class="mb-0 text-secondary" style="font-size: 0.9rem;" id="sum-grind">{{ summary.total_grind or 0 }}</h6></div></div></div>
-
     <div class="col"><div class="card shadow-sm border-warning"><div class="card-body p-1"><span class="text-muted small" style="font-size: 0.65rem;">Foil</span><h6 class="mb-0 text-warning" style="font-size: 0.9rem;" id="sum-foil">{{ summary.total_foil or 0 }}</h6></div></div></div>
-
     <div class="col"><div class="card shadow-sm border-danger"><div class="card-body p-1"><span class="text-muted small" style="font-size: 0.65rem;">Solder</span><h6 class="mb-0 text-danger" style="font-size: 0.9rem;" id="sum-solder">{{ summary.total_solder or 0 }}</h6></div></div></div>
-
     <div class="col"><div class="card shadow-sm border-info"><div class="card-body p-1"><span class="text-muted small" style="font-size: 0.65rem;">Wash</span><h6 class="mb-0 text-info" style="font-size: 0.9rem;" id="sum-wash">{{ summary.total_wash or 0 }}</h6></div></div></div>
-
     <div class="col"><div class="card shadow-sm border-success"><div class="card-body p-1"><span class="text-muted small" style="font-size: 0.65rem;">Polish</span><h6 class="mb-0 text-success" style="font-size: 0.9rem;" id="sum-polish">{{ summary.total_polish or 0 }}</h6></div></div></div>
-
     <div class="col"><div class="card shadow-sm border-dark"><div class="card-body p-1"><span class="text-muted small" style="font-size: 0.65rem;">Done</span><h6 class="mb-0 text-dark" style="font-size: 0.9rem;" id="sum-done">{{ summary.total_done or 0 }}</h6></div></div></div>
-
 </div>
-
-
-
 <!-- Kanban Board Container -->
-
 <div id="kanbanBoardContainer" class="kanban-layout-horizontal pb-2">
-
-
-
     {% set stages = [
-
         ('cut', 'Cut', 'primary', 'IPCUT'),
-
         ('grnd', 'Grind', 'secondary', 'IPGRND'),
-
         ('foil', 'Foil', 'warning', 'IPFOIL'),
-
         ('sldr', 'Solder', 'danger', 'IPSLDR'),
-
         ('wash', 'Wash', 'info', 'IPWASH'),
-
         ('polish', 'Polish', 'success', 'IPPOLISH'),
-
         ('done', 'Done', 'dark', 'IPDONE')
-
     ] %}
-
-
-
 {% for key, label, color, col_field in stages %}
-
     <div class="kanban-column-wrapper">
-
         <div class="card bg-light border-{{ color }} h-100">
-
             <div class="card-header bg-{{ color }} text-white d-flex justify-content-between align-items-center py-1 px-2" style="font-size: 0.8rem;">
-
                 <strong>{{ label }}</strong>
-
                 {% if key == 'done' %}
-
                 <button class="btn btn-primary btn-sm py-0 px-1 text-light fw-bold" id="saveFinishedGlobalBtn" style="font-size: 0.65rem;" title="Save All Finished Items to Inventory">
-
                     <i class="fas fa-save me-1"></i> Save
-
                 </button>
-
                 {% endif %}
-
             </div>
-
             <!-- Stage card container -->
-
             <div class="card-body p-1 kanban-stage" data-stage="{{ key }}" data-stage-index="{{ loop.index0 }}" data-stage-label="{{ label }}" style="min-height: 350px; max-height: 65vh; overflow-y: auto;">
-
                 {% for item in items %}
-
                     {% set count = item[col_field] %}
-
                     {% if count and count > 0 %}
-
                     <div class="card mb-1 shadow-sm item-card" draggable="true" data-item-id="{{ item.ITEMID }}" data-item-name="{{ item.ITMNAME }}" data-current-stage="{{ key }}" data-current-index="{{ loop.index0 }}" data-available-qty="{{ count }}">
-
                         <div class="card-body p-1">
-
-                            
-
                             <!-- 1. Title Row -->
-
                             <div class="mb-0.5 text-center card-title-row">
-
                                 <h6 class="card-title mb-0 text-truncate" style="font-size: 0.72rem; line-height: 1;">
-
                                     <a href="{{ url_for('item_bp.item_detail', item_id=item.ITEMID) }}" class="text-decoration-none text-dark" title="{{ item.ITMNAME }}">{{ item.ITMNAME }}</a>
-
                                 </h6>
-
                             </div>
-
-
-
                             <!-- 2. Centered Image: maintains aspect ratio -->
-
                             <div class="text-center mb-0.5">
-
                                 {% if item.ITMIMG %}
-
                                     <div class="w-100 overflow-hidden bg-light rounded d-flex align-items-center justify-content-center item-img-wrapper" style="cursor: pointer;" 
-
                                          data-bs-toggle="modal" 
-
                                          data-bs-target="#imageModal" 
-
                                          data-img-url="{{ url_for('static', filename=item.ITMIMG) }}"
-
                                          title="Click to pop up larger image">
-
                                         <img src="{{ url_for('static', filename=item.ITMIMG) }}" 
-
                                              class="d-block card-img-scaled" 
-
                                              style="max-width: 100%; max-height: 80px; width: auto; height: auto; object-fit: contain;" 
-
                                              alt="{{ item.ITMNAME }}">
-
                                     </div>
-
                                 {% else %}
-
                                     <div class="bg-secondary rounded w-100 d-flex align-items-center justify-content-center text-white shadow-sm item-img-placeholder" style="height: 50px; font-size: 11px;"><i class="fas fa-cube"></i></div>
-
                                 {% endif %}
-
                             </div>
-
-
-
                             <!-- 3. Quantity Row -->
-
                             <div class="text-center mb-0.5" style="line-height: 1;">
-
                                 <span class="text-muted" style="font-size: 0.6rem;">Qty: <strong class="item-qty text-dark">{{ count }}</strong></span>
-
                             </div>
-
-                            
-
                             <!-- Group Name Row -->
-
                             <div class="mb-0.5 text-truncate card-group-row">
-
                                 <span class="badge bg-light text-dark border w-100 text-truncate py-0" style="font-size: 0.55rem;" title="{{ item.ITMGRP or 'General' }}">{{ item.ITMGRP or 'General' }}</span>
-
                             </div>
-
-
-
                             <!-- Controls -->
-
                             <div class="d-flex justify-content-between align-items-center">
-
                                 <button class="btn btn-outline-secondary btn-xxs py-0 px-1 move-backward-btn" style="font-size: 0.6rem;" title="Move Backward"><i class="fas fa-arrow-left move-icon-h"></i><i class="fas fa-arrow-up move-icon-v" style="display:none;"></i></button>
-
                                 <button class="btn btn-outline-secondary btn-xxs py-0 px-1 qty-adjust-modal-btn" style="font-size: 0.6rem;" title="Adjust Quantity"><i class="fas fa-plus-minus"></i></button>
-
                                 <button class="btn btn-outline-secondary btn-xxs py-0 px-1 move-forward-btn" style="font-size: 0.6rem;" title="Move Forward"><i class="fas fa-arrow-right move-icon-h"></i><i class="fas fa-arrow-down move-icon-v" style="display:none;"></i></button>
-
                             </div>
-
                         </div>
-
                     </div>
-
                     {% endif %}
-
                 {% endfor %}
-
             </div>
-
         </div>
-
     </div>
-
     {% endfor %}
-
 </div>
-
-
-
 <!-- Layout & Card Size Styling Rules -->
-
 <style>
-
     #kanbanBoardContainer.kanban-layout-horizontal {
-
         display: flex;
-
         flex-direction: row;
-
         flex-wrap: nowrap;
-
         overflow-x: visible;
-
         gap: 0.25rem;
-
     }
-
     #kanbanBoardContainer.kanban-layout-horizontal .kanban-column-wrapper {
-
         flex: 1 1 0;
-
         min-width: 0;
-
     }
-
-    
-
     /* Vertical Layout: switches to a 2-column grid when Tiny is active, otherwise stacked */
-
     #kanbanBoardContainer.kanban-layout-vertical {
-
         display: flex;
-
         flex-direction: column;
-
         gap: 0.4rem;
-
     }
-
     #kanbanBoardContainer.kanban-layout-vertical .kanban-column-wrapper {
-
         width: 100%;
-
     }
-
     #kanbanBoardContainer.kanban-layout-vertical.card-size-tiny {
-
         display: grid;
-
         grid-template-columns: repeat(2, minmax(0, 1fr));
-
         gap: 0.4rem;
-
     }
-
-
-
     #kanbanBoardContainer.kanban-layout-grid {
-
         display: grid;
-
         grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-
         gap: 0.4rem;
-
     }
-
     #kanbanBoardContainer.kanban-layout-grid .kanban-column-wrapper {
-
         width: 100%;
-
     }
-
-
-
     /* Card Size Classes */
-
     .kanban-stage {
-
         display: grid;
-
         grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-
         gap: 0.25rem;
-
         align-content: start;
-
     }
-
-
-
     /* Size Mode: Tiny (Extra small, hides labels and reduces image constraints) */
-
     #kanbanBoardContainer.card-size-tiny .kanban-stage {
-
         grid-template-columns: repeat(auto-fill, minmax(55px, 1fr));
-
     }
-
     #kanbanBoardContainer.card-size-tiny .card-title-row,
-
     #kanbanBoardContainer.card-size-tiny .card-group-row {
-
         display: none !important;
-
     }
-
     #kanbanBoardContainer.card-size-tiny .item-img-wrapper {
-
         min-height: 28px;
-
         max-height: 38px;
-
     }
-
     #kanbanBoardContainer.card-size-tiny .card-img-scaled {
-
         max-height: 38px !important;
-
     }
-
     #kanbanBoardContainer.card-size-tiny .item-img-placeholder {
-
         height: 28px !important;
-
     }
-
-
-
     /* Size Mode: Small */
-
     #kanbanBoardContainer.card-size-small .kanban-stage {
-
         grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-
     }
-
     #kanbanBoardContainer.card-size-small .card-group-row {
-
         display: none !important;
-
     }
-
     #kanbanBoardContainer.card-size-small .item-img-wrapper {
-
         min-height: 40px;
-
         max-height: 55px;
-
     }
-
     #kanbanBoardContainer.card-size-small .card-img-scaled {
-
         max-height: 55px !important;
-
     }
-
     #kanbanBoardContainer.card-size-small .item-img-placeholder {
-
         height: 40px !important;
-
     }
-
-
-
     /* Size Mode: Medium (Default) */
-
     #kanbanBoardContainer.card-size-medium .kanban-stage {
-
         grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-
     }
-
     #kanbanBoardContainer.card-size-medium .item-img-wrapper {
-
         min-height: 50px;
-
         max-height: 80px;
-
     }
-
     #kanbanBoardContainer.card-size-medium .card-img-scaled {
-
         max-height: 80px !important;
-
     }
-
     #kanbanBoardContainer.card-size-medium .item-img-placeholder {
-
         height: 50px !important;
-
     }
-
-
-
     /* Size Mode: Large */
-
     #kanbanBoardContainer.card-size-large .kanban-stage {
-
         grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-
     }
-
     #kanbanBoardContainer.card-size-large .item-img-wrapper {
-
         min-height: 70px;
-
         max-height: 120px;
-
     }
-
     #kanbanBoardContainer.card-size-large .card-img-scaled {
-
         max-height: 120px !important;
-
     }
-
     #kanbanBoardContainer.card-size-large .item-img-placeholder {
-
         height: 70px !important;
-
     }
-
 </style>
-
-
-
 <!-- Add Item Modal -->
-
 <div class="modal fade" id="addItemModal" tabindex="-1" aria-hidden="true">
-
     <div class="modal-dialog">
-
         <div class="modal-content">
-
             <div class="modal-header py-2">
-
                 <h5 class="modal-title fs-6"><i class="fas fa-plus-circle me-1"></i> Add Item to Production Stage</h5>
-
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-
             </div>
-
             <div class="modal-body py-2">
-
                 <form id="addItemForm">
-
                     <div class="row g-2 mb-2">
-
                         <div class="col-md-6">
-
                             <label class="form-label small mb-1">Filter Group</label>
-
                             <select id="filterGroup" class="form-select form-select-sm">
-
                                 <option value="">All Groups</option>
-
                                 {% for g in item_groups %}
-
                                     <option value="{{ g.ITMGRP }}">{{ g.ITMGRP }}</option>
-
                                 {% endfor %}
-
                             </select>
-
                         </div>
-
                         <div class="col-md-6">
-
                             <label class="form-label small mb-1">Selling Status</label>
-
                             <select id="filterCurrent" class="form-select form-select-sm">
-
                                 <option value="">Any Status</option>
-
                                 <option value="1">Currently Being Sold</option>
-
                                 <option value="0">Not Current</option>
-
                             </select>
-
                         </div>
-
                     </div>
-
                     <div class="mb-2">
-
                         <label class="form-label small mb-1">Select Item</label>
-
                         <select id="baseItemSelect" class="form-select form-select-sm" required>
-
                             <option value="" disabled selected>-- Choose Item --</option>
-
                             {% for m in master_items %}
-
                             <option value="{{ m.ITEMID }}" data-group="{{ m.ITMGRP or '' }}" data-current="{{ m.CURRENT if m.CURRENT is not none else '' }}">
-
                                 {{ m.ITMNAME }}
-
                             </option>
-
                             {% endfor %}
-
                         </select>
-
                     </div>
-
                     <div class="mb-2">
-
                         <label class="form-label small mb-1">Production Stage</label>
-
                         <select id="targetStageSelect" class="form-select form-select-sm" required>
-
                             <option value="cut">Cut</option>
-
                             <option value="grnd">Grind</option>
-
                             <option value="wash">Wash</option>
-
                             <option value="foil">Foil</option>
-
                             <option value="sldr">Solder</option>
-
                             <option value="polish">Polish</option>
-
                             <option value="done">Done</option>
-
                         </select>
-
                     </div>
-
                     <div class="mb-2">
-
                         <label class="form-label small mb-1">Quantity</label>
-
                         <input type="number" id="addItemQty" class="form-control form-control-sm" value="1" min="1" required>
-
                     </div>
-
                     <div class="text-end">
-
                         <button type="button" class="btn btn-secondary btn-sm py-0 px-2" data-bs-dismiss="modal">Cancel</button>
-
                         <button type="submit" class="btn btn-success btn-sm py-0 px-2">Add</button>
-
                     </div>
-
                 </form>
-
             </div>
-
         </div>
-
     </div>
-
 </div>
-
-
-
 <!-- Move Quantity Confirmation Modal -->
-
 <div class="modal fade" id="moveModal" tabindex="-1" aria-hidden="true">
-
     <div class="modal-dialog modal-sm">
-
         <div class="modal-content">
-
             <div class="modal-header py-1.5 px-2">
-
                 <h6 class="modal-title fs-6"><i class="fas fa-exchange-alt me-1"></i> Move Item Stage</h6>
-
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-
             </div>
-
             <div class="modal-body py-2">
-
                 <form id="moveForm">
-
                     <p class="small mb-2 text-muted">Moving <strong id="moveItemName" class="text-dark"></strong> to <strong id="moveStageLabel" class="text-dark"></strong>.</p>
-
                     <div class="mb-2">
-
                         <label class="form-label small mb-1">Quantity to Move (Max: <span id="moveMaxQty"></span>)</label>
-
                         <input type="number" id="moveQuantityInput" class="form-control form-control-sm" min="1" required>
-
                     </div>
-
                     <div class="d-flex justify-content-end gap-1">
-
                         <button type="button" class="btn btn-secondary btn-sm py-0 px-2" data-bs-dismiss="modal">Cancel</button>
-
                         <button type="submit" class="btn btn-primary btn-sm py-0 px-2">Confirm Move</button>
-
                     </div>
-
                 </form>
-
             </div>
-
         </div>
-
     </div>
-
 </div>
-
-
-
 <!-- Quantity Adjustment Modal -->
-
 <div class="modal fade" id="qtyAdjustModal" tabindex="-1" aria-hidden="true">
-
     <div class="modal-dialog modal-sm">
-
         <div class="modal-content">
-
             <div class="modal-header py-1.5 px-2">
-
                 <h6 class="modal-title fs-6"><i class="fas fa-plus-minus me-1"></i> Adjust Quantity</h6>
-
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-
             </div>
-
             <div class="modal-body py-2">
-
                 <form id="qtyAdjustForm">
-
                     <p class="small mb-2 text-muted">Item: <strong id="adjItemName" class="text-dark"></strong></p>
-
                     <div class="mb-2">
-
                         <label class="form-label small mb-1">New Quantity</label>
-
                         <input type="number" id="adjQuantityInput" class="form-control form-control-sm" min="0" required>
-
                     </div>
-
                     <div class="d-flex justify-content-end gap-1">
-
                         <button type="button" class="btn btn-secondary btn-sm py-0 px-2" data-bs-dismiss="modal">Cancel</button>
-
                         <button type="submit" class="btn btn-primary btn-sm py-0 px-2">Save Quantity</button>
-
                     </div>
-
                 </form>
-
             </div>
-
         </div>
-
     </div>
-
 </div>
-
-
-
 <!-- Separate Pop-up Modal for Enlarged Image Preview -->
-
 <div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
-
     <div class="modal-dialog modal-dialog-centered modal-lg">
-
         <div class="modal-content bg-dark text-white border-0 shadow-lg">
-
             <div class="modal-header border-secondary py-1.5 px-3">
-
                 <h6 class="modal-title fs-6"><i class="fas fa-image me-2 text-info"></i>Item Image Preview</h6>
-
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-
             </div>
-
             <div class="modal-body text-center p-2">
-
                 <img id="modalImagePreview" src="" class="img-fluid rounded shadow" style="max-height: 75vh; max-width: 100%; object-fit: contain;">
-
             </div>
-
         </div>
-
     </div>
-
 </div>
-
-
-
 <!-- JavaScript for Layout Toggle, Card Sizing, Drag & Drop, Directional Arrows, and Modals -->
-
 <script>
-
 document.addEventListener("DOMContentLoaded", () => {
-
     const stagesList = ['cut', 'grnd', 'wash', 'foil', 'sldr', 'polish', 'done'];
-
-
-
     // --- Separate Image Popup Modal Handler ---
-
     const imageModal = document.getElementById('imageModal');
-
     if (imageModal) {
-
         imageModal.addEventListener('show.bs.modal', (event) => {
-
             const triggerEl = event.relatedTarget;
-
             const imgSrc = triggerEl ? triggerEl.getAttribute('data-img-url') : '';
-
             const modalImg = document.getElementById('modalImagePreview');
-
             if (modalImg) {
-
                 modalImg.src = imgSrc;
-
             }
-
         });
-
     }
-
-
-
     // --- Layout & Card Size Switcher Handlers ---
-
     const boardContainer = document.getElementById('kanbanBoardContainer');
-
     const btnHorizontal = document.getElementById('layoutBtnHorizontal');
-
     const btnVertical = document.getElementById('layoutBtnVertical');
-
     const btnGrid = document.getElementById('layoutBtnGrid');
-
-
-
     const sizeBtnTiny = document.getElementById('sizeBtnTiny');
-
     const sizeBtnSmall = document.getElementById('sizeBtnSmall');
-
     const sizeBtnMedium = document.getElementById('sizeBtnMedium');
-
     const sizeBtnLarge = document.getElementById('sizeBtnLarge');
-
-
-
     function updateArrowIcons(layoutType) {
-
         const isHorizontal = (layoutType === 'horizontal');
-
         document.querySelectorAll('.item-card').forEach(card => {
-
             const hIcons = card.querySelectorAll('.move-icon-h');
-
             const vIcons = card.querySelectorAll('.move-icon-v');
-
             hIcons.forEach(el => el.style.display = isHorizontal ? 'inline-block' : 'none');
-
             vIcons.forEach(el => el.style.display = isHorizontal ? 'none' : 'inline-block');
-
         });
-
     }
-
-
-
     function setLayout(layoutType) {
-
         boardContainer.classList.remove('kanban-layout-horizontal', 'kanban-layout-vertical', 'kanban-layout-grid');
-
         btnHorizontal.classList.remove('active');
-
         btnVertical.classList.remove('active');
-
         btnGrid.classList.remove('active');
-
-
-
         if (layoutType === 'vertical') {
-
             boardContainer.classList.add('kanban-layout-vertical');
-
             btnVertical.classList.add('active');
-
             localStorage.setItem('kanban_layout', 'vertical');
-
         } else if (layoutType === 'grid') {
-
             boardContainer.classList.add('kanban-layout-grid');
-
             btnGrid.classList.add('active');
-
             localStorage.setItem('kanban_layout', 'grid');
-
         } else {
-
             boardContainer.classList.add('kanban-layout-horizontal');
-
             btnHorizontal.classList.add('active');
-
             localStorage.setItem('kanban_layout', 'horizontal');
-
         }
-
         updateArrowIcons(layoutType);
-
         updateArrowStates();
-
     }
-
-
-
     function setCardSize(sizeType) {
-
         boardContainer.classList.remove('card-size-tiny', 'card-size-small', 'card-size-medium', 'card-size-large');
-
         [sizeBtnTiny, sizeBtnSmall, sizeBtnMedium, sizeBtnLarge].forEach(btn => {
-
             if(btn) {
-
                 btn.classList.remove('active', 'btn-secondary');
-
                 btn.classList.add('btn-outline-secondary');
-
             }
-
         });
-
-
-
         if (sizeType === 'tiny') {
-
             boardContainer.classList.add('card-size-tiny');
-
             sizeBtnTiny.classList.add('active', 'btn-secondary');
-
             sizeBtnTiny.classList.remove('btn-outline-secondary');
-
             localStorage.setItem('card_size_mode', 'tiny');
-
         } else if (sizeType === 'small') {
-
             boardContainer.classList.add('card-size-small');
-
             sizeBtnSmall.classList.add('active', 'btn-secondary');
-
             sizeBtnSmall.classList.remove('btn-outline-secondary');
-
             localStorage.setItem('card_size_mode', 'small');
-
         } else if (sizeType === 'large') {
-
             boardContainer.classList.add('card-size-large');
-
             sizeBtnLarge.classList.add('active', 'btn-secondary');
-
             sizeBtnLarge.classList.remove('btn-outline-secondary');
-
             localStorage.setItem('card_size_mode', 'large');
-
         } else {
-
             boardContainer.classList.add('card-size-medium');
-
             sizeBtnMedium.classList.add('active', 'btn-secondary');
-
             sizeBtnMedium.classList.remove('btn-outline-secondary');
-
             localStorage.setItem('card_size_mode', 'medium');
-
         }
-
     }
-
-
-
     const savedLayout = localStorage.getItem('kanban_layout') || 'horizontal';
-
     setLayout(savedLayout);
-
-
-
     const savedSize = localStorage.getItem('card_size_mode') || 'medium';
-
     setCardSize(savedSize);
-
-
-
     btnHorizontal.addEventListener('click', () => setLayout('horizontal'));
-
     btnVertical.addEventListener('click', () => setLayout('vertical'));
-
     btnGrid.addEventListener('click', () => setLayout('grid'));
-
-
-
     sizeBtnTiny.addEventListener('click', () => setCardSize('tiny'));
-
     sizeBtnSmall.addEventListener('click', () => setCardSize('small'));
-
     sizeBtnMedium.addEventListener('click', () => setCardSize('medium'));
-
     sizeBtnLarge.addEventListener('click', () => setCardSize('large'));
-
-
-
     // --- Arrow State Greying ---
-
     function updateArrowStates() {
-
         document.querySelectorAll('.item-card').forEach(card => {
-
             const stageKey = card.getAttribute('data-current-stage');
-
             const stageIndex = stagesList.indexOf(stageKey);
-
             const backBtn = card.querySelector('.move-backward-btn');
-
             const fwdBtn = card.querySelector('.move-forward-btn');
-
-
-
             if (stageIndex <= 0) {
-
                 backBtn.classList.add('disabled', 'opacity-50');
-
                 backBtn.style.pointerEvents = 'none';
-
             } else {
-
                 backBtn.classList.remove('disabled', 'opacity-50');
-
                 backBtn.style.pointerEvents = 'auto';
-
             }
-
-
-
             if (stageIndex >= stagesList.length - 1 || stageIndex === -1) {
-
                 fwdBtn.classList.add('disabled', 'opacity-50');
-
                 fwdBtn.style.pointerEvents = 'none';
-
             } else {
-
                 fwdBtn.classList.remove('disabled', 'opacity-50');
-
                 fwdBtn.style.pointerEvents = 'auto';
-
             }
-
         });
-
     }
-
     updateArrowStates();
-
-
-
     // --- Drag and Drop & Modal State Handlers ---
-
     let draggedCard = null;
-
     let targetStageKey = null;
-
-
-
     document.querySelectorAll('.item-card').forEach(card => {
-
         card.addEventListener('dragstart', (e) => {
-
             draggedCard = card;
-
             e.dataTransfer.setData('text/plain', card.getAttribute('data-item-id'));
-
             card.classList.add('opacity-50');
-
         });
-
         card.addEventListener('dragend', () => card.classList.remove('opacity-50'));
-
     });
-
-
-
     document.querySelectorAll('.kanban-stage').forEach(stageContainer => {
-
         stageContainer.addEventListener('dragover', (e) => e.preventDefault());
-
         stageContainer.addEventListener('drop', (e) => {
-
             e.preventDefault();
-
             if (!draggedCard) return;
-
-
-
             targetStageKey = stageContainer.getAttribute('data-stage');
-
             const targetStageLabel = stageContainer.getAttribute('data-stage-label');
-
             const sourceStageKey = draggedCard.getAttribute('data-current-stage');
-
-
-
             if (targetStageKey === sourceStageKey) return;
-
-
-
             const itemName = draggedCard.getAttribute('data-item-name');
-
             const maxQty = parseInt(draggedCard.getAttribute('data-available-qty')) || 1;
-
-
-
             document.getElementById('moveItemName').innerText = itemName;
-
             document.getElementById('moveStageLabel').innerText = targetStageLabel;
-
             document.getElementById('moveMaxQty').innerText = maxQty;
-
-            
-
             const qtyInput = document.getElementById('moveQuantityInput');
-
             qtyInput.value = maxQty;
-
             qtyInput.max = maxQty;
-
-
-
             const moveModal = new bootstrap.Modal(document.getElementById('moveModal'));
-
             moveModal.show();
-
         });
-
     });
-
-
-
     document.getElementById('moveForm').addEventListener('submit', (e) => {
-
         e.preventDefault();
-
         const itemId = draggedCard.getAttribute('data-item-id');
-
         const sourceStage = draggedCard.getAttribute('data-current-stage');
-
         const moveQty = parseInt(document.getElementById('moveQuantityInput').value);
-
         const maxQty = parseInt(draggedCard.getAttribute('data-available-qty'));
-
-
-
         if (isNaN(moveQty) || moveQty <= 0) {
-
             alert('Please enter a valid positive quantity.');
-
             return;
-
         }
-
         if (moveQty > maxQty) {
-
             alert('Cannot move more than the available quantity (' + maxQty + ').');
-
             return;
-
         }
-
-
-
         executeMove(itemId, sourceStage, targetStageKey, moveQty);
-
     });
-
-
-
     function executeMove(itemId, sourceStage, targetStage, moveQty) {
-
         Promise.all([
-
             fetch('/production/update', {
-
                 method: 'POST',
-
                 headers: { 'Content-Type': 'application/json' },
-
                 body: JSON.stringify({ item_id: itemId, stage: sourceStage, delta: -moveQty })
-
             }).then(res => res.json()),
-
-            
-
             fetch('/production/update', {
-
                 method: 'POST',
-
                 headers: { 'Content-Type': 'application/json' },
-
                 body: JSON.stringify({ item_id: itemId, stage: targetStage, delta: moveQty })
-
             }).then(res => res.json())
-
         ])
-
         .then(([sourceRes, targetRes]) => {
-
             if (sourceRes.success && targetRes.success) {
-
                 window.location.reload();
-
             } else {
-
                 alert('Error completing the move operation.');
-
             }
-
         });
-
     }
-
-
-
     // --- Arrow Button Stage Navigation ---
-
     document.querySelectorAll('.move-forward-btn, .move-backward-btn').forEach(btn => {
-
         btn.addEventListener('click', () => {
-
             const card = btn.closest('.item-card');
-
             const sourceStage = card.getAttribute('data-current-stage');
-
             const currentIndex = stagesList.indexOf(sourceStage);
-
             const direction = btn.classList.contains('move-forward-btn') ? 1 : -1;
-
             const targetIndex = currentIndex + direction;
-
-
-
             if (targetIndex < 0 || targetIndex >= stagesList.length) return;
-
-
-
             const itemId = card.getAttribute('data-item-id');
-
             const targetStage = stagesList[targetIndex];
-
             const maxQty = parseInt(card.getAttribute('data-available-qty')) || 1;
-
-
-
             executeMove(itemId, sourceStage, targetStage, maxQty);
-
         });
-
     });
-
-
-
     // --- Quantity Modal Trigger Handler ---
-
     let activeQtyCard = null;
-
     document.querySelectorAll('.qty-adjust-modal-btn').forEach(btn => {
-
         btn.addEventListener('click', () => {
-
             activeQtyCard = btn.closest('.item-card');
-
             const itemName = activeQtyCard.getAttribute('data-item-name');
-
             const currentQty = activeQtyCard.getAttribute('data-available-qty');
-
-
-
             document.getElementById('adjItemName').innerText = itemName;
-
             const qtyInput = document.getElementById('adjQuantityInput');
-
             qtyInput.value = currentQty;
-
-
-
             const adjustModal = new bootstrap.Modal(document.getElementById('qtyAdjustModal'));
-
             adjustModal.show();
-
         });
-
     });
-
-
-
     document.getElementById('qtyAdjustForm').addEventListener('submit', (e) => {
-
         e.preventDefault();
-
         if (!activeQtyCard) return;
-
-
-
         const itemId = activeQtyCard.getAttribute('data-item-id');
-
         const stage = activeQtyCard.getAttribute('data-current-stage');
-
         const currentQty = parseInt(activeQtyCard.getAttribute('data-available-qty')) || 0;
-
         const newQty = parseInt(document.getElementById('adjQuantityInput').value);
-
-
-
         if (isNaN(newQty) || newQty < 0) {
-
             alert('Please enter a valid quantity.');
-
             return;
-
         }
-
-
-
         const delta = newQty - currentQty;
-
         if (delta === 0) {
-
             bootstrap.Modal.getInstance(document.getElementById('qtyAdjustModal')).hide();
-
             return;
-
         }
-
-
-
         fetch('/production/update', {
-
             method: 'POST',
-
             headers: { 'Content-Type': 'application/json' },
-
             body: JSON.stringify({ item_id: itemId, stage: stage, delta: delta })
-
         })
-
         .then(res => res.json())
-
         .then(data => {
-
             if (data.success) {
-
                 window.location.reload();
-
             } else {
-
                 alert('Failed to update quantity.');
-
             }
-
         });
-
     });
-
-
-
     // --- Modal Filters & Submission Handling ---
-
     const filterGroup = document.getElementById('filterGroup');
-
     const filterCurrent = document.getElementById('filterCurrent');
-
     const baseItemSelect = document.getElementById('baseItemSelect');
-
-
-
     function filterBaseItems() {
-
         const gVal = filterGroup.value;
-
         const cVal = filterCurrent.value;
-
         Array.from(baseItemSelect.options).forEach(opt => {
-
             if (!opt.value) return;
-
             const group = opt.getAttribute('data-group');
-
             const current = opt.getAttribute('data-current');
-
             let match = true;
-
             if (gVal && group !== gVal) match = false;
-
             if (cVal && current !== cVal) match = false;
-
             opt.style.display = match ? '' : 'none';
-
         });
-
     }
-
-
-
     if(filterGroup) filterGroup.addEventListener('change', filterBaseItems);
-
     if(filterCurrent) filterCurrent.addEventListener('change', filterBaseItems);
-
-
-
     const addItemForm = document.getElementById('addItemForm');
-
     if(addItemForm) {
-
         addItemForm.addEventListener('submit', (e) => {
-
             e.preventDefault();
-
             const finalItemId = baseItemSelect.value;
-
             const stage = document.getElementById('targetStageSelect').value;
-
             const quantity = parseInt(document.getElementById('addItemQty').value) || 1;
-
-
-
             fetch('/production/add-item', {
-
                 method: 'POST',
-
                 headers: { 'Content-Type': 'application/json' },
-
                 body: JSON.stringify({ item_id: finalItemId, stage: stage, quantity: quantity })
-
             })
-
             .then(res => res.json())
-
             .then(data => {
-
                 if (data.success) window.location.reload();
-
             });
-
         });
-
     }
-
 });
-
-
-
 // --- Save Finished Action Handler ---
-
 const saveFinishedBtn = document.getElementById('saveFinishedGlobalBtn');
-
 if (saveFinishedBtn) {
-
     saveFinishedBtn.addEventListener('click', () => {
-
         const doneStageContainer = document.querySelector('.kanban-stage[data-stage="done"]');
-
         if (!doneStageContainer) return;
-
-
-
         const finishedCards = doneStageContainer.querySelectorAll('.item-card');
-
         if (finishedCards.length === 0) {
-
             alert('There are no items in the Done stage to save.');
-
             return;
-
         }
-
-
-
         if (!confirm('This will move all finished items into item inventory and update stock counts. Proceed?')) {
-
             return;
-
         }
-
-
-
         let promises = Array.from(finishedCards).map(card => {
-
             const itemId = card.getAttribute('data-item-id');
-
             return fetch('/production/save-finished', {
-
                 method: 'POST',
-
                 headers: { 'Content-Type': 'application/json' },
-
                 body: JSON.stringify({ item_id: itemId })
-
             }).then(res => res.json());
-
         });
-
-
-
         Promise.all(promises)
-
             .then(results => {
-
                 const allSuccess = results.every(r => r.success);
-
                 if (allSuccess) {
-
                     window.location.reload();
-
                 } else {
-
                     alert('Some items failed to process completely.');
-
                     window.location.reload();
-
                 }
-
             })
-
             .catch(err => {
-
                 console.error('Save finished error:', err);
-
                 alert('An error occurred while saving finished items.');
-
             });
-
     });
-
 }
-
 </script>
-
-
-
 {% endblock %}

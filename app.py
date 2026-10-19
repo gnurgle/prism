@@ -23,20 +23,13 @@ from routes.visuals_routes import visuals_bp
 from routes.report_routes import report_bp
 from routes.settings_routes import settings_bp
 from square_hook.square import square_bp
-
 app = Flask(__name__, static_folder='static')
-
 app.secret_key = "iajsdfiljadhsflijahsdlkfjh"
-
 if not app.secret_key:
     raise ValueError("No FLASK_SECRET_KEY set for the application constraint in production environment.")
-
 DATABASE = "inventory.db"
-
 app.jinja_env.filters['inch_format'] = format_fractional_inches
-
 @app.template_filter('datetimeformat')
-
 def datetimeformat(value, format='%m-%d-%y'):
     if not value:
         return ""
@@ -49,36 +42,23 @@ def datetimeformat(value, format='%m-%d-%y'):
             except ValueError:
                 continue
     return value
-
 # Ensure these directories exist in your project root
 UPLOAD_FOLDER_TEMPLATES = 'static/images/templates'
 UPLOAD_FOLDER_SVG = 'static/images/svg'
 UPLOAD_FOLDER_GLASS = 'static/images/glass'
-
 os.makedirs(UPLOAD_FOLDER_TEMPLATES, exist_ok=True)
 os.makedirs(UPLOAD_FOLDER_SVG, exist_ok=True)
 os.makedirs(UPLOAD_FOLDER_GLASS, exist_ok=True)
-
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
-
 app.config['SVG_FOLDER'] = 'static/svgs'
-
-
-
 # Ensure directories exist
-
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-
 os.makedirs(app.config['SVG_FOLDER'], exist_ok=True)
-
-
 def get_db():
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON;")
     return conn
-
-
 def init_db():
     """Initializes full schema and sets up automated SQLite Audit Triggers."""
     with app.app_context():
@@ -86,7 +66,6 @@ def init_db():
         if os.path.exists("schema.sql"):
             with open("schema.sql", "r") as f:
                 db.cursor().executescript(f.read())
-
         # Seed Lookup tables if empty
         db.execute(
             "INSERT OR IGNORE INTO GTL (GLSTEX) VALUES ('Smooth'), ('Wispy'), ('Waterglass'), ('Muffle'), ('RoughRolled'), ('Hammered'), ('Mottled'), ('Dichroic')"
@@ -109,7 +88,6 @@ def init_db():
         db.execute(
             "INSERT OR IGNORE INTO PATINA (PATINA) VALUES ('Silver'), ('Copper'), ('Black')"
         )
-
         # Setup automated AUDIT trigger on ITM table changes
         db.executescript("""
             CREATE TRIGGER IF NOT EXISTS audit_itm_insert AFTER INSERT ON ITM BEGIN
@@ -122,16 +100,8 @@ def init_db():
             END;
         """)
         db.commit()
-
-
 init_db()
-
-
-
-
-
 # Register the Blueprint
-
 app.register_blueprint(glass_bp)
 app.register_blueprint(misc_bp)
 app.register_blueprint(production_bp)
@@ -144,12 +114,9 @@ app.register_blueprint(visuals_bp)
 app.register_blueprint(report_bp)
 app.register_blueprint(settings_bp)
 app.register_blueprint(square_bp)
-
 # ============================================================================
 # 1. NAVIGATION INDEX & SYSTEM DASHBOARD
 # ============================================================================
-
-
 @app.route("/debug")
 def debug():
     db = get_db()
@@ -165,13 +132,9 @@ def debug():
     return render_template(
         "dashboard.html", stats=stats, recent_audits=recent_audits
     )
-
-
 # ============================================================================
 # 3. INVENTORY & WORK-IN-PROGRESS TRACKING (ICC, ITR)
 # ============================================================================
-
-
 @app.route("/inventory")
 def inventory_status():
     db = get_db()
@@ -181,8 +144,6 @@ def inventory_status():
         JOIN ITM i ON c.ITEMID = i.ITEMID
     """).fetchall()
     return render_template("inventory_status.html", counts=counts)
-
-
 @app.route("/inventory/update/<int:item_id>", methods=["POST"])
 def update_inventory(item_id):
     db = get_db()
@@ -191,7 +152,6 @@ def update_inventory(item_id):
     ipfoil = int(request.form.get("IPFOIL", 0))
     ipsldr = int(request.form.get("IPSLDR", 0))
     ipdone = int(request.form.get("IPDONE", 0))
-
     # Update Current Inventory Level (ICC)
     db.execute(
         """
@@ -204,7 +164,6 @@ def update_inventory(item_id):
     """,
         (item_id, ipcut, ipgrnd, ipfoil, ipsldr, ipdone),
     )
-
     # Log Transaction Record (ITR)
     db.execute(
         """
@@ -213,21 +172,12 @@ def update_inventory(item_id):
     """,
         (item_id, ipcut, ipgrnd, ipfoil, ipsldr, ipdone),
     )
-
     db.commit()
     flash("Inventory metrics updated and logged to ITR.", "info")
     return redirect(url_for("inventory_status"))
-
-
 # ============================================================================
-
 # 4. SALES AND VENUE MANAGEMENT (ITMSALE, TIMESALE, VENUE)
-
 # ============================================================================
-
-
-
-
 @app.route("/sales/new", methods=["GET", "POST"])
 def record_sale():
     db = get_db()
@@ -235,7 +185,6 @@ def record_sale():
         itemid = request.form.get("ITEMID")
         sunits = request.form.get("SUNITS")
         venueid = request.form.get("VENUEID") or None
-
         db.execute(
             """
             INSERT INTO ITMSALE (ITEMID, SUNITS, SDATE, VENUEID)
@@ -243,148 +192,69 @@ def record_sale():
         """,
             (itemid, sunits, venueid),
         )
-
         db.commit()
         flash("Sale logged successfully!", "success")
         return redirect(url_for("list_sales"))
-
     items = db.execute("SELECT ITEMID, ITMNAME FROM ITM").fetchall()
     venues = db.execute("SELECT VENUEID, VENUELOC FROM VENUE").fetchall()
     return render_template("sale_form.html", items=items, venues=venues)
-
-
 @app.route('/settings', methods=['GET', 'POST'])
-
 def settings():
-
     """Manage application settings and save them to a local settings.config XML file."""
-
     db = get_db()
-
     config_path = os.path.join(app.root_path, 'settings.config')
-
-
-
     # Handle POST submission to save configurations to XML
-
     if request.method == 'POST':
-
         root = ET.Element('Settings')
-
         new_item_elem = ET.SubElement(root, 'NewItemDefaults')
-
-        
-
         # Grab values from form inputs
-
         fields = ['Solder', 'Foil', 'Came', 'Chain', 'Rings']
-
         for field in fields:
-
             val = request.form.get(f'default_{field.lower()}')
-
             ET.SubElement(new_item_elem, field).text = val if val else ''
-
-
-
         # Write out to settings.config XML file
-
         tree = ET.ElementTree(root)
-
         tree.write(config_path, encoding='utf-8', xml_declaration=True)
-
-        
-
         flash('Settings saved successfully!', 'success')
-
         return redirect(url_for('settings'))
-
-
-
     # Load existing settings from XML if the file exists
-
     defaults = {
-
         'Solder': '',
-
         'Foil': '',
-
         'Came': '',
-
         'Chain': '',
-
         'Rings': ''
-
     }
-
-    
-
     if os.path.exists(config_path):
-
         try:
-
             tree = ET.parse(config_path)
-
             root = tree.getroot()
-
             defaults_elem = root.find('NewItemDefaults')
-
             if defaults_elem is not None:
-
                 for k in defaults.keys():
-
                     child = defaults_elem.find(k)
-
                     if child is not None and child.text:
-
                         defaults[k] = child.text
-
         except ET.ParseError:
-
             pass
-
-
-
     # Fetch all active Misc Supplies categorized for dropdown population
-
     all_msi = db.execute('SELECT MSIID, MSINAME, MSITYPE FROM MSI WHERE ISACTIVE = 1 ORDER BY MSINAME ASC').fetchall()
-
-    
-
     msi_solder = [m for m in all_msi if m['MSITYPE'] == 'Solder']
-
     msi_foil = [m for m in all_msi if m['MSITYPE'] == 'Foil']
-
     msi_came = [m for m in all_msi if m['MSITYPE'] == 'Came']
-
     msi_chain = [m for m in all_msi if m['MSITYPE'] == 'Chain']
-
     msi_rings = [m for m in all_msi if m['MSITYPE'] == 'Rings']
-
-
-
     return render_template(
-
         'settings.html',
-
         defaults=defaults,
-
         msi_solder=msi_solder,
-
         msi_foil=msi_foil,
-
         msi_came=msi_came,
-
         msi_chain=msi_chain,
-
         msi_rings=msi_rings
-
     )
-
 @app.route('/glass/toggle/<int:glass_id>')
-
 def toggle_glass_active(glass_id):
-
     db = get_db()
     current = db.execute("SELECT ISACTIVE FROM GSI WHERE GLASSID = ?", (glass_id,)).fetchone()
     if current:
@@ -392,17 +262,9 @@ def toggle_glass_active(glass_id):
         db.execute("UPDATE GSI SET ISACTIVE = ? WHERE GLASSID = ?", (new_status, glass_id))
         db.commit()
     return redirect(request.referrer or url_for('list_glass'))
-
 @app.route("/")
-
 def index():
-
     """Renders the dynamic, responsive landing page with block animations."""
-
     return render_template("landing.html")
-
-
-
 if __name__ == "__main__":
-
     app.run(host="0.0.0.0", port=7664, debug=True)

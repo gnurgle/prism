@@ -1,572 +1,259 @@
 {% extends 'base.html' %}
-
-
-
 {% block content %}
-
 <div class="hub-wrapper">
-
     <div id="hub-container" class="hub-grid">
-
         <!-- Dynamic items injected here -->
-
     </div>
-
 </div>
-
-
-
 <style>
-
     /* Reset and layout base to center the grid with ~10% visual padding */
-
     html, body {
-
         margin: 0;
-
         padding: 0;
-
         width: 100%;
-
         height: 100%;
-
         overflow-x: hidden;
-
         background-color: var(--bs-body-bg, #f8f9fa);
-
     }
-
-
-
     .hub-wrapper {
-
         display: flex;
-
         align-items: center;
-
         justify-content: center;
-
         width: 100%;
-
         min-height: calc(100vh - 56px); /* Accounting for standard navbar height */
-
         padding: 4vh 2vw;
-
         box-sizing: border-box;
-
     }
-
-
-
     /* 
-
       LANDSCAPE / DESKTOP VIEW (Default):
-
       2 rows, 3 columns. Scaled up by ~50% using vmin units with a max cap.
-
     */
-
     .hub-grid {
-
         display: grid;
-
         grid-template-columns: repeat(3, minmax(160px, 33vmin));
-
         grid-template-rows: repeat(2, minmax(160px, 33vmin));
-
         gap: 2vmin;
-
         justify-content: center;
-
         align-content: center;
-
         width: 100%;
-
         max-width: 1600px;
-
         margin: auto;
-
     }
-
-
-
     /* 
-
       Unified Card Styling: 
-
       All transitions (background, color, transform, shadow) are set with identical duration 
-
       and timing function so they animate in absolute unison.
-
     */
-
     .hub-card-item {
-
         aspect-ratio: 1 / 1;
-
         width: 100%;
-
         height: 100%;
-
         display: flex;
-
         flex-direction: column;
-
         justify-content: center;
-
         align-items: center;
-
         text-align: center;
-
         padding: 1.25rem;
-
         cursor: pointer;
-
         border-radius: 0.75rem;
-
         border: none;
-
         user-select: none;
-
         transition: background-color 0.15s ease-in-out, color 0.15s ease-in-out, transform 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-
     }
-
-
-
     /* Category color themes mapped cleanly with CSS variables */
-
     .theme-items { background-color: #0d6efd; color: #fff; }
-
     .theme-glass { background-color: #0dcaf0; color: #fff; }
-
     .theme-misc { background-color: #ffc107; color: #212529; }
-
     .theme-sales { background-color: #198754; color: #fff; }
-
     .theme-workflow { background-color: #dc3545; color: #fff; }
-
     .theme-other { background-color: #6c757d; color: #fff; }
-
     .theme-back { background-color: #6c757d; color: #fff; }
-
-
-
     .hub-card-item:hover {
-
         background-color: var(--bs-btn-active-bg, #0b5ed7) !important;
-
         color: var(--bs-btn-active-color, #fff) !important;
-
         transform: translateY(-4px);
-
         box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-
     }
-
-
-
     /* Typography & Icon Sizing */
-
     .hub-card-item i {
-
         font-size: clamp(2.5rem, 6.5vmin, 5rem);
-
         margin-bottom: 0.85rem;
-
         transition: color 0.15s ease-in-out;
-
     }
-
-
-
     .hub-card-item h4, 
-
     .hub-card-item h5 {
-
         font-size: clamp(1.1rem, 3.2vmin, 1.8rem);
-
         font-weight: 700;
-
         margin: 0;
-
         line-height: 1.2;
-
         transition: color 0.15s ease-in-out;
-
     }
-
-
-
     /* Force children to inherit text color smoothly on hover */
-
     .hub-card-item:hover i,
-
     .hub-card-item:hover h4,
-
     .hub-card-item:hover h5 {
-
         color: var(--bs-btn-active-color, #fff) !important;
-
     }
-
-
-
     /* 
-
       PORTRAIT / MOBILE VIEW:
-
       Switches based on screen width to a 3-row, 2-column layout scaled up by ~50%.
-
     */
-
     @media (max-width: 768px) {
-
         .hub-wrapper {
-
             padding: 2vh 3vw;
-
             align-items: flex-start;
-
             min-height: auto;
-
         }
-
-
-
         .hub-grid {
-
             grid-template-columns: repeat(2, 60vw);
-
             grid-template-rows: repeat(3, 60vw);
-
             gap: 12px;
-
             justify-content: center;
-
             align-content: start;
-
         }
-
-
-
         .hub-card-item {
-
             padding: 0.75rem;
-
         }
-
-
-
         .hub-card-item i {
-
             font-size: 3.2rem;
-
             margin-bottom: 0.5rem;
-
         }
-
-
-
         .hub-card-item h4 {
-
             font-size: 1.3rem;
-
         }
-
-
-
         .hub-card-item h5 {
-
             font-size: 1.15rem;
-
         }
-
     }
-
-
-
     .fade-transition {
-
         animation: fadeIn 0.25s ease-in-out forwards;
-
     }
-
-
-
     @keyframes fadeIn {
-
         from { opacity: 0; transform: scale(0.96); }
-
         to { opacity: 1; transform: scale(1); }
-
     }
-
 </style>
-
-
-
 <script>
-
     const categoryConfig = {
-
         'Items': {
-
             icon: 'fa-boxes-stacked',
-
             themeClass: 'theme-items',
-
             subThemeClass: 'theme-items',
-
             backThemeClass: 'theme-back',
-
             items: [
-
                 { name: 'Go Back', url: '#', action: 'goBack', isBack: true, icon: 'fa-arrow-left' },
-
                 { name: 'Create Item', url: "{{ url_for('item_bp.create_item') }}", icon: 'fa-square-plus' },
-
                 { name: 'Create Item Variation', url: "{{ url_for('item_bp.color_variation_select') }}", icon: 'fa-palette' },
-
                 { name: 'List Items', url: "{{ url_for('item_bp.item_list') }}", icon: 'fa-list-check' },
-
                 { name: 'Item Inventory', url: "{{ url_for('item_bp.item_inventory') }}", icon: 'fa-boxes-stacked' },
-
                 { name: 'Bulk Add Items', url: "{{ url_for('production_bp.bulk_production_page') }}", icon: 'fa-cubes-stacked' }
-
             ]
-
         },
-
         'Glass': {
-
             icon: 'fa-sheet-plastic',
-
             themeClass: 'theme-glass',
-
             subThemeClass: 'theme-glass',
-
             backThemeClass: 'theme-back',
-
             items: [
-
                 { name: 'Go Back', url: '#', action: 'goBack', isBack: true, icon: 'fa-arrow-left' },
-
                 { name: 'Create Glass', url: "{{ url_for('glass_bp.create_glass') }}", icon: 'fa-square-plus' },
-
                 { name: 'List Glass', url: "{{ url_for('glass_bp.list_glass') }}", icon: 'fa-list-check' },
-
                 { name: 'Glass Inventory', url: "{{ url_for('glass_bp.glass_inventory') }}", icon: 'fa-boxes-stacked' },
-
                 { name: 'Glass Bulk Input', url: "{{ url_for('glass_bp.bulk_inventory_adjustment') }}", icon: 'fa-cubes-stacked' },
-
                 { name: 'Glass Web Scraper', url: "{{ url_for('scraper_bp.scrape_glass_page') }}", icon: 'fa-globe' }
-
             ]
-
         },
-
         'Misc Items': {
-
             icon: 'fa-toolbox',
-
             themeClass: 'theme-misc',
-
             subThemeClass: 'theme-misc',
-
             backThemeClass: 'theme-back',
-
             items: [
-
                 { name: 'Go Back', url: '#', action: 'goBack', isBack: true, icon: 'fa-arrow-left' },
-
                 { name: 'Create Misc Item', url: "{{ url_for('misc_bp.create_misc') }}", icon: 'fa-square-plus' },
-
                 { name: 'List Misc Items', url: "{{ url_for('misc_bp.list_misc') }}", icon: 'fa-list-check' },
-
                 { name: 'Misc Item Inventory', url: "{{ url_for('misc_bp.misc_inventory') }}", icon: 'fa-boxes-stacked' }
-
             ]
-
         },
-
         'Sales': {
-
             icon: 'fa-cash-register',
-
             themeClass: 'theme-sales',
-
             subThemeClass: 'theme-sales',
-
             backThemeClass: 'theme-back',
-
             items: [
-
                 { name: 'Go Back', url: '#', action: 'goBack', isBack: true, icon: 'fa-arrow-left' },
-
                 { name: 'End of Day Sales', url: "{{ url_for('item_bp.item_bulk_sales') }}", icon: 'fa-cash-register' },
-
                 { name: 'List of Sales', url: "{{ url_for('item_bp.list_sales') }}", icon: 'fa-receipt' },
-
                 { name: 'Sales Visualization', url: "{{ url_for('visuals_bp.sales_visuals') }}", icon: 'fa-chart-line' },
-
                 { name: 'Hourly Sales Input', url: "{{ url_for('item_bp.hourly_sales') }}", icon: 'fa-clock' },
-
                 { name: 'Hourly Sales Visualization', url: "{{ url_for('item_bp.hourly_visuals') }}", icon: 'fa-chart-column' }
-
             ]
-
         },
-
         'Workflow': {
-
             icon: 'fa-diagram-project',
-
             themeClass: 'theme-workflow',
-
             directUrl: "{{ url_for('production_bp.production_board') }}"
-
         },
-
         'Other': {
-
             icon: 'fa-ellipsis',
-
             themeClass: 'theme-other',
-
             subThemeClass: 'theme-other',
-
             backThemeClass: 'theme-back',
-
             items: [
-
                 { name: 'Go Back', url: '#', action: 'goBack', isBack: true, icon: 'fa-arrow-left' },
-
                 { name: 'Settings', url: "{{ url_for('settings') }}", icon: 'fa-gear' },
-
                 { name: 'Create Venue', url: "{{ url_for('venue_bp.create_venue') }}", icon: 'fa-store' },
-
                 { name: 'List Venues', url: "{{ url_for('venue_bp.list_venues') }}", icon: 'fa-mountain-city' },
-
                 { name: 'Expense and Revenue Report', url: "{{ url_for('report_bp.expense_revenue_report') }}", icon: 'fa-file-invoice-dollar' },
-
                 { name: 'Weekly Restock Projections', url: "{{ url_for('report_bp.restock_projection') }}", icon: 'fa-arrow-up-right-dots' },
                 { name: 'Square Debug Page', url: "{{ url_for('square.square_debug') }}", icon: 'fa-square' }
-
             ]
-
         }
-
     };
-
-
-
     function renderMainView() {
-
         const container = document.getElementById('hub-container');
-
         container.innerHTML = '';
-
-        
-
         Object.keys(categoryConfig).forEach(title => {
-
             const block = categoryConfig[title];
-
             const card = document.createElement('div');
-
             card.className = `card hub-card-item shadow-sm ${block.themeClass} fade-transition`;
-
             card.innerHTML = `
-
                 <i class="fa-solid ${block.icon}"></i>
-
                 <h4 class="card-title">${title}</h4>
-
             `;
-
-            
-
             card.addEventListener('click', () => {
-
                 if (block.directUrl) {
-
                     window.location.href = block.directUrl;
-
                 } else {
-
                     renderSubView(title);
-
                 }
-
             });
-
             container.appendChild(card);
-
         });
-
     }
-
-
-
     function renderSubView(categoryKey) {
-
         const container = document.getElementById('hub-container');
-
         container.innerHTML = '';
-
-        
-
         const config = categoryConfig[categoryKey];
-
         const items = config.items || [];
-
-        
-
         items.forEach(sub => {
-
             const themeClass = sub.isBack ? config.backThemeClass : config.subThemeClass;
-
             const card = document.createElement('div');
-
             card.className = `card hub-card-item shadow-sm ${themeClass} fade-transition`;
-
             card.innerHTML = `
-
                 <i class="fa-solid ${sub.icon || 'fa-circle'}"></i>
-
                 <h5 class="card-title">${sub.name}</h5>
-
             `;
-
-            
-
             card.addEventListener('click', () => {
-
                 if (sub.action === 'goBack') {
-
                     renderMainView();
-
                 } else {
-
                     window.location.href = sub.url;
-
                 }
-
             });
-
-            
-
             container.appendChild(card);
-
         });
-
     }
-
-
-
     document.addEventListener('DOMContentLoaded', renderMainView);
-
 </script>
-
 {% endblock %}
