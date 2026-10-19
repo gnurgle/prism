@@ -22,11 +22,11 @@ from routes.scraper_routes import scraper_bp
 from routes.visuals_routes import visuals_bp
 from routes.report_routes import report_bp
 from routes.settings_routes import settings_bp
-
+from square_hook.square import square_bp
 
 app = Flask(__name__, static_folder='static')
 
-app.secret_key = os.environ.get("FLASK_SECRET_KEY")
+app.secret_key = "iajsdfiljadhsflijahsdlkfjh"
 
 if not app.secret_key:
     raise ValueError("No FLASK_SECRET_KEY set for the application constraint in production environment.")
@@ -143,7 +143,7 @@ app.register_blueprint(scraper_bp)
 app.register_blueprint(visuals_bp)
 app.register_blueprint(report_bp)
 app.register_blueprint(settings_bp)
-
+app.register_blueprint(square_bp)
 
 # ============================================================================
 # 1. NAVIGATION INDEX & SYSTEM DASHBOARD
@@ -405,4 +405,4 @@ def index():
 
 if __name__ == "__main__":
 
-    app.run(host="0.0.0.0", port=7665, debug=False)
+    app.run(host="0.0.0.0", port=7664, debug=True)

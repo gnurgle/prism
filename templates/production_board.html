@@ -80,11 +80,11 @@
 
     <div class="col"><div class="card shadow-sm border-secondary"><div class="card-body p-1"><span class="text-muted small" style="font-size: 0.65rem;">Grind</span><h6 class="mb-0 text-secondary" style="font-size: 0.9rem;" id="sum-grind">{{ summary.total_grind or 0 }}</h6></div></div></div>
 
-    <div class="col"><div class="card shadow-sm border-info"><div class="card-body p-1"><span class="text-muted small" style="font-size: 0.65rem;">Wash</span><h6 class="mb-0 text-info" style="font-size: 0.9rem;" id="sum-wash">{{ summary.total_wash or 0 }}</h6></div></div></div>
-
     <div class="col"><div class="card shadow-sm border-warning"><div class="card-body p-1"><span class="text-muted small" style="font-size: 0.65rem;">Foil</span><h6 class="mb-0 text-warning" style="font-size: 0.9rem;" id="sum-foil">{{ summary.total_foil or 0 }}</h6></div></div></div>
 
     <div class="col"><div class="card shadow-sm border-danger"><div class="card-body p-1"><span class="text-muted small" style="font-size: 0.65rem;">Solder</span><h6 class="mb-0 text-danger" style="font-size: 0.9rem;" id="sum-solder">{{ summary.total_solder or 0 }}</h6></div></div></div>
+
+    <div class="col"><div class="card shadow-sm border-info"><div class="card-body p-1"><span class="text-muted small" style="font-size: 0.65rem;">Wash</span><h6 class="mb-0 text-info" style="font-size: 0.9rem;" id="sum-wash">{{ summary.total_wash or 0 }}</h6></div></div></div>
 
     <div class="col"><div class="card shadow-sm border-success"><div class="card-body p-1"><span class="text-muted small" style="font-size: 0.65rem;">Polish</span><h6 class="mb-0 text-success" style="font-size: 0.9rem;" id="sum-polish">{{ summary.total_polish or 0 }}</h6></div></div></div>
 
@@ -106,11 +106,11 @@
 
         ('grnd', 'Grind', 'secondary', 'IPGRND'),
 
-        ('wash', 'Wash', 'info', 'IPWASH'),
-
         ('foil', 'Foil', 'warning', 'IPFOIL'),
 
         ('sldr', 'Solder', 'danger', 'IPSLDR'),
+
+        ('wash', 'Wash', 'info', 'IPWASH'),
 
         ('polish', 'Polish', 'success', 'IPPOLISH'),
 

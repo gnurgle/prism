@@ -60,4 +60,4 @@ ENV PYTHONUNBUFFERED=1
 
 # Run Gunicorn with 4 workers binding to port 7665
 
-CMD ["gunicorn", "-w", "2", "-b", "0.0.0.0:7665", "app:app"]
+CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:7665", "--timeout", "600", "app:app"]

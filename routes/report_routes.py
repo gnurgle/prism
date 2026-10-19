@@ -1141,13 +1141,15 @@ def restock_projection():
 
         sales_query = """
 
-            SELECT s.ITEMID, i.ITMNAME, i.CURRENT, SUM(s.SUNITS) as total_sold
+            SELECT s.ITEMID, i.ITMNAME, i.CURRENT, i.ONEOFF, SUM(s.SUNITS) as total_sold
 
             FROM ITMSALE s
 
             JOIN ITM i ON s.ITEMID = i.ITEMID
 
             WHERE s.SDATE BETWEEN ? AND ?
+
+              AND (i.ONEOFF != 1 OR i.ONEOFF IS NULL)
 
         """
 
@@ -1166,7 +1168,6 @@ def restock_projection():
         
 
         sold_items = db.execute(sales_query, params).fetchall()
-
         
 
         for row in sold_items:
