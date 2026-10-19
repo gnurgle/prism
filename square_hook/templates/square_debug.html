@@ -1,385 +1,206 @@
 {% extends "base.html" %}
-
-
-
 {% block content %}
-
 <div class="container mt-4">
-
     <div class="row mb-4">
-
         <div class="col">
-
             <h2>Square Integration Debug Dashboard</h2>
-
             <p class="text-muted">Environment: <strong>{{ environment | upper }}</strong> | Location ID: <code>{{ location_id }}</code></p>
-
         </div>
-
         <div class="col-auto">
-
             {% if connection_status %}
-
                 <span class="badge bg-success fs-6">Connected to Square</span>
-
             {% else %}
-
                 <span class="badge bg-danger fs-6">Connection Failed</span>
-
             {% endif %}
-
         </div>
-
     </div>
-
-
-
+    
     {% if error_message %}
-
     <div class="alert alert-danger" role="alert">
-
         <strong>Error:</strong> {{ error_message }}
-
     </div>
-
     {% endif %}
-
-
 
     <!-- Location Info Card -->
-
     {% if location_info %}
-
     <div class="card mb-4 shadow-sm">
-
         <div class="card-header bg-light">
-
             <h5 class="mb-0">Square Location Details</h5>
-
         </div>
-
         <div class="card-body">
-
             <p class="mb-1"><strong>Name:</strong> {{ location_info.name }}</p>
-
             <p class="mb-1"><strong>Timezone:</strong> {{ location_info.timezone }}</p>
-
             <p class="mb-0"><strong>Status:</strong> {{ location_info.status }}</p>
-
         </div>
-
     </div>
-
     {% endif %}
 
-
+    <!-- Environment Management Actions Card -->
+    <div class="card mb-4 shadow-sm border-danger">
+        <div class="card-header bg-danger text-white">
+            <h5 class="mb-0">Environment Management Tools</h5>
+        </div>
+        <div class="card-body d-flex gap-3 align-items-center flex-wrap">
+            <form action="{{ url_for('square.admin_sync_all_active') }}" method="POST" onsubmit="return confirm('Are you sure you want to bulk sync all active items (CURRENT = 1) to Square? This will process all active records.');" class="d-inline">
+                <button type="submit" class="btn btn-success">
+                    Sync All Active Items
+                </button>
+            </form>
+            <form action="{{ url_for('square.admin_clear_catalog') }}" method="POST" onsubmit="return confirm('DANGER: Are you sure you want to completely wipe the remote Square catalog and clear all local ITMSQ mappings? This action cannot be undone!');" class="d-inline">
+                <button type="submit" class="btn btn-outline-danger">
+                    Clear Entire Square Catalog
+                </button>
+            </form>
+        </div>
+    </div>
 
     <!-- Local Items Table -->
-
     <div class="card shadow-sm">
-
         <div class="card-header bg-light d-flex justify-content-between align-items-center">
-
             <h5 class="mb-0">Local Items & Square Mapping Status</h5>
-
         </div>
-
         <div class="card-body p-0">
-
             <div class="table-responsive">
-
                 <table class="table table-striped table-hover mb-0 align-middle">
-
                     <thead class="table-dark">
-
                         <tr>
-
                             <th>ID</th>
-
                             <th>Item Name</th>
-
                             <th>Active</th>
-
                             <th>Square Catalog ID</th>
-
                             <th>Fetch Info</th>
-
                             <th>Actions</th>
-
                         </tr>
-
                     </thead>
-
                     <tbody>
-
                         {% if local_items %}
-
                             {% for item in local_items %}
-
                             <tr>
-
                                 <td>{{ item.ITEMID }}</td>
-
                                 <td><strong>{{ item.ITMNAME }}</strong></td>
-
                                 <td>
-
                                     {% if item.ISACTIVE %}
-
                                         <span class="badge bg-success">Yes</span>
-
                                     {% else %}
-
                                         <span class="badge bg-secondary">No</span>
-
                                     {% endif %}
-
                                 </td>
-
                                 <td>
-
                                     {% if item.ITMSQID %}
-
                                         <code>{{ item.ITMSQID }}</code>
-
                                     {% else %}
-
                                         <span class="text-muted">Not Synced</span>
-
                                     {% endif %}
-
                                 </td>
-
                                 <td>
-
                                     {% if item.ITMSQID %}
-
                                         <button class="btn btn-sm btn-info text-white" onclick="fetchSquareInfo({{ item.ITEMID }})">Fetch Info</button>
-
                                     {% else %}
-
                                         <span class="text-muted">-</span>
-
                                     {% endif %}
-
                                 </td>
-
                                 <td>
-
                                     <form action="{{ url_for('square.trigger_item_sync', item_id=item.ITEMID) }}" method="POST" class="d-inline">
-
                                         {% if item.ITMSQID %}
-
                                             <button type="submit" class="btn btn-sm btn-warning">Re-sync</button>
-
                                         {% else %}
-
                                             <button type="submit" class="btn btn-sm btn-primary">Sync to Square</button>
-
                                         {% endif %}
-
                                     </form>
-
                                 </td>
-
                             </tr>
-
                             {% endfor %}
-
                         {% else %}
-
                             <tr>
-
                                 <td colspan="6" class="text-center py-4 text-muted">No local items found in database.</td>
-
                             </tr>
-
                         {% endif %}
-
                     </tbody>
-
                 </table>
-
             </div>
-
         </div>
-
     </div>
-
 </div>
-
-
 
 <!-- Square Item Info Modal -->
-
 <div class="modal fade" id="squareInfoModal" tabindex="-1" aria-labelledby="squareInfoModalLabel" aria-hidden="true">
-
   <div class="modal-dialog modal-lg">
-
     <div class="modal-content">
-
       <div class="modal-header bg-light">
-
         <h5 class="modal-title" id="squareInfoModalLabel">Square Catalog Item Details</h5>
-
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-
       </div>
-
       <div class="modal-body" id="squareInfoModalBody">
-
         <div class="text-center py-4">
-
             <div class="spinner-border text-primary" role="status">
-
                 <span class="visually-hidden">Loading...</span>
-
             </div>
-
         </div>
-
       </div>
-
       <div class="modal-footer">
-
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-
       </div>
-
     </div>
-
   </div>
-
 </div>
 
-
-
 <!-- Modal Script -->
-
 <script>
-
 function fetchSquareInfo(itemId) {
-
     var modalElement = new bootstrap.Modal(document.getElementById('squareInfoModal'));
-
     var modalBody = document.getElementById('squareInfoModalBody');
-
-    
-
     modalBody.innerHTML = `
-
         <div class="text-center py-4">
-
             <div class="spinner-border text-primary" role="status">
-
                 <span class="visually-hidden">Loading...</span>
-
             </div>
-
         </div>`;
-
     modalElement.show();
-
-
-
     fetch('/square/fetch-info/' + itemId)
-
         .then(response => response.json())
-
         .then(data => {
-
             if (!data.success) {
-
                 modalBody.innerHTML = `<div class="alert alert-danger">Error: ${data.error}</div>`;
-
                 return;
-
             }
-
-
-
             let imagesHtml = '';
-
             if (data.images && data.images.length > 0) {
-
                 data.images.forEach(imgUrl => {
-
                     imagesHtml += `<img src="${imgUrl}" class="img-thumbnail me-2 mb-2" style="max-height: 150px;" alt="Square Catalog Image">`;
-
                 });
-
             } else {
-
                 imagesHtml = '<p class="text-muted">No images attached in Square.</p>';
-
             }
-
-
-
             let variationsHtml = '<ul class="list-group">';
-
             if (data.variations && data.variations.length > 0) {
-
                 data.variations.forEach(v => {
-
                     variationsHtml += `<li class="list-group-item d-flex justify-content-between align-items-center">${v.name || 'Standard'} <span class="badge bg-primary rounded-pill">$${v.price.toFixed(2)} ${v.currency}</span></li>`;
-
                 });
-
             } else {
-
                 variationsHtml += '<li class="list-group-item text-muted">No variations found.</li>';
-
             }
-
             variationsHtml += '</ul>';
-
-
-
             modalBody.innerHTML = `
-
                 <div class="mb-3">
-
                     <h6><strong>Square Catalog ID:</strong> <code>${data.square_id}</code></h6>
-
                     <p class="mb-1"><strong>Name:</strong> ${data.name || 'N/A'}</p>
-
                     <p class="mb-1"><strong>Description:</strong> ${data.description || 'N/A'}</p>
-
                     <p class="mb-0"><strong>Item Group ID:</strong> ${data.item_group_id || 'N/A'}</p>
-
                 </div>
-
                 <hr>
-
                 <div class="mb-3">
-
                     <h6><strong>Images:</strong></h6>
-
                     <div class="d-flex flex-wrap">${imagesHtml}</div>
-
                 </div>
-
                 <div>
-
                     <h6><strong>Variations & Pricing:</strong></h6>
-
                     ${variationsHtml}
-
                 </div>
-
             `;
-
         })
-
         .catch(err => {
-
             modalBody.innerHTML = '<div class="alert alert-danger">Failed to retrieve item info from server.</div>';
-
         });
-
 }
-
 </script>
-
 {% endblock %}
