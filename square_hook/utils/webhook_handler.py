@@ -12,9 +12,7 @@ def handle_square_webhook():
     notification_url = request.url
     raw_body = request.get_data()
 
-    print(f"--- WEBHOOK RECEIVED --- URL: {notification_url}")
-
-    # 1. Verify Webhook Signature
+    # 1. Verify Webhook Signature for security
     signature_key = os.environ.get('SQUARE_WEBHOOK_SIGNATURE_KEY', '')
     if signature_key:
         payload_to_sign = notification_url.encode('utf-8') + raw_body
@@ -23,46 +21,51 @@ def handle_square_webhook():
         ).decode('utf-8')
         
         if not hmac.compare_digest(expected_signature, signature_header):
-            print("Webhook Signature Mismatch! Rejecting request.")
             return jsonify({"status": "unauthorized signature"}), 403
 
     event_data = request.json or {}
     event_type = event_data.get('type')
-    print(f"Webhook Event Type: {event_type}")
 
+    print(f"--- WEBHOOK RECEIVED --- Type: {event_type}")
+
+    # Listen to order updates/creations (ignoring fulfillment noise)
     if event_type in ['order.created', 'order.updated']:
         data_obj = event_data.get('data', {}).get('object', {})
         order_obj = data_obj.get('order_updated') or data_obj.get('order_created') or data_obj.get('order', {})
         
         state = order_obj.get('state')
         order_id = order_obj.get('order_id') or order_obj.get('id')
-        
+
         print(f"Order ID: {order_id} | State: {state}")
 
         if state == 'COMPLETED' and order_id:
             process_completed_square_order(order_id)
-        else:
-            print(f"Skipping order processing. State was '{state}' (expected 'COMPLETED').")
 
     return jsonify({"status": "success"}), 200
 
 def process_completed_square_order(order_id):
     client = get_square_client()
     if not client:
-        print("Error: Square client could not be initialized in webhook processor.")
+        print("Error: Square client could not be initialized.")
         return
 
+    db = None
     try:
+        db = get_db()
+
+        # 1. Idempotency Check using your SQSALES table
+        existing = db.execute("SELECT 1 FROM SQSALES WHERE SQORDERID = ? LIMIT 1", (order_id,)).fetchone()
+        if existing:
+            print(f"-> Duplicate order ID '{order_id}' already processed. Skipping.")
+            return
+
         print(f"Fetching order details from Square for Order ID: {order_id}")
-        response = client.orders.retrieve_order(order_id=order_id)
+        response = client.orders.get(order_id=order_id)
         order = response.order if hasattr(response, 'order') else response.get('order', {})
         
-        # Handle order object as dict or object
         line_items = order.get('line_items', []) if isinstance(order, dict) else getattr(order, 'line_items', [])
         created_at_str = order.get('created_at') if isinstance(order, dict) else getattr(order, 'created_at', None)
         
-        print(f"Found {len(line_items)} line items in order.")
-
         sale_date = datetime.today().strftime('%Y-%m-%d')
         if created_at_str:
             try:
@@ -70,39 +73,48 @@ def process_completed_square_order(order_id):
             except Exception:
                 pass
 
-        db = get_db()
+        cursor = db.cursor()
 
         for idx, item in enumerate(line_items):
             catalog_object_id = item.get('catalog_object_id') if isinstance(item, dict) else getattr(item, 'catalog_object_id', None)
             quantity_str = item.get('quantity', '1') if isinstance(item, dict) else getattr(item, 'quantity', '1')
             amt_sold = int(float(quantity_str))
 
-            print(f"Line Item {idx}: Catalog Object ID (Variation ID) = {catalog_object_id}, Qty = {amt_sold}")
-
             if not catalog_object_id or amt_sold <= 0:
-                print("-> Skipping item: missing catalog_object_id or qty <= 0")
                 continue
 
-            # Look up mapping in ITMSQ
+            # Map Square Variation ID back to Prism ITEMID via ITMSQ
             mapping = db.execute("SELECT ITEMID FROM ITMSQ WHERE ITMSQID = ?", (catalog_object_id,)).fetchone()
 
             if not mapping:
-                print(f"-> WARNING: Square Variation ID '{catalog_object_id}' has NO match in local ITMSQ table! Item was skipped.")
+                print(f"-> WARNING: Square Variation ID '{catalog_object_id}' has no match in ITMSQ.")
                 continue
 
             item_id = mapping['ITEMID']
-            print(f"-> Matched Square ID to Prism ITEMID: {item_id}")
 
-            # Record sale in ITMSALE
-            db.execute(
+            # 2. Record the sale in ITMSALE
+            cursor.execute(
                 """
                 INSERT INTO ITMSALE (ITEMID, SUNITS, SDATE, VENUEID)
                 VALUES (?, ?, ?, NULL)
                 """,
                 (item_id, amt_sold, sale_date)
             )
+            
+            # Capture the auto-generated PRISM sale ID
+            prism_sale_id = cursor.lastrowid
 
-            # Timeline propagation logic
+            # 3. Link Square Order ID to this specific Prism Sale ID using SALEID in SQSALES
+            timestamp_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            cursor.execute(
+                """
+                INSERT INTO SQSALES (SQORDERID, SALEID, TS)
+                VALUES (?, ?, ?)
+                """,
+                (order_id, prism_sale_id, timestamp_str)
+            )
+
+            # 4. Timeline Inventory Propagation (Mirrors bulk-sales-adjustment)
             inv_rows = db.execute(
                 "SELECT ITMTRNID, ITMSTOCK, TS FROM ITMINV WHERE ITEMID = ? ORDER BY TS ASC, ITMTRNID ASC",
                 (item_id,)
@@ -140,12 +152,13 @@ def process_completed_square_order(order_id):
                     "UPDATE ITMINV SET ITMSTOCK = ? WHERE ITMTRNID = ?",
                     (f_new_stock, f_row['ITMTRNID'])
                 )
-            print(f"-> Successfully processed sale & inventory update for ITEMID {item_id}")
+            print(f"-> Successfully processed sale & inventory update for ITEMID {item_id} (Sale ID: {prism_sale_id})")
 
         db.commit()
         print("--- ORDER PROCESSING COMPLETE ---")
 
     except Exception as ex:
-        db.rollback()
+        if db:
+            db.rollback()
         print(f"CRITICAL ERROR processing Square order {order_id}: {str(ex)}")
         print(traceback.format_exc())

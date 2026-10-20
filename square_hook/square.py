@@ -6,6 +6,8 @@ from square_hook.utils.create_item import create_item_in_square
 from square_hook.utils.update_item import update_item_in_square
 from square_hook.utils.clear_catalog import clear_square_catalog
 from square_hook.utils.sync_all import populate_active_square_catalog
+from square_hook.utils.webhook_handler import handle_square_webhook
+
 # (You can also import sync/upsert utilities here when built out)
 
 square_bp = Blueprint(
@@ -102,3 +104,12 @@ def admin_sync_all_active():
     else:
         flash(f"Bulk sync encountered an error: {result['error']}", "danger")
     return redirect(url_for('square.square_debug'))
+
+
+@square_bp.route('/webhook', methods=['POST'])
+def square_webhook():
+    """
+    Receives incoming webhook events from Square, verifies signatures,
+    and logs completed orders/sales into PRISM.
+    """
+    return handle_square_webhook()

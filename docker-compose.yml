@@ -6,7 +6,7 @@ services:
 
         ports:
 
-            - 7665:7665
+            - 7663:7665
 
         environment:
 
@@ -14,9 +14,9 @@ services:
 
         volumes:
 
-            - /home/gnurgle/.config/prism/inventory.db:/app/inventory.db
-            - /home/gnurgle/.config/prism/static/images:/app/static/images
+            - /home/gnurgle/.config/prism-dev/inventory.db:/app/inventory.db
+            - /home/gnurgle/.config/prism-dev/static/images:/app/static/images
 
-        container_name: prism-server
+        container_name: prism-dev-server
 
-        image: prism-app
+        image: prism-dev-app

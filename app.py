@@ -7,6 +7,7 @@ import cv2
 import numpy as np
 from PIL import Image
 from lxml import etree
+from werkzeug.middleware.proxy_fix import ProxyFix
 from svgpathtools import svg2paths, wsvg
 from utils import process_and_save_image, hex_to_hsv, convert_image_to_svg, remove_svg_region_and_renumber, format_fractional_inches, trace_stencil_to_single_path_svg, compute_total_path_length, trace_stencil_to_outline_svg, trace_stencil_to_filled_outline_svg, round_to_eighth
 from flask import Flask, flash, redirect, render_template, request, url_for, render_template_string, jsonify
@@ -24,6 +25,7 @@ from routes.report_routes import report_bp
 from routes.settings_routes import settings_bp
 from square_hook.square import square_bp
 app = Flask(__name__, static_folder='static')
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 app.secret_key = "iajsdfiljadhsflijahsdlkfjh"
 if not app.secret_key:
     raise ValueError("No FLASK_SECRET_KEY set for the application constraint in production environment.")
@@ -267,4 +269,4 @@ def index():
     """Renders the dynamic, responsive landing page with block animations."""
     return render_template("landing.html")
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=7664, debug=True)
+    app.run(host="0.0.0.0", port=7665, debug=True)
