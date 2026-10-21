@@ -15,7 +15,7 @@ from datetime import date, datetime, timedelta
 from routes.glass_routes import glass_bp
 from routes.misc_routes import misc_bp
 from routes.production_routes import production_bp
-from routes.item_routes import item_bp
+from routes.items import item_bp
 from routes.venue_routes import venue_bp
 from routes.template_routes import templates_bp
 from routes.component_routes import component_bp
