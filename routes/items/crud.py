@@ -22,6 +22,7 @@ def register_crud_routes(bp):
             flash('Item record not found.', 'danger')
             return redirect(url_for('index'))
         item = dict(raw_item)
+        
         components = db.execute('''
             SELECT c.*, g.GLSNAME 
             FROM IGC c
@@ -81,8 +82,16 @@ def register_crud_routes(bp):
             ORDER BY m.MSINAME ASC
         ''', (item_id,)).fetchall()
 
+        item['MSLDR_NAME'] = supplies_map['Solder']['MSINAME'] if 'Solder' in supplies_map else ''
+        item['MFOIL_NAME'] = supplies_map['Foil']['MSINAME'] if 'Foil' in supplies_map else ''
+        item['MCAME_NAME'] = supplies_map['Came']['MSINAME'] if 'Came' in supplies_map else ''
+        item['MCHAIN_NAME'] = supplies_map['Chain']['MSINAME'] if 'Chain' in supplies_map else ''
+        item['MRING_NAME']  = supplies_map['Rings']['MSINAME'] if 'Rings' in supplies_map else ''
+        item['MWIRE_NAME']  = supplies_map['Wire']['MSINAME'] if 'Wire' in supplies_map else ''
+
         raw_sldr = float(supplies_map['Solder']['IMIAMT']) if 'Solder' in supplies_map and supplies_map['Solder']['IMIAMT'] is not None else 0.0
         raw_came = float(supplies_map['Came']['IMIAMT']) if 'Came' in supplies_map and supplies_map['Came']['IMIAMT'] is not None else 0.0
+        
         itm_supplies = {
             'ITMSLDR': (raw_sldr * SOLDER_CONVERSION * 2) + (raw_came * CAME_CONVERSION * 2),
             'ITMCAME': raw_came,
@@ -92,11 +101,67 @@ def register_crud_routes(bp):
             'ITMWIRE': float(supplies_map['Wire']['IMIAMT']) if 'Wire' in supplies_map and supplies_map['Wire']['IMIAMT'] is not None else 0.0
         }
 
+        estimated_supplies_core_cost = 0.0
+        for msi_type, qty in itm_supplies.items():
+            type_lookup_map = {
+                'ITMSLDR': 'Solder', 'ITMFOIL': 'Foil', 'ITMCAME': 'Came',
+                'ITMCHAIN': 'Chain', 'ITMRING': 'Rings', 'ITMWIRE': 'Wire'
+            }
+            actual_type = type_lookup_map.get(msi_type)
+            supply_data = supplies_map.get(actual_type)
+            if qty and qty > 0 and supply_data and supply_data['MSIID']:
+                misc_id = supply_data['MSIID']
+                cfactor = supply_data['CFACTOR']
+                msiunit = supply_data['MSIUNIT']
+                price_row = db.execute('''
+                    SELECT MSIPRICE AS PRICE FROM MSP 
+                    WHERE MSIID = ? AND (ENDDATE IS NULL OR ENDDATE >= DATE('now'))
+                    ORDER BY STDATE DESC LIMIT 1
+                ''', (misc_id,)).fetchone()
+                if price_row and price_row['PRICE']:
+                    unit_price = float(price_row['PRICE'])
+                    valid_cfactor = float(cfactor) if cfactor and float(cfactor) > 0 else 1.0
+                    valid_msiunit = float(msiunit) if msiunit is not None and float(msiunit) > 0 else 1.0
+                    divisor = valid_cfactor * valid_msiunit
+                    if divisor > 0 and unit_price > 0:
+                        estimated_supplies_core_cost += qty * (unit_price / divisor)
+
+        decorations_cost = 0.0
+        for deco in associated_decorations:
+            qty = float(deco['IMIAMT']) if deco['IMIAMT'] is not None else 0.0
+            if qty > 0 and deco['MSIID']:
+                misc_id = deco['MSIID']
+                cfactor = deco['CFACTOR']
+                msiunit = deco['MSIUNIT']
+                price_row = db.execute('''
+                    SELECT MSIPRICE AS PRICE FROM MSP 
+                    WHERE MSIID = ? AND (ENDDATE IS NULL OR ENDDATE >= DATE('now'))
+                    ORDER BY STDATE DESC LIMIT 1
+                ''', (misc_id,)).fetchone()
+                if price_row and price_row['PRICE']:
+                    unit_price = float(price_row['PRICE'])
+                    valid_cfactor = float(cfactor) if cfactor and float(cfactor) > 0 else 1.0
+                    valid_msiunit = float(msiunit) if msiunit is not None and float(msiunit) > 0 else 1.0
+                    divisor = valid_cfactor * valid_msiunit
+                    if divisor > 0 and unit_price > 0:
+                        decorations_cost += qty * (unit_price / divisor)
+
+        estimated_supplies_cost = estimated_supplies_core_cost + decorations_cost
+        total_cost = materials_cost + estimated_supplies_cost
+
         return render_template(
-            'item_detail.html', item=item, components=components,
-            current_price=current_price, lowest_price=lowest_price, highest_price=highest_price,
-            materials_cost=materials_cost, group_siblings=group_siblings,
-            itm_supplies=itm_supplies, associated_supplies=associated_supplies_rows,
+            'item_detail.html', 
+            item=item, 
+            components=components,
+            current_price=current_price, 
+            lowest_price=lowest_price, 
+            highest_price=highest_price,
+            materials_cost=materials_cost, 
+            estimated_supplies_cost=estimated_supplies_cost,
+            total_cost=total_cost,
+            group_siblings=group_siblings,
+            itm_supplies=itm_supplies, 
+            associated_supplies=associated_supplies_rows,
             associated_decorations=associated_decorations
         )
 
