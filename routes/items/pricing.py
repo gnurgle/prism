@@ -68,21 +68,42 @@ def register_pricing_routes(bp):
             
             cursor = db.cursor()
             existing_prices = cursor.execute('SELECT rowid, ITMPRICE, STDATE, ENDDATE FROM IPC WHERE ITEMID = ?', (item_id,)).fetchall()
+            
             for row in existing_prices:
                 row_id = row['rowid']
-                ex_st = datetime.strptime(row['STDATE'], '%Y-%m-%d').date() if row['STDATE'] else None
-                ex_end = datetime.strptime(row['ENDDATE'], '%Y-%m-%d').date() if row['ENDDATE'] else None
+                ex_st_str = row['STDATE']
+                ex_end_str = row['ENDDATE']
+                ex_st = datetime.strptime(ex_st_str, '%Y-%m-%d').date() if ex_st_str else None
+                ex_end = datetime.strptime(ex_end_str, '%Y-%m-%d').date() if ex_end_str else None
                 
+                # Case A: Existing range is completely inside the new range -> Delete it
                 if ex_st and new_st <= ex_st and (new_end is None or (ex_end and new_end >= ex_end)):
                     cursor.execute('DELETE FROM IPC WHERE rowid = ?', (row_id,))
                     continue
+                
+                # Case B: New range is completely inside an existing range -> Split it
                 if ex_st and ex_end and new_st > ex_st and new_end and new_end < ex_end:
-                    cursor.execute('UPDATE IPC SET ENDDATE = ? WHERE rowid = ?', ((new_st - timedelta(days=1)).strftime('%Y-%m-%d'), row_id))
-                    cursor.execute('INSERT INTO IPC (ITEMID, ITMPRICE, STDATE, ENDDATE) VALUES (?, ?, ?, ?)', (item_id, row['ITMPRICE'], (new_end + timedelta(days=1)).strftime('%Y-%m-%d'), row['ENDDATE']))
+                    split_end_date = (new_st - timedelta(days=1)).strftime('%Y-%m-%d')
+                    cursor.execute('UPDATE IPC SET ENDDATE = ? WHERE rowid = ?', (split_end_date, row_id))
+                    tail_start_date = (new_end + timedelta(days=1)).strftime('%Y-%m-%d')
+                    cursor.execute('INSERT INTO IPC (ITEMID, ITMPRICE, STDATE, ENDDATE) VALUES (?, ?, ?, ?)', (item_id, row['ITMPRICE'], tail_start_date, ex_end_str))
                     continue
+                
+                # Case C: Overlap on the tail end of existing range (New start cuts into existing range)
+                if ex_st and new_st > ex_st and (ex_end is None or new_st <= ex_end):
+                    new_ex_end = (new_st - timedelta(days=1)).strftime('%Y-%m-%d')
+                    cursor.execute('UPDATE IPC SET ENDDATE = ? WHERE rowid = ?', (new_ex_end, row_id))
+                
+                # Case D: Overlap on the front end of existing range (New end cuts into existing range)
+                if new_end and ex_end and new_end >= ex_st and new_end < ex_end:
+                    new_ex_st = (new_end + timedelta(days=1)).strftime('%Y-%m-%d')
+                    cursor.execute('UPDATE IPC SET STDATE = ? WHERE rowid = ?', (new_ex_st, row_id))
+
+                # Case E: If the new price is ongoing (no end date), truncate or delete any existing ranges starting on/after new start date
                 if is_current and ex_st and ex_st >= new_st:
                     cursor.execute('DELETE FROM IPC WHERE rowid = ?', (row_id,))
             
+            # Insert the new price record cleanly
             cursor.execute('INSERT INTO IPC (ITEMID, ITMPRICE, STDATE, ENDDATE) VALUES (?, ?, ?, ?)', (item_id, new_price, new_st_str, new_end_str))
             db.commit()
             
@@ -91,7 +112,7 @@ def register_pricing_routes(bp):
             except Exception as sq_err:
                 print(f"Square price sync error: {sq_err}")
 
-            flash('Price range successfully saved and synced to Square!', 'success')
+            flash('Price range successfully saved, overlapping intervals adjusted, and synced to Square!', 'success')
             return redirect(url_for('item_bp.edit_prices', item_id=item_id))
 
         prices = db.execute('SELECT rowid, ITMPRICE, STDATE, ENDDATE FROM IPC WHERE ITEMID = ? ORDER BY STDATE DESC', (item_id,)).fetchall()
