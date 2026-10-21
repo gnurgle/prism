@@ -6,13 +6,32 @@
         <small class="text-muted">Showing {{ venues|length }} item(s)</small>
     </div>
     <div class="d-flex gap-2">
-        <button type="button" class="btn btn-outline-secondary d-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#filterModal">
+        <button type="button" class="btn btn-primary d-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#filterModal">
             🔍 Filter Results
             {% if filters.q or filters.ven_grp or filters.app_start or filters.app_end or filters.state or filters.min_fee or filters.max_fee or filters.multi_wknd or filters.occ_start or filters.occ_end or filters.year %}
                 <span class="badge bg-primary rounded-pill">Active</span>
             {% endif %}
         </button>
         <a href="{{ url_for('venue_bp.create_venue') }}" class="btn btn-primary">+ Add New Venue</a>
+    </div>
+</div>
+
+{# --- Global Current Working Venue Banner --- #}
+<div class="card bg-dark text-light mb-3 shadow-sm border-secondary">
+    <div class="card-body d-flex justify-content-between align-items-center py-2">
+        <div>
+            <span class="text-muted small uppercase fw-bold">Active Working Venue (Global):</span>
+            {% if active_venue %}
+                <span class="badge btn-primary ms-2 fs-6">{{ active_venue.VENNAME }}</span>
+            {% else %}
+                <span class="badge bg-secondary ms-2 fs-6">None (Online / Default)</span>
+            {% endif %}
+        </div>
+        {% if active_venue %}
+        <form action="{{ url_for('venue_bp.clear_current_venue') }}" method="POST" class="m-0">
+            <button type="submit" class="btn btn-sm btn-primary">Clear Active Venue</button>
+        </form>
+        {% endif %}
     </div>
 </div>
 {# --- Active Filter Indicators --- #}
@@ -96,10 +115,24 @@
                             </a>
                         {% endif %}
                     </td>
-                    <td class="text-end">
-                        <a href="{{ url_for('venue_bp.edit_venue', venue_id=venue.VENUEID) }}" class="btn btn-sm btn-outline-primary">Edit</a>
-                    </td>
-                </tr>
+
+<td class="text-end">
+    {% if venue.ISCURRENT %}
+        <form action="{{ url_for('venue_bp.clear_current_venue') }}" method="POST" class="d-inline">
+            <button type="submit" class="btn btn-sm btn-link text-warning p-0 me-2 fs-5 text-decoration-none" title="Active Venue (Click to clear)">
+                <i class="fas fa-star"></i>
+            </button>
+        </form>
+    {% else %}
+        <form action="{{ url_for('venue_bp.set_current_venue', venue_id=venue.VENUEID) }}" method="POST" class="d-inline">
+            <button type="submit" class="btn btn-sm btn-link text-muted p-0 me-2 fs-5 text-decoration-none" title="Set as active working venue">
+                <i class="far fa-star"></i>
+            </button>
+        </form>
+    {% endif %}
+    <a href="{{ url_for('venue_bp.edit_venue', venue_id=venue.VENUEID) }}" class="btn btn-sm btn-outline-primary">Edit</a>
+</td>
+</tr>
                 {% else %}
                 <tr>
                     <td colspan="7" class="text-center py-5 text-muted">

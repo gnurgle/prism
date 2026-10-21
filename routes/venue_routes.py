@@ -85,12 +85,14 @@ def list_venues():
         ORDER BY {sort_column} {order.upper()}
     """
     venues = db.execute(query, params).fetchall()
+    active_venue = db.execute("SELECT VENUEID, VENNAME FROM VENUE WHERE ISCURRENT = 1 LIMIT 1").fetchone()
     venue_groups = db.execute("SELECT DISTINCT VENGRP FROM VENUE WHERE VENGRP IS NOT NULL AND VENGRP != '' ORDER BY VENGRP").fetchall()
     venue_states = [row[0] for row in db.execute("SELECT DISTINCT VSTATE FROM VENUE WHERE VSTATE IS NOT NULL AND VSTATE != '' ORDER BY VSTATE").fetchall() if row[0]]
     available_years = [row[0] for row in db.execute("SELECT DISTINCT strftime('%Y', VSDATE) FROM VENUE WHERE VSDATE IS NOT NULL ORDER BY VSDATE DESC").fetchall() if row[0]]
     return render_template(
         'venue_list.html',
         venues=venues,
+        active_venue=active_venue,
         venue_groups=venue_groups,
         venue_states=venue_states,
         available_years=available_years,
@@ -243,3 +245,29 @@ def venue_detail(venue_id):
         flash('Venue record not found.', 'danger')
         return redirect(url_for('venue_bp.list_venues'))
     return render_template('venue_detail.html', venue=venue)
+
+@venue_bp.route('/venue/<int:venue_id>/set-current', methods=['POST'])
+def set_current_venue(venue_id):
+    db = get_db()
+    venue = db.execute("SELECT VENNAME FROM VENUE WHERE VENUEID = ?", (venue_id,)).fetchone()
+    if not venue:
+        flash('Venue not found.', 'danger')
+        return redirect(url_for('venue_bp.list_venues'))
+    
+    cursor = db.cursor()
+    # Reset all venues to not current
+    cursor.execute("UPDATE VENUE SET ISCURRENT = 0")
+    # Set the selected venue as current
+    cursor.execute("UPDATE VENUE SET ISCURRENT = 1 WHERE VENUEID = ?", (venue_id,))
+    db.commit()
+    
+    flash(f"Current working venue set globally to: {venue['VENNAME']}", 'success')
+    return redirect(url_for('venue_bp.list_venues'))
+
+@venue_bp.route('/venue/clear-current', methods=['POST'])
+def clear_current_venue():
+    db = get_db()
+    db.execute("UPDATE VENUE SET ISCURRENT = 0")
+    db.commit()
+    flash("Cleared current working venue.", 'info')
+    return redirect(url_for('venue_bp.list_venues'))

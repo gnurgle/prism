@@ -52,7 +52,7 @@ EXPOSE 7665
 
 # Set environment variables for production
 
-ENV FLASK_SECRET_KEY="change-this-to-a-secure-random-key-in-production"
+ENV FLASK_SECRET_KEY="change-this-to-a-secure-random-key-in-productioasdfasdfn"
 
 ENV PYTHONUNBUFFERED=1
 

@@ -92,13 +92,16 @@ def process_completed_square_order(order_id):
 
             item_id = mapping['ITEMID']
 
+            active_venue_row = db.execute("SELECT VENUEID FROM VENUE WHERE ISCURRENT = 1 LIMIT 1").fetchone()
+            active_venue_id = active_venue_row['VENUEID'] if active_venue_row else None
+
             # 2. Record the sale in ITMSALE
             cursor.execute(
                 """
                 INSERT INTO ITMSALE (ITEMID, SUNITS, SDATE, VENUEID)
-                VALUES (?, ?, ?, NULL)
+                VALUES (?, ?, ?, ?)
                 """,
-                (item_id, amt_sold, sale_date)
+                (item_id, amt_sold, sale_date, active_venue_id)
             )
             
             # Capture the auto-generated PRISM sale ID

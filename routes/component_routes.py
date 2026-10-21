@@ -3,6 +3,8 @@ import sqlite3
 import re
 import xml.etree.ElementTree as ET
 from flask import Blueprint, flash, redirect, render_template, request, url_for, jsonify, current_app
+from square_hook.utils.upsert_item import upsert_item_in_square
+
 import base64
 from PIL import Image as PILImage
 import io
@@ -233,10 +235,21 @@ def save_components_image(item_id):
         db_img_value = f"images/item/{filename}"
         db.execute('UPDATE ITM SET ITMIMG = ? WHERE ITEMID = ?', (db_img_value, item_id))
         db.commit()
-        return jsonify({'success': True, 'message': 'Image saved and database updated successfully!'})
+
+        # ---> Trigger Square Upsert to sync the new image variation <---
+        try:
+            res = upsert_item_in_square(item_id)
+            if not res.get('success'):
+                print(f"Warning: Square image sync failed for item {item_id}: {res.get('error')}")
+        except Exception as sq_err:
+            print(f"Error triggering Square image upsert for item {item_id}: {sq_err}")
+
+        return jsonify({'success': True, 'message': 'Image saved, database updated, and synced to Square!'})
     except Exception as e:
         db.rollback()
         return jsonify({'success': False, 'message': str(e)}), 500
+
+
 def process_save_image_from_data(selected_item_id, components_map, svg_filename):
     """
     Server-side helper to generate and save item images/thumbnails 

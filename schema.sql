@@ -102,7 +102,7 @@ CREATE TABLE IF NOT EXISTS VENUE (
     VST INTEGER, VSTST TEXT, VSTET TEXT,	--Venue Satday Boolean, Satday Start Time, Satday End time
     VSN INTEGER, VSNST TEXT, VSNET TEXT,	--Venue Sunday Boolean, Sunday Start Time, Sunday End time
     ISACTIVE INTEGER,				--Is Active Boolean
-
+    ISCURRENT INTEGER DEFAULT 0,		--Is Currently Working At
     FOREIGN KEY (VENGRP) REFERENCES VGP(VENGRP) ON DELETE SET NULL ON UPDATE CASCADE
 
 
