@@ -14,11 +14,11 @@ from flask import Flask, flash, redirect, render_template, request, url_for, ren
 from datetime import date, datetime, timedelta
 from routes.glass import glass_bp
 from routes.misc import misc_bp
-from routes.production_routes import production_bp
+from routes.production import production_bp
 from routes.items import item_bp
 from routes.venue import venue_bp
 from routes.template import templates_bp
-from routes.component_routes import component_bp
+from routes.components import component_bp
 from routes.scraper_routes import scraper_bp
 from routes.visuals import visuals_bp
 from routes.report_routes import report_bp
