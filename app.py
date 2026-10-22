@@ -12,7 +12,7 @@ from svgpathtools import svg2paths, wsvg
 from utils import process_and_save_image, hex_to_hsv, convert_image_to_svg, remove_svg_region_and_renumber, format_fractional_inches, trace_stencil_to_single_path_svg, compute_total_path_length, trace_stencil_to_outline_svg, trace_stencil_to_filled_outline_svg, round_to_eighth
 from flask import Flask, flash, redirect, render_template, request, url_for, render_template_string, jsonify
 from datetime import date, datetime, timedelta
-from routes.glass_routes import glass_bp
+from routes.glass import glass_bp
 from routes.misc_routes import misc_bp
 from routes.production_routes import production_bp
 from routes.items import item_bp
@@ -73,7 +73,7 @@ def init_db():
             "INSERT OR IGNORE INTO GTL (GLSTEX) VALUES ('Smooth'), ('Wispy'), ('Waterglass'), ('Muffle'), ('RoughRolled'), ('Hammered'), ('Mottled'), ('Dichroic')"
         )
         db.execute(
-            "INSERT OR IGNORE INTO GSL (GLSOURCE, SRCWEB) VALUES ('Colorado Glass Co', 1), ('Hobby Lobby', 0), ('Charlotte Glass', 0), ('Glass Ingenuity', 0)"
+            "INSERT OR IGNORE INTO GSL (GLSOURCE, SRCWEB) VALUES ('Hobby Lobby', 0), ('Glass Ingenuity', 0)"
         )
         db.execute(
             "INSERT OR IGNORE INTO COLOR (COLOR, CHEX) VALUES ('Black', '0E0E11'),( 'Dark Grey', '7D7D7D'),( 'Light Grey','BEBEBE'),( 'White', 'FFF8F1'),( 'Cerulean', '63CCFF'),( 'Blue', '2087F9'),( 'Cobolt', '1F4897'),( 'Emerald', '095337'),( 'Green', '2BD81A'),( 'Chartreuse', '8DFC00'),( 'Yellow', 'FFFD3B'),( 'Goldenrod', 'FED416'),( 'Orange', 'F17700'),( 'Red', 'E41F00'),( 'Burgundy', '7F0E21'),( 'Indigo', '401782'),( 'Amethyst', '7B35BD'),( 'Mauve', 'BE5ABF'),( 'Lavender', 'E69CE6'),( 'Raspberry', 'DE599B'),( 'Pink', 'FF7D93'),( 'Tan', 'B15223'),( 'Brown', '6B2A16'),( 'Transparent', 'FFFFFF')"
@@ -116,24 +116,8 @@ app.register_blueprint(visuals_bp)
 app.register_blueprint(report_bp)
 app.register_blueprint(settings_bp)
 app.register_blueprint(square_bp)
-# ============================================================================
-# 1. NAVIGATION INDEX & SYSTEM DASHBOARD
-# ============================================================================
-@app.route("/debug")
-def debug():
-    db = get_db()
-    stats = {
-        "items": db.execute("SELECT COUNT(*) FROM ITM").fetchone()[0],
-        "glass": db.execute("SELECT COUNT(*) FROM GSI").fetchone()[0],
-        "sales": db.execute("SELECT COUNT(*) FROM ITMSALE").fetchone()[0],
-        "venues": db.execute("SELECT COUNT(*) FROM VENUE").fetchone()[0],
-    }
-    recent_audits = db.execute(
-        "SELECT * FROM AUDIT ORDER BY TRANSID DESC LIMIT 10"
-    ).fetchall()
-    return render_template(
-        "dashboard.html", stats=stats, recent_audits=recent_audits
-    )
+
+
 # ============================================================================
 # 3. INVENTORY & WORK-IN-PROGRESS TRACKING (ICC, ITR)
 # ============================================================================
