@@ -3,7 +3,7 @@ from PIL import Image, ImageOps, ImageChops
 import sqlite3
 import xml.etree.ElementTree as ET
 from io import BytesIO
-from flask import Blueprint, flash, redirect, render_template, request, url_for, render_template_string, current_app
+from flask import Blueprint, flash, redirect, render_template, request, url_for, render_template_string, current_app, jsonify
 from lxml import etree
 from utils import (
     convert_image_to_svg,

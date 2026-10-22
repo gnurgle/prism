@@ -16,11 +16,11 @@ from routes.glass import glass_bp
 from routes.misc import misc_bp
 from routes.production_routes import production_bp
 from routes.items import item_bp
-from routes.venue_routes import venue_bp
-from routes.template_routes import templates_bp
+from routes.venue import venue_bp
+from routes.template import templates_bp
 from routes.component_routes import component_bp
 from routes.scraper_routes import scraper_bp
-from routes.visuals_routes import visuals_bp
+from routes.visuals import visuals_bp
 from routes.report_routes import report_bp
 from routes.settings import settings_bp
 from square_hook.square import square_bp
