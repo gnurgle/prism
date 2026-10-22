@@ -22,7 +22,7 @@ from routes.component_routes import component_bp
 from routes.scraper_routes import scraper_bp
 from routes.visuals_routes import visuals_bp
 from routes.report_routes import report_bp
-from routes.settings_routes import settings_bp
+from routes.settings import settings_bp
 from square_hook.square import square_bp
 app = Flask(__name__, static_folder='static')
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
